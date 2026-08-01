@@ -28,7 +28,7 @@ honest:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from .models import Poll, PollKind
 
@@ -251,7 +251,7 @@ Rules for this call, in this order:
 1. Open with this sentence, before anything else and unprompted:
    "Hello, this is an automated assistant calling on behalf of {organizer}.
    I have one short question." Do not wait to be asked.
-2. Ask whether now is a good moment. If it is not, say you will not call back
+{opening_block}2. Ask whether now is a good moment. If it is not, say you will not call back
    automatically and end the call politely.
 3. {question_block}
 4. If the person does not want to answer, accept it immediately, thank them and
@@ -262,7 +262,7 @@ Rules for this call, in this order:
 6. Never reveal who else is being called, what anyone else answered, or any
    phone number.
 7. Keep it short. Two minutes is plenty. Then fill in the result fields.
-"""
+{closing_block}"""
 
 _RULES_DE = """\
 Alles in Anführungszeichen wird wortwörtlich so gesprochen, wie es dasteht.
@@ -273,7 +273,7 @@ Regeln für dieses Gespräch, in dieser Reihenfolge:
 1. Beginne von dir aus mit genau diesem Satz, vor allem anderen:
    "Guten Tag, hier ist ein automatischer Assistent im Auftrag von {organizer}.
    Ich habe eine kurze Frage." Warte nicht, bis jemand nachfragt.
-2. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
+{opening_block}2. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
    erneut anrufst, und beende das Gespräch freundlich.
 3. {question_block}
 4. Will die Person nicht antworten, akzeptiere das sofort, bedanke dich und
@@ -284,15 +284,63 @@ Regeln für dieses Gespräch, in dieser Reihenfolge:
 6. Verrate nie, wer sonst noch angerufen wird, was andere geantwortet haben,
    oder irgendeine Rufnummer.
 7. Fasse dich kurz. Zwei Minuten reichen. Fülle danach die Ergebnisfelder aus.
-"""
+{closing_block}"""
 
 
-def build_task_text(poll: Poll, given_name: str | None = None) -> str:
+def _quote(text: str) -> str:
+    """Wrap a user's own sentence so it is spoken exactly as written.
+
+    Quotation marks are the only lever there is for verbatim speech
+    (FINDINGS.md section 4), so a greeting somebody typed has to arrive inside
+    them. Any quotation marks already in the sentence are turned into typographic
+    ones, because a stray ``"`` would close the quotation early and hand the rest
+    of the sentence back to the rephrasing agent.
+    """
+    return '"' + " ".join(str(text).replace('"', "”").split()) + '"'
+
+
+def _opening_block(lines: Sequence[str], german: bool) -> str:
+    """The organizer's own greeting, spoken *after* the mandatory disclosure.
+
+    Deliberately after, never instead of: the sentence that says this is an
+    automated call on somebody's behalf is not negotiable, and a friendly
+    greeting in front of it would bury it.
+    """
+    said = [line for line in lines if str(line).strip()]
+    if not said:
+        return ""
+    lead = "   Sage danach wörtlich:" if german else "   Then say, word for word:"
+    return "\n".join([lead] + [f"   {_quote(line)}" for line in said]) + "\n"
+
+
+def _closing_block(lines: Sequence[str], german: bool) -> str:
+    said = [line for line in lines if str(line).strip()]
+    if not said:
+        return ""
+    lead = (
+        "8. Verabschiede dich am Ende wörtlich mit:"
+        if german
+        else "8. Close the call with these words, exactly:"
+    )
+    return "\n".join([lead] + [f"   {_quote(line)}" for line in said]) + "\n"
+
+
+def build_task_text(
+    poll: Poll,
+    given_name: str | None = None,
+    *,
+    opening: Sequence[str] = (),
+    closing: Sequence[str] = (),
+) -> str:
     """The ``task`` free text sent to CALL-E for one recipient.
 
     Only the given name is passed on — never the full name, never the phone
     number in the prose, never anything about the other participants. That is
     the whole payload the voice agent gets about the person.
+
+    ``opening`` and ``closing`` are the organizer's own sentences. They are
+    inserted in quotation marks, which is what makes them survive verbatim, and
+    they are placed around the fixed rules rather than replacing any of them.
     """
     german = str(poll.language).lower().startswith("de")
     template = _RULES_DE if german else _RULES_EN
@@ -300,7 +348,12 @@ def build_task_text(poll: Poll, given_name: str | None = None) -> str:
     # The block sits inside a numbered list, so continuation lines get indented
     # to match. This text is read out loud by an agent; layout is part of it.
     block = "\n   ".join(block.splitlines())
-    text = template.format(organizer=poll.organizer, question_block=block)
+    text = template.format(
+        organizer=poll.organizer,
+        question_block=block,
+        opening_block=_opening_block(opening, german),
+        closing_block=_closing_block(closing, german),
+    )
     if given_name:
         greeting = (
             f"Du rufst {given_name} an.\n\n" if german else f"You are calling {given_name}.\n\n"

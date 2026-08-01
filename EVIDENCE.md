@@ -11,8 +11,14 @@ Two things this file is careful to separate:
   local machine against fixtures. **No telephone call was ever placed from this
   code, and no CALL-E account exists.**
 
-Environment: Windows 11, Python 3.12.10, no third-party packages.
-Date of this run: 2026-08-01.
+Environment: Windows 11, Python 3.12.10.
+Date of the first run: 2026-08-01. **Sections 1–7 describe the command-line
+build**, which has no third-party packages at all.
+
+**Sections 8–14 were added by a second session on 2026-08-01**, which built the
+project layer, the skill and the web interface. That part uses FastAPI 0.137.0,
+uvicorn 0.49.0, Starlette 1.3.1 and Jinja2 3.1.6, installed as the optional
+`[web]` extra. The command line still installs and runs with nothing.
 
 ---
 
@@ -313,3 +319,171 @@ Per `AGENTS.md` ("hold the assumption in writing and keep building"):
 real calls, account registration, publishing the repository, a pull request to
 the target repository, a video. `.gitignore` was not weakened. Nothing was
 written outside this repository.
+
+---
+
+# Second session — the project layer, the skill and the web interface
+
+Everything below ran on the local machine. **Still no telephone call, still no
+CALL-E account.** The live path was exercised only up to the guard that refuses
+it.
+
+## 8. Test suite after the interface — executed, passing
+
+```
+$ python -m pytest
+292 passed, 1 warning in 45.20s
+```
+
+The one warning is `StarletteDeprecationWarning: Using httpx with
+starlette.testclient is deprecated; install httpx2 instead` — raised by
+FastAPI's own test client on import, not by this project's code.
+
+New files, run individually:
+
+```
+$ python -m pytest tests/test_projects.py       18 passed in 2.26s
+$ python -m pytest tests/test_service.py        22 passed in 6.92s
+$ python -m pytest tests/test_web.py            23 passed
+$ python -m pytest tests/test_cli_projects.py   13 passed in 10.73s
+```
+
+The 216 tests of the first session still pass unchanged; the total went from
+216 to 292.
+
+## 9. The project flow on the command line — executed
+
+Real output, from a throwaway database:
+
+```
+$ ringedingeding project demo --fixture family-dinner
+created demo project prj_ed2ae4caac from fixture 'family-dinner'
+next: ringedingeding project call --project prj_ed2ae4caac --mode script
+
+$ ringedingeding project call --project prj_ed2ae4caac --mode script
+  -> david (+49*****04)
+  -> erik (+49*****05)
+  -> frida (+49*****06)
+  <- anna: COMPLETED
+  <- ben: COMPLETED
+  <- clara: COMPLETED
+  <- david: COMPLETED
+  <- erik: NO_ANSWER
+  <- frida: BUSY
+
+# Wann kannst du am Wochenende zum Familienessen?
+4 of 6 answered.
+
+  1. Sa 14-18                     4 can
+       can   : Anna, Ben, Clara, David
+  2. Sa 18-21                     2 can
+       can   : Anna, David
+       cannot: Ben, Clara
+  3. So 10-14                     2 can
+       can   : Clara, David
+       cannot: Anna, Ben
+
+not reached : Erik (NO_ANSWER), Frida (BUSY)
+These are never counted as 'doesn't mind'.
+
+$ ringedingeding project criteria --project prj_ed2ae4caac \
+      --favourite 1 --must Anna --count 4
+  2. Sa 18-21                     2 can  [1 von 3 criteria]
+  3. So 10-14                     2 can  [0 von 3 criteria]
+best fit    : Sa 14-18 (3 von 3 criteria)
+```
+
+## 10. The web server — executed over real HTTP
+
+Not only through the test client. `uvicorn` was started as the CLI starts it and
+addressed with `curl` from outside the process:
+
+```
+$ ringedingeding --db <tmp>/serve.db web --port 8791 &
+GET /            200  2528 bytes
+GET /contacts    200  1861 bytes
+GET /static/htmx 200  50917 bytes
+POST /demo       303 -> http://127.0.0.1:8791/projects/prj_e5e9cbe306/preview
+front page bytes: 3007      (after the demo project existed)
+```
+
+The server was then stopped and the port confirmed closed.
+
+## 11. Two bugs found by the tests, both fixed
+
+Written down because both were real defects in this session's code, not
+hypotheticals:
+
+1. **A late phone number made somebody disappear.** Adding a number to a contact
+   who was already on a guest list did not make them a participant of the
+   running round. They were then neither called nor listed as "cannot be
+   contacted" — they simply vanished from the report, which is the one outcome
+   the whole project is built to prevent. Found by running the command line by
+   hand, before the test existed. Fixed with `service.resync_contact()`, called
+   from both the CLI and the web contact form, and pinned by
+   `test_adding_a_number_later_puts_the_person_back_in_the_round`.
+
+2. **A rejected phone number left half a contact behind.** `create_contact()`
+   inserted the row and *then* validated the number, so an unusable number left
+   a nameless contact in the address book. Found by
+   `test_invalid_number_is_refused_before_storage`. Fixed by validating before
+   the insert.
+
+## 12. What the interface was verified to refuse
+
+Each of these is a passing test in `tests/test_web.py`, not a claim:
+
+* no page renders a full phone number — checked with the regular expression
+  `\+\d{6,}` against `/`, `/contacts`, `/projects/{id}/preview`, `/board`,
+  `/live` and `/invite`, after a completed round and a decision;
+* `mode=live` without the exact phrase `CALL THEM` returns 403 and **no job is
+  created at all**;
+* `mode=live` *with* the phrase, against a demo project, still refuses — the
+  example numbers of a bundled fixture are never dialled. The job fails with
+  "example numbers" before any HTTP request to CALL-E;
+* the pages contain the string `CALLE_API_KEY` (to say where the key belongs)
+  but no `name="api_key"` and no `type="password"` field;
+* a project whose occasion is "Notfall im Haus" is refused with 422 and never
+  appears in the project list;
+* a rehearsal shows "Erfundene Antworten" on both the live view and the board,
+  and the banner disappears after `POST /reset`;
+* `htmx.min.js` is served from the package and no page references `unpkg` or a
+  `cdn.` host.
+
+## 13. The architectural promise, tested
+
+`test_a_round_survives_the_page_that_started_it` starts a round through the web
+interface, never asks the interface for anything again, and then opens the
+SQLite file directly — the same thing a browser opened an hour later would do.
+All six answers are there. That is the "you may close the window" claim,
+verified rather than asserted.
+
+`test_the_live_panel_is_complete_without_the_stream` fetches the panel fragment
+with no event stream involved and finds both "hat geantwortet" and "nicht
+abgenommen" in it: the page is whole without JavaScript.
+
+`test_the_stream_sends_a_panel_and_then_closes` reads the Server-Sent-Events
+stream and asserts it emits a `panel` event and then `done`.
+
+## 14. What was not done in this session
+
+* **No real call, no account, no network request to CALL-E.** The live transport
+  was never constructed with a working key; every live test stops at a guard.
+* **`htmx.min.js` was downloaded once** from `unpkg.com` during the build and
+  committed into the package (50,917 bytes,
+  `sha256:e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447`).
+  That is the only network access this session made. The interface itself never
+  reaches the network.
+* **Stage 2 and stage 3 were not built** — round table, group profiles, the four
+  remaining kinds of date, e-mail, connectors, calendar export, LLM summaries.
+  Their tables and columns exist and are empty; `ARCHITEKTUR.md` says where each
+  one attaches. `projects.create_project()` refuses an unbuilt kind of date by
+  name rather than half-accepting it.
+* **The per-day exception editor is server-rendered, one row at a time.** There
+  is no dynamic "add another slot" button; a blank extra row is provided and
+  submitting adds it. This works without JavaScript and was chosen over a
+  client-side row builder deliberately.
+* **The interface was not opened in a browser by a human** in this session. It
+  was exercised through the FastAPI test client and through `curl` against a
+  real `uvicorn` process. Visual layout is therefore **unverified by eye** —
+  the HTML and CSS are asserted only by the tests above.

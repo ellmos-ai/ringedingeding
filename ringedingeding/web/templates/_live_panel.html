@@ -1,0 +1,48 @@
+{# Rendered from the database plus "who is on the phone right now". Sent as a
+   whole panel over the event stream, so a reconnecting page is never half
+   updated. #}
+{% if poll.simulated %}
+<div class="banner rehearsal">
+  Erfundene Antworten — es wurde nicht telefoniert.
+</div>
+{% endif %}
+{% if job and job.live %}
+<div class="banner live">Echte Anrufe laufen.</div>
+{% endif %}
+{% if job and job.error %}
+<div class="banner error">{{ job.error }}</div>
+{% endif %}
+
+<ul class="callers">
+  {% for row in rows %}
+  <li class="caller {{ row.state }}">
+    <span class="mark" aria-hidden="true">
+      {%- if row.state == 'calling' %}☎{% elif row.state == 'answered' %}✓{% elif row.state == 'unreached' %}✕{% elif row.state == 'refused' %}–{% else %}·{% endif -%}
+    </span>
+    {% if row.has_photo %}
+      <img class="avatar" src="/contacts/{{ row.contact_id }}/photo" alt="">
+    {% else %}
+      <span class="avatar initials" style="background: {{ avatar_colour(row.contact_id or row.name) }}">{{ row.initials }}</span>
+    {% endif %}
+    <span class="name">{{ row.name }}</span>
+    <span class="detail muted small">{{ row.detail }}</span>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if speech %}
+<h2>Mitgehört</h2>
+<p class="muted small">
+  Der Fortschritt kommt aus <code>activity</code>, nicht aus <code>status</code> —
+  der Status steht während des ganzen Gesprächs auf <code>PREPARING</code>.
+  Rufnummern sind auch hier maskiert.
+</p>
+<pre class="speech">{% for line in speech %}{{ line }}
+{% endfor %}</pre>
+{% endif %}
+
+{% if job and not job.running %}
+<p class="muted">Runde beendet.</p>
+{% elif not job %}
+<p class="muted">Zurzeit läuft keine Runde. Angezeigt ist der gespeicherte Stand.</p>
+{% endif %}

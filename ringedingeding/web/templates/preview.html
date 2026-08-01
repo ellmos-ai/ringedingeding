@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Das würde jetzt passieren</h1>
+
+{% if preview.call_count == 0 %}
+  <div class="card muted-card">
+    <p>Es gibt niemanden anzurufen.</p>
+    <ul class="small">
+      {% if preview.skipped %}<li>{{ preview.skipped|length }} Person(en) haben schon geantwortet.</li>{% endif %}
+      {% if preview.uncallable %}<li>{{ preview.uncallable|length }} Person(en) haben keine Telefonnummer.</li>{% endif %}
+      <li>Sonst: unter „Personen" jemanden auswählen.</li>
+    </ul>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="facts">
+    <div><span class="big">{{ preview.call_count }}</span><span>Anrufe</span></div>
+    <div><span class="big">${{ '%.2f'|format(preview.cost_usd) }}</span><span>Kosten, falls echt</span></div>
+    <div><span class="big">{{ preview.serial_duration }}</span><span>nacheinander</span></div>
+  </div>
+  <p class="muted small">
+    {{ preview.parallel_duration }}, falls gleichzeitig telefoniert würde — ob
+    CALL-E das erlaubt, ist <strong>ungeprüft</strong>. Verlass dich auf den
+    Wert für „nacheinander". Rund 40 Sekunden jedes Anrufs sind Wählen und
+    Verbinden, bevor ein Wort gesprochen wird.
+  </p>
+</div>
+
+<h2>Wer würde angerufen</h2>
+<ul class="list">
+  {% for request in preview.requests %}
+    <li><strong>{{ request.participant.name }}</strong>
+        <span class="muted small">{{ request.participant.phone_masked }}</span></li>
+  {% endfor %}
+  {% for contact in preview.uncallable %}
+    <li class="greyed">{{ contact.name }}
+        <span class="badge warn">keine Telefonnummer — wird nicht angerufen</span></li>
+  {% endfor %}
+</ul>
+
+{% if preview.task_text %}
+<h2>Der Auftragstext, wörtlich</h2>
+<p class="muted small">{{ data_note }}</p>
+<pre class="task">{{ preview.task_text }}</pre>
+{% endif %}
+
+<h2>Starten</h2>
+
+<div class="card">
+  <h3>Ohne Anruf</h3>
+  {% if has_fixture %}
+  <form method="post" action="/projects/{{ project.id }}/run" class="row">
+    <input type="hidden" name="mode" value="script">
+    <button type="submit" class="primary">Hinterlegte Antworten abspielen</button>
+    <span class="muted small">Beispielprojekt: die Antworten stehen in der mitgelieferten Datei.</span>
+  </form>
+  {% endif %}
+  <form method="post" action="/projects/{{ project.id }}/run" class="row">
+    <input type="hidden" name="mode" value="rehearsal">
+    <button type="submit" {% if not has_fixture %}class="primary"{% endif %}>Probelauf</button>
+    <span class="muted small">
+      Erzeugt <strong>erfundene</strong> Antworten, damit Kalender, Kriterien und
+      Einladung ohne Konto zu sehen sind. Alles bleibt sichtbar als erfunden
+      markiert und lässt sich mit einem Klick wegwerfen.
+    </span>
+  </form>
+</div>
+
+<div class="card live-card">
+  <h3>Echte Anrufe</h3>
+  <p>
+    Es werden <strong>{{ preview.call_count }} echte Telefonate</strong> geführt,
+    Kosten etwa <strong>${{ '%.2f'|format(preview.cost_usd) }}</strong>
+    (${{ '%.2f'|format(cost_per_call) }} pro Anruf, unabhängig von der Dauer).
+    Alle Angerufenen sollten vorher wissen, dass das passieren kann.
+  </p>
+  {% if not api_key %}
+    <p class="warn-line">
+      Kein API-Schlüssel in der Umgebung. Setze <code>CALLE_API_KEY</code>, bevor
+      du den Server startest — <strong>in dieser Oberfläche werden keine
+      Zugangsdaten entgegengenommen.</strong>
+    </p>
+  {% endif %}
+  <form method="post" action="/projects/{{ project.id }}/run" class="row">
+    <input type="hidden" name="mode" value="live">
+    <label class="grow">
+      Tippe <code>{{ live_phrase }}</code>, um zu bestätigen:
+      <input type="text" name="confirmation" autocomplete="off" placeholder="{{ live_phrase }}">
+    </label>
+    <button type="submit" class="danger" {% if not api_key or preview.call_count == 0 %}disabled{% endif %}>
+      {{ preview.call_count }} Anrufe wirklich führen
+    </button>
+  </form>
+</div>
+
+{% if job %}
+<p><a class="next" href="/projects/{{ project.id }}/live">Zur laufenden Runde →</a></p>
+{% endif %}
+
+<form method="post" action="/projects/{{ project.id }}/reset" class="inline-form">
+  <button type="submit" class="link">Erfundene Antworten verwerfen</button>
+</form>
+{% endblock %}

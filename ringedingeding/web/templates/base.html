@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ringedingeding{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Ringedingeding</a>
+  <span class="tagline">alle fragen, eine Antwort</span>
+  <nav>
+    <a href="/">Projekte</a>
+    <a href="/contacts">Kontakte</a>
+  </nav>
+</header>
+
+{% if project is defined and project %}
+<div class="project-bar">
+  <strong>{{ project.occasion }}</strong>
+  <span class="muted">im Auftrag von {{ project.organizer }}</span>
+</div>
+<nav class="steps">
+  {% set steps = [
+      ('dates',   'Termine'),
+      ('people',  'Personen'),
+      ('wording', 'Worte'),
+      ('preview', 'Auftrag'),
+      ('live',    'Anrufe'),
+      ('board',   'Ergebnis'),
+      ('invite',  'Einladung')] %}
+  {% for key, label in steps %}
+    <a href="/projects/{{ project.id }}/{{ key }}"
+       class="step {% if step is defined and step == key %}here{% endif %}">{{ label }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  <p class="muted small">
+    Trockenlauf ist der Normalfall — es wird nur telefoniert, wenn du es
+    ausdrücklich auslöst. Rufnummern werden nie vollständig angezeigt.
+    Version {{ version }}.
+  </p>
+</footer>
+</body>
+</html>

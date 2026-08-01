@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Wen möchtest du einladen?</h1>
+
+{% if not contacts %}
+  <div class="card muted-card">
+    <p>Dein Kontaktbuch ist leer. Ohne Kontakte gibt es niemanden anzurufen.</p>
+    <p><a class="next" href="/contacts?project={{ project.id }}">Kontakte anlegen →</a></p>
+  </div>
+{% else %}
+
+<form method="post" action="/projects/{{ project.id }}/people" class="card">
+  <ul class="people">
+    {% for contact in contacts %}
+    <li class="person {% if not contact.callable %}greyed{% endif %}">
+      <label>
+        <input type="checkbox" name="contact" value="{{ contact.id }}"
+               {% if contact.id in chosen %}checked{% endif %}
+               {% if not contact.callable %}disabled{% endif %}>
+        {% if contact.has_photo %}
+          <img class="avatar" src="/contacts/{{ contact.id }}/photo" alt="">
+        {% else %}
+          <span class="avatar initials" style="background: {{ avatar_colour(contact.id) }}">{{ contact.initials }}</span>
+        {% endif %}
+        <span class="name">{{ contact.name }}</span>
+        {% if contact.callable %}
+          <span class="muted small">{{ contact.phone_masked }}</span>
+        {% else %}
+          <span class="badge warn" title="ohne Telefonnummer nicht anrufbar">keine Telefonnummer</span>
+        {% endif %}
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">
+    Wer keine Telefonnummer hat, ist ausgegraut und wird nicht berücksichtigt.
+    Die Nummer lässt sich jederzeit nachtragen — der Anruf wird dann nachgeholt.
+  </p>
+  <button type="submit" class="primary">Übernehmen</button>
+</form>
+
+<p><a href="/contacts?project={{ project.id }}">Kontaktbuch öffnen</a></p>
+{% endif %}
+
+<p><a class="next" href="/projects/{{ project.id }}/wording">Weiter zu den Worten →</a></p>
+{% endblock %}
