@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from . import __version__
+from .activity import ActivityLine
 from .fixtures import (
     Fixture,
     FixtureError,
@@ -44,6 +45,7 @@ from .safety import (
     assert_question_allowed,
 )
 from .store import DEFAULT_DB_PATH, Store
+from .timings import LEAD_SECONDS, estimate_seconds, format_duration
 from .transports.base import CallTransport
 from .transports.fixture import FixtureTransport
 
@@ -130,6 +132,21 @@ def _event_printer(verbose: bool = True):
             )
         elif event == "nothing_to_do":
             _out("  nothing to do - every participant already has an answer (use --retry)")
+
+    return sink
+
+
+def _activity_printer(verbose: bool = True):
+    """Print the conversation while it happens.
+
+    This exists because ``status`` is useless as a progress indicator — it was
+    measured sitting on ``PREPARING`` while both sides were already talking.
+    Without these lines a live run looks frozen for a minute and a half.
+    """
+
+    def sink(line: ActivityLine) -> None:
+        if verbose:
+            _out(f"     {line.display()}")
 
     return sink
 
@@ -232,7 +249,11 @@ def _transport_for(
 
     confirm_live(args)
     transport_class = CalleTransport if getattr(args, "serial", False) else CalleBatchTransport
-    return transport_class(live_confirmed=True, cancel=cancel)
+    return transport_class(
+        live_confirmed=True,
+        cancel=cancel,
+        on_activity=_activity_printer(not getattr(args, "quiet", False)),
+    )
 
 
 def confirm_live(args: argparse.Namespace) -> None:
@@ -348,8 +369,33 @@ def cmd_plan(args: argparse.Namespace, store: Store) -> int:
     _out("")
     _out(f"Estimated cost if run live: ${len(requests) * COST_PER_CALL_USD:.2f} "
          f"({len(requests)} x ${COST_PER_CALL_USD:.2f})")
+    _out(_time_estimate(len(requests)))
     _out(DATA_REGION_NOTE)
     return EXIT_OK
+
+
+def _time_estimate(calls: int) -> str:
+    """How long a live run would take — and how uncertain that is.
+
+    Worth printing next to the price because the two behave differently: the
+    cost is per call however they are placed, the time is not. About 40 seconds
+    of every call is dialling and connecting, measured and independent of how
+    long anybody talks, so six people take six times that serially and once
+    that in parallel — *if* parallel calls are permitted at all, which has
+    never been tested.
+    """
+    if calls <= 0:
+        return "Estimated time if run live: nothing to do."
+    serial = format_duration(estimate_seconds(calls, concurrency=1))
+    parallel = format_duration(estimate_seconds(calls, concurrency=calls))
+    if calls == 1:
+        return f"Estimated time if run live: {serial} (~{LEAD_SECONDS:.0f} s of it is dialling)."
+    return (
+        f"Estimated time if run live: {serial} one after another, {parallel} if "
+        f"they run at once. Roughly {LEAD_SECONDS:.0f} s per call is dialling "
+        "before a word is spoken. Whether CALL-E permits calls at once is "
+        "UNVERIFIED - the serial figure is the one to trust."
+    )
 
 
 def _refuse_placeholder_numbers(store: Store, poll: Poll) -> None:

@@ -221,3 +221,23 @@ def test_summaries_coming_back_from_the_call_are_masked():
 def test_a_missing_status_is_a_failure_not_a_success():
     outcome = _outcome_from(participant_id="p1", call={}, recipient={}, run_id=None)
     assert outcome.status is CallStatus.FAILED
+
+
+def test_the_key_format_is_never_second_guessed(monkeypatch):
+    """The documentation says keys start with 'calle_live_'. Real ones start
+    with 'iams_live_'. So the prefix is not checked, and must not start being
+    checked: rejecting a valid key is worse than passing a bad one on."""
+    for key in ("iams_live_abc123", "calle_live_abc123", "anything-at-all"):
+        monkeypatch.setenv(API_KEY_ENV, key)
+        transport = CalleTransport(live_confirmed=True)
+        assert transport._headers()["Authorization"] == f"Bearer {key}"
+
+
+def test_the_base_url_can_be_overridden_because_it_is_unverified(monkeypatch):
+    from ringedingeding.transports.calle import BASE_URL_ENV, DEFAULT_BASE_URL
+
+    monkeypatch.setenv(API_KEY_ENV, "test-key")
+    monkeypatch.delenv(BASE_URL_ENV, raising=False)
+    assert CalleTransport(live_confirmed=True).base_url == DEFAULT_BASE_URL
+    monkeypatch.setenv(BASE_URL_ENV, "https://elsewhere.example/")
+    assert CalleTransport(live_confirmed=True).base_url == "https://elsewhere.example"

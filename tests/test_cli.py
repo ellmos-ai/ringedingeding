@@ -331,3 +331,37 @@ def test_the_live_prompt_states_cost_and_data_destination(tmp_path, capsys, monk
     assert "REAL phone calls" in out
     assert "Singapore" in out
     assert "$0.05 per call" in out
+
+
+# --------------------------------------------------------------------------
+# what a live run would cost in time, not just in money
+# --------------------------------------------------------------------------
+
+
+def test_the_plan_states_the_time_as_well_as_the_price(tmp_path, capsys):
+    """Money scales with the number of calls; time depends on how they run."""
+    run(["plan", "--fixture", "family-dinner"], tmp_path)
+    out = capsys.readouterr().out
+    assert "Estimated cost if run live: $0.30" in out
+    assert "Estimated time if run live:" in out
+    assert "one after another" in out
+
+
+def test_the_plan_admits_that_parallel_calling_is_unverified(tmp_path, capsys):
+    run(["plan", "--fixture", "family-dinner"], tmp_path)
+    out = capsys.readouterr().out
+    assert "UNVERIFIED" in out
+    assert "serial figure is the one to trust" in out
+
+
+def test_the_estimate_is_dominated_by_dialling_not_by_talking():
+    """Measured: ~40 s of every call is dialling, whatever is said."""
+    from ringedingeding.timings import LEAD_SECONDS, estimate_seconds
+
+    one = estimate_seconds(1)
+    six_serial = estimate_seconds(6, concurrency=1)
+    six_parallel = estimate_seconds(6, concurrency=6)
+    assert six_serial > six_parallel
+    assert six_serial - six_parallel > 5 * LEAD_SECONDS
+    assert estimate_seconds(0) == 0.0
+    assert one < six_serial

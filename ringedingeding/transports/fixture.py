@@ -57,6 +57,10 @@ class FixtureTransport(CallTransport):
         status = CallStatus.parse(spec.get("call_status", "COMPLETED"))
         structured: dict[str, Any] = dict(spec.get("structured_result") or {})
         summary = str(spec.get("summary") or "")
+        # Optional. A scripted transcript is what lets the dry run show the
+        # wording underneath an interpreted answer, the same way a live call
+        # does — a call that reached a mailbox has one too.
+        transcript = str(spec.get("transcript") or "")
 
         # A call that never connected cannot carry a filled-in schema.
         if status not in (CallStatus.COMPLETED, CallStatus.DECLINED) and structured:
@@ -84,5 +88,6 @@ class FixtureTransport(CallTransport):
             status=status,
             structured=structured,
             summary=summary,
+            transcript=transcript,
             run_id=f"fixture_{ref}",
         )

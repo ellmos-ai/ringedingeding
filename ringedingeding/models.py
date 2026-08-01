@@ -54,7 +54,7 @@ class PollKind(str, Enum):
 
 
 class CallStatus(str, Enum):
-    """Terminal call status as reported by CALL-E, plus two local states.
+    """Call status as reported by CALL-E, plus two local states.
 
     The upstream set is kept intact on purpose: ``NO_ANSWER`` is not
     ``DECLINED`` is not ``BUSY``. Collapsing them would throw away exactly the
@@ -68,6 +68,16 @@ class CallStatus(str, Enum):
     SKIPPED = "SKIPPED"
     """Deliberately not attempted (aborted run, invalid number)."""
 
+    # --- in flight, reported by CALL-E ---
+    PREPARING = "PREPARING"
+    """The call is under way. Measured, and easy to get wrong.
+
+    This is what the service reports *while the two sides are talking* — it did
+    not move off ``PREPARING`` for an entire conversation and only flipped to
+    ``COMPLETED`` some 24 seconds after the call had ended. It is emphatically
+    not a failure and not a starting state.
+    """
+
     # --- terminal statuses reported by CALL-E ---
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -79,8 +89,8 @@ class CallStatus(str, Enum):
     EXPIRED = "EXPIRED"
 
     @classmethod
-    def parse(cls, value: Any) -> "CallStatus":
-        """Map an API status onto the enum.
+    def known(cls, value: Any) -> "CallStatus | None":
+        """Map an API status onto the enum, or ``None`` if it is not one of ours.
 
         The Developer API documents lowercase statuses (``"completed"``) while
         the MCP/CLI surface documents uppercase ones (``"COMPLETED"``); both are
@@ -94,11 +104,27 @@ class CallStatus(str, Enum):
         try:
             return cls(text)
         except ValueError:
-            return cls.FAILED
+            return None
+
+    @classmethod
+    def parse(cls, value: Any) -> "CallStatus":
+        """Like :meth:`known`, but an unrecognised status becomes ``FAILED``.
+
+        Right for the *final* mapping of a finished call, where an
+        uninterpretable status must never be read as success. Wrong for
+        deciding whether to keep polling — use :meth:`known` there, or a call
+        in progress under an unfamiliar status is declared dead mid-sentence.
+        """
+        return cls.known(value) or cls.FAILED
 
     @property
     def is_terminal(self) -> bool:
-        return self not in (CallStatus.PENDING,)
+        """Whether this status means the call is over.
+
+        The terminal set is a closed list, so anything else — including a
+        status this program has never heard of — means *not finished yet*.
+        """
+        return self not in (CallStatus.PENDING, CallStatus.PREPARING)
 
 
 class Bucket(str, Enum):
@@ -191,7 +217,16 @@ class Answer:
     call_status: CallStatus
     structured: dict[str, Any] = field(default_factory=dict)
     raw_text: str = ""
-    """Transcript excerpt or call summary. Untrusted, always masked on output."""
+    """The call summary. Untrusted, always masked on output."""
+
+    transcript: str = ""
+    """What was said, ``[mm:ss] SPEAKER: Text`` per line.
+
+    Kept next to ``structured`` because the voice agent interprets: it decided
+    on its own that "2. Yes, dissatisfied." meant *dissatisfied*. Without the
+    wording underneath, that judgement could never be checked. Untrusted text,
+    masked on output.
+    """
 
     received_at: str = ""
     run_id: str | None = None
@@ -208,6 +243,10 @@ class Answer:
         if self.call_status is CallStatus.PENDING:
             return Bucket.PENDING
         if self.call_status is CallStatus.SKIPPED:
+            return Bucket.PENDING
+        if self.call_status is CallStatus.PREPARING:
+            # Still running. Unfinished is not the same as unreachable, and it
+            # is certainly not an opinion — it belongs with "not called yet".
             return Bucket.PENDING
         if self.call_status is CallStatus.DECLINED:
             return Bucket.REFUSED

@@ -129,3 +129,74 @@ def test_status_parsing_accepts_both_api_spellings():
     # Anything unrecognised is a failure, never silently a success.
     assert CallStatus.parse("something new") is CallStatus.FAILED
     assert CallStatus.parse(None) is CallStatus.FAILED
+
+
+def test_the_transcript_is_stored_alongside_the_interpretation(store):
+    """The agent's reading of an answer is only checkable against the wording."""
+    poll = store.create_poll(question="Q", kind="open", organizer="L")
+    participant = store.add_participant(poll.id, name="Anna", phone="+15555550100")
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "answer": "dissatisfied"},
+            transcript="[00:12] USER: synthetische Kategorie zwei",
+        )
+    )
+    loaded = store.answers(poll.id)[participant.id]
+    assert loaded.transcript == "[00:12] USER: synthetische Kategorie zwei"
+    assert loaded.structured["answer"] == "dissatisfied"
+
+
+def test_a_database_from_an_older_version_is_upgraded_not_rejected(tmp_path):
+    """The transcript column arrived later; saved polls must keep working."""
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(str(path))
+    old.executescript(
+        """
+        CREATE TABLE poll (id TEXT PRIMARY KEY, question TEXT NOT NULL,
+            kind TEXT NOT NULL, organizer TEXT NOT NULL,
+            language TEXT NOT NULL DEFAULT 'en', region TEXT NOT NULL DEFAULT 'US',
+            locale TEXT NOT NULL DEFAULT 'en-US', options_json TEXT NOT NULL DEFAULT '[]',
+            window_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open');
+        CREATE TABLE participant (id TEXT PRIMARY KEY, poll_id TEXT NOT NULL,
+            ref TEXT NOT NULL, name TEXT NOT NULL, phone_e164 TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'pending', call_run_id TEXT, attempted_at TEXT,
+            UNIQUE (poll_id, ref));
+        CREATE TABLE answer (participant_id TEXT PRIMARY KEY, call_status TEXT NOT NULL,
+            structured_json TEXT NOT NULL DEFAULT '{}', raw_text TEXT NOT NULL DEFAULT '',
+            received_at TEXT NOT NULL, run_id TEXT, error TEXT);
+        INSERT INTO poll VALUES ('poll_old','Q','open','L','en','US','en-US','[]','[]','2026-01-01','open');
+        INSERT INTO participant VALUES ('p_old','poll_old','anna','Anna','+15555550100','done',NULL,NULL);
+        INSERT INTO answer VALUES ('p_old','COMPLETED','{}','summary','2026-01-01',NULL,NULL);
+        """
+    )
+    old.commit()
+    old.close()
+
+    with Store(path) as upgraded:
+        loaded = upgraded.answers("poll_old")["p_old"]
+        assert loaded.call_status is CallStatus.COMPLETED
+        assert loaded.raw_text == "summary"
+        assert loaded.transcript == ""
+        # and the new column is usable from here on
+        upgraded.record_answer(
+            Answer(
+                participant_id="p_old",
+                call_status=CallStatus.COMPLETED,
+                transcript="[00:01] BOT: Hello.",
+            )
+        )
+        assert upgraded.answers("poll_old")["p_old"].transcript == "[00:01] BOT: Hello."
+
+
+def test_an_in_flight_status_is_not_mistaken_for_a_failure():
+    assert CallStatus.parse("PREPARING") is CallStatus.PREPARING
+    assert CallStatus.parse("preparing") is CallStatus.PREPARING
+    assert CallStatus.PREPARING.is_terminal is False
+    # known() reports "not one of ours"; parse() falls back to FAILED.
+    assert CallStatus.known("something new") is None
+    assert CallStatus.parse("something new") is CallStatus.FAILED
