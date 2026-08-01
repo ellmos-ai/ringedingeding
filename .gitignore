@@ -1,0 +1,47 @@
+# Zugangsdaten und Umgebung — NIEMALS committen
+.env
+.env.*
+*.key
+*.pem
+config.local.*
+CREDENTIALS*
+secrets*
+
+# Echte Personendaten / Rufnummern
+contacts.csv
+contacts.json
+sample.csv
+_private/
+_data/
+*.local.db
+
+# Laufzeit / Zustand
+*.db
+*.sqlite
+*.sqlite3
+runs/
+out/
+logs/
+*.log
+*.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Werkzeuge / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Planung (bleibt lokal)
+SCRATCH*
+NOTES.local.*
