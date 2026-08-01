@@ -42,10 +42,27 @@ Every other integration in the ecosystem calls **one** person. This one asks
 **several people the same question and merges the answers** — which is what the
 CALL-E batch API and its per-recipient result schema were built for.
 
+## Three ways in, one flow
+
+The same logic is reachable three ways, and none of them is a wrapper around
+another. They all call `service.py`, which is where the flow actually lives.
+
+| | for | start with |
+|---|---|---|
+| **command line** | you, in a terminal | `ringedingeding project new …` |
+| **skill** | somebody else's agent | [`SKILL.md`](SKILL.md) |
+| **web interface** | somebody who would rather click | `ringedingeding web` |
+
+If a rule appears in one of them that the other two do not have, that is a bug,
+not a feature.
+
+[`ARCHITEKTUR.md`](ARCHITEKTUR.md) has the full design, including the parts not
+built yet and where they will attach.
+
 ## Install
 
-Python 3.11 or newer. No third-party dependencies at all — the dry run has to
-work on a machine with nothing installed and no network.
+Python 3.11 or newer. **No third-party dependencies** for the command line — the
+dry run has to work on a machine with nothing installed and no network.
 
 ```bash
 git clone <this repo>
@@ -57,6 +74,13 @@ Or run it straight from the source tree without installing:
 
 ```bash
 python -m ringedingeding demo
+```
+
+The web interface is an optional extra, so that the line above stays true:
+
+```bash
+pip install -e ".[web]"
+ringedingeding web
 ```
 
 ## Try it without an account
@@ -71,6 +95,102 @@ ringedingeding demo
 It plays through a scheduling question, a decision between two options with an
 abstention and a refusal, and an open question — and writes a Markdown report
 for each into `out/`.
+
+## Finding a date with a group
+
+The commands above ask **one question**. Arranging a date is a longer
+conversation — candidate days, an address book, criteria, a decision, and
+telling everybody afterwards — so it has its own set of commands that walk that
+conversation in order. `SKILL.md` hands the same sequence to an agent, and the
+web interface walks it with forms.
+
+```bash
+# 1. what is it about, and in whose name
+ringedingeding project new --occasion "Familienessen am Wochenende" --organizer "Lukas"
+
+# 2. which days, and one standard time for all of them
+ringedingeding project dates --project prj_a1b2 --day 2026-08-08 --day 2026-08-09 \
+                             --time 14:00-18:00 --time 18:00-21:00
+
+# 3. whom to invite, out of your own address book
+ringedingeding contact add --name "Anna" --phone "+15555550101"
+ringedingeding project people --project prj_a1b2 Anna Ben Clara
+
+# 4. your own words, spoken verbatim
+ringedingeding project wording --project prj_a1b2 \
+    --greeting "Schön, dass ich dich erreiche." --closing "Danke dir!"
+
+# 5. see the whole order text before anything is sent
+ringedingeding project plan --project prj_a1b2 --show-task
+
+# 6. place the calls
+ringedingeding project call --project prj_a1b2 --mode rehearsal   # invented answers
+ringedingeding project call --project prj_a1b2 --mode live        # real telephones
+
+# 7. who can when, 8. what matters, 9. decide, 10. tell everybody
+ringedingeding project board    --project prj_a1b2
+ringedingeding project criteria --project prj_a1b2 --favourite 1 --must Anna --count 4
+ringedingeding project decide   --project prj_a1b2 --slot 1
+ringedingeding project invite   --project prj_a1b2
+```
+
+The board keeps five things apart, and that is the whole point of it:
+
+```
+  1. Sa 08.08. 14:00-18:00        4 can  [3 von 3 criteria]
+       can   : Anna, Ben, Clara, David
+       cannot: —
+       silent: —  (not a no)
+
+not reached : Erik (NO_ANSWER), Frida (BUSY)
+no phone    : Greta  <- add a number and run again to catch up
+These are never counted as 'doesn't mind'.
+```
+
+**Catching up on somebody has no special mode.** Add the number, run the round
+again; that one call is placed and nobody else is dialled twice:
+
+```bash
+ringedingeding contact phone Greta "+15555550199"
+ringedingeding project call --project prj_a1b2 --mode rehearsal
+```
+
+### Three ways to run a round
+
+| mode | dials | answers | marked |
+|---|---|---|---|
+| `--mode script` | no | replayed from a bundled example file | — |
+| `--mode rehearsal` | no | **invented locally**, deterministic, schema-valid | round is flagged `simulated`; every screen says so |
+| `--mode live` | **yes** | real | needs `CALL THEM` typed, and `CALLE_API_KEY` |
+
+The rehearsal exists so that the calendar, the criteria and the invitation can
+be seen without spending money on calls. It never pretends: the answers are
+stamped as invented and can be thrown away with one command.
+
+## The web interface
+
+```bash
+pip install -e ".[web]"
+ringedingeding web            # http://127.0.0.1:8765
+```
+
+Server-rendered HTML, one stylesheet, one vendored copy of htmx. No npm, no
+build step, no CDN — a page that needed the network would defeat the point of a
+dry run. It binds to the loopback interface and has no login, because it is not
+exposed to anything.
+
+**The browser displays; the server drives.** Placing the calls happens in a
+thread inside the server process, so the window can be closed and reopened
+without ending a round — six people at a minute and a half each is long enough
+that somebody will. The live view updates over Server-Sent Events when
+JavaScript is available and reloads itself when it is not; either way the state
+comes out of SQLite.
+
+Click "Beispielprojekt anlegen" on the front page to get a complete project —
+contacts, candidate dates and scripted answers — with no account and no network.
+
+The interface **never accepts credentials**. It reads `CALLE_API_KEY` from the
+environment and says whether one is there; there is no field to type one into.
 
 ## Use it for real
 
@@ -139,6 +259,9 @@ ringedingeding report --poll poll_ab12cd34ef --markdown result.md
 | `plan`     | show who would be called, and with what             |
 | `run`      | place the calls (dry run unless `--live`)           |
 | `report`   | show or export the merged result                    |
+| `web`      | start the local web interface                       |
+| `contact`  | the address book (`add`, `list`, `phone`)           |
+| `project`  | the date-finding flow (see above)                   |
 
 Useful flags for `run`: `--serial` (one API request per person instead of one
 batch), `--concurrency N`, `--retry` (call people who already answered),
@@ -200,7 +323,14 @@ These are not settings. They are how the program is built.
   invocation makes at most one attempt per person and exits. If you want it
   repeated, your Task Scheduler or cron does it, where you can see it.
 * **Credentials come from the environment only** (`CALLE_API_KEY`), never from
-  a file, a flag, or a commit.
+  a file, a flag, a commit, or a form field in the web interface.
+* **Invented answers admit it.** A rehearsal flags its round in the database,
+  and every screen and report that shows it says the answers were made up.
+* **One round at a time per project.** The web interface refuses to start a
+  second run while the first is in flight, rather than relying on the
+  idempotency key to clean up afterwards.
+* **Nothing is stored twice.** Whether somebody can make a slot is computed from
+  the answers every time it is shown; there is no second copy to drift.
 
 ### If you interrupt it
 
@@ -317,6 +447,9 @@ socket is opened.
 ```
 ringedingeding/
   cli.py            commands, the confirmation gate, exit codes
+  cli_projects.py   the date-finding flow on the command line
+  service.py        THE flow — the one layer all three ways in share
+  projects.py       contacts, candidate dates, criteria, decision
   models.py         polls, participants, call statuses, buckets
   schemas.py        result schemas and the spoken instructions
   merge.py          many answers into one result
@@ -329,13 +462,30 @@ ringedingeding/
   timings.py        measured timing of the service
   transports/
     fixture.py      the dry run
+    rehearsal.py    invented answers, marked as invented
     calle.py        the only code that can dial
+  web/
+    app.py          routes, thin
+    jobs.py         calling in the background — "the browser does not drive"
+    ui.py           calendar grouping, avatars, status wording
+    templates/      Jinja2, server-rendered
+    static/         app.css, app.js, htmx.min.js (vendored)
   fixtures/         scripted polls for the dry run
 ```
 
-`FINDINGS.md` records what was measured against the real service and where that
-contradicts the documentation. `EVIDENCE.md` records what was actually executed
-in this repository, including what was not.
+`ARCHITEKTUR.md` is the full design, including stages 2 and 3 and why the tables
+look the way they do. `SKILL.md` is the same flow written for somebody else's
+agent. `FINDINGS.md` records what was measured against the real service and
+where that contradicts the documentation. `EVIDENCE.md` records what was
+actually executed in this repository, including what was not.
+
+## Third-party code
+
+[htmx](https://htmx.org) 2.0.4 is vendored at
+`ringedingeding/web/static/htmx.min.js` (BSD Zero Clause Licence,
+`sha256:e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447`).
+Vendored rather than loaded from a CDN so the interface works with no network at
+all. Nothing else is bundled.
 
 ## Licence
 

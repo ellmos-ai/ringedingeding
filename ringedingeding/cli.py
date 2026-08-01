@@ -602,7 +602,44 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--markdown", help="write the report to this path")
     report.set_defaults(func=cmd_report)
 
+    web = subparsers.add_parser("web", help="start the local web interface")
+    web.add_argument("--host", default="127.0.0.1", help="loopback by default, on purpose")
+    web.add_argument("--port", type=int, default=8765)
+    web.set_defaults(func=cmd_web)
+
+    # The project flow — the same one the web interface and SKILL.md drive.
+    from . import cli_projects
+
+    cli_projects.add_parsers(subparsers)
+
     return parser
+
+
+def cmd_web(args: argparse.Namespace, store: Store) -> int:
+    """Serve the interface locally.
+
+    The store opened for the command line is closed again straight away: the
+    server opens its own connection per request and per background job, because
+    SQLite connections are not shared across threads.
+    """
+    try:
+        from .web.app import run
+    except ModuleNotFoundError as error:
+        _err(
+            "The web interface needs its extra dependencies:\n"
+            '    pip install -e ".[web]"\n'
+            f"({error})"
+        )
+        return EXIT_ERROR
+
+    store.close()
+    _out(f"Ringedingeding on http://{args.host}:{args.port}")
+    _out("Dry run is the default there too. Ctrl-C stops the server.")
+    try:
+        run(args.db, host=args.host, port=args.port)
+    except KeyboardInterrupt:  # pragma: no cover - interactive
+        _out("stopped")
+    return EXIT_OK
 
 
 def main(argv: Sequence[str] | None = None) -> int:

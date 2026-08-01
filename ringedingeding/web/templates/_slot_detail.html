@@ -1,0 +1,80 @@
+{# The four states of one candidate date, kept apart on purpose. #}
+<div class="card slot-card">
+  <h3>{{ view.slot.label }}</h3>
+
+  <div class="state-group can">
+    <h4>Kann ({{ view.can|length }})</h4>
+    {% if view.can %}
+      <ul class="faces">
+        {% for person in view.can %}
+        <li title="{{ person.name }}">
+          {% if person.has_photo %}
+            <img class="avatar" src="/contacts/{{ person.contact_id }}/photo" alt="{{ person.name }}">
+          {% else %}
+            <span class="avatar initials" style="background: {{ person_colour(person) }}">{{ person.initials }}</span>
+          {% endif %}
+          <span class="small">{{ person.name }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}<p class="muted small">niemand</p>{% endif %}
+  </div>
+
+  <div class="state-group cannot">
+    <h4>Kann nicht ({{ view.cannot|length }})</h4>
+    {% if view.cannot %}
+      <ul class="faces">
+        {% for person in view.cannot %}
+        <li title="{{ person.name }}">
+          <span class="avatar initials struck" style="background: {{ person_colour(person) }}">{{ person.initials }}</span>
+          <span class="small">{{ person.name }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}<p class="muted small">niemand</p>{% endif %}
+  </div>
+
+  {% if view.unknown %}
+  <div class="state-group unknown">
+    <h4>Keine Angabe ({{ view.unknown|length }})</h4>
+    <p class="muted small">
+      Hat geantwortet, aber zu diesem Zeitraum nichts gesagt. Schweigen ist
+      kein Nein.
+    </p>
+    <ul class="faces">
+      {% for person in view.unknown %}
+      <li><span class="avatar initials faded" style="background: {{ person_colour(person) }}">{{ person.initials }}</span>
+          <span class="small">{{ person.name }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if board.unreached %}
+  <div class="state-group unreached">
+    <h4>Nicht erreicht ({{ board.unreached|length }})</h4>
+    <ul class="faces">
+      {% for person in board.unreached %}
+      <li><span class="avatar initials faded">?</span>
+          <span class="small">{{ person.name }} — {{ status_word(person.status) }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if board.uncallable %}
+  <div class="state-group uncallable">
+    <h4>Gar nicht anrufbar ({{ board.uncallable|length }})</h4>
+    <ul class="faces">
+      {% for contact in board.uncallable %}
+      <li><span class="avatar initials faded">—</span>
+          <span class="small">{{ contact.name }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if view.met %}
+  <p class="small">Erfüllt: {{ view.met|join(', ') }} ({{ view.score_label }}).</p>
+  {% endif %}
+</div>

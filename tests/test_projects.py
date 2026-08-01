@@ -1,0 +1,165 @@
+"""The project layer: contacts, channels, slot labels, criteria, decision."""
+
+from __future__ import annotations
+
+import pytest
+
+from ringedingeding.phone import InvalidPhoneNumber
+from ringedingeding.projects import (
+    ChannelKind,
+    DateKind,
+    ProjectStore,
+    slot_label,
+)
+
+
+@pytest.fixture()
+def projects(store):
+    return ProjectStore(store)
+
+
+# -- contacts ---------------------------------------------------------------
+
+
+def test_contact_without_phone_is_not_callable(projects):
+    contact = projects.create_contact(name="Clara Ohne")
+    assert contact.callable is False
+    assert contact.phone is None
+    assert contact.phone_masked == "—"
+
+
+def test_contact_with_phone_is_callable_and_masked(projects):
+    contact = projects.create_contact(name="Anna Beispiel", phone="+15555550100")
+    assert contact.callable is True
+    assert contact.phone == "+15555550100"
+    assert contact.phone_masked == "+15*****00"
+    # The raw number never appears in the masked form.
+    assert "5555550100" not in contact.phone_masked
+
+
+def test_invalid_number_is_refused_before_storage(projects):
+    with pytest.raises(InvalidPhoneNumber):
+        projects.create_contact(name="Krumm", phone="0151 2345678")
+    assert projects.contacts() == []
+
+
+def test_adding_a_number_later_makes_the_contact_callable(projects):
+    contact = projects.create_contact(name="Erik")
+    assert not contact.callable
+    projects.set_channel(contact.id, ChannelKind.PHONE, "+15555550111")
+    assert projects.contact(contact.id).callable
+
+
+def test_email_is_stored_as_its_own_channel(projects):
+    """The second channel has to be a row, not a schema change (stage 2)."""
+    contact = projects.create_contact(
+        name="Anna", phone="+15555550100", email="anna@example.org"
+    )
+    assert contact.email == "anna@example.org"
+    assert {channel.kind for channel in contact.channels} == {"phone", "email"}
+
+
+def test_setting_a_channel_replaces_rather_than_appends(projects):
+    contact = projects.create_contact(name="Anna", phone="+15555550100")
+    projects.set_channel(contact.id, ChannelKind.PHONE, "+15555550999")
+    contact = projects.contact(contact.id)
+    assert contact.phone == "+15555550999"
+    assert len([c for c in contact.channels if c.kind == "phone"]) == 1
+
+
+def test_initials_for_the_avatar(projects):
+    assert projects.create_contact(name="Anna Beispiel").initials == "AB"
+    assert projects.create_contact(name="Ben").initials == "BE"
+
+
+def test_photo_round_trip(projects):
+    contact = projects.create_contact(name="Anna", phone="+15555550100")
+    assert projects.photo(contact.id) is None
+    projects.set_photo(contact.id, b"\x89PNG-not-really", "image/png")
+    blob, mime = projects.photo(contact.id)
+    assert blob == b"\x89PNG-not-really"
+    assert mime == "image/png"
+    assert projects.contact(contact.id).has_photo is True
+
+
+# -- slot labels ------------------------------------------------------------
+
+
+def test_slot_label_is_speakable_and_stable():
+    label = slot_label(language="de", day_date="2026-08-08", start_time="14:00", end_time="18:00")
+    assert label == "Sa 08.08. 14:00-18:00"
+
+
+def test_slot_label_for_a_whole_day():
+    assert slot_label(language="de", day_date="2026-08-08", all_day=True) == "Sa 08.08. ganztägig"
+    assert slot_label(language="en", day_date="2026-08-08", all_day=True) == "Sat 08.08. all day"
+
+
+def test_slot_label_for_a_recurring_weekday():
+    """Stage 2 shape, already expressible in the stage 1 table."""
+    assert slot_label(language="de", weekday=1, start_time="18:00", end_time="20:00") == (
+        "jeden Di 18:00-20:00"
+    )
+
+
+def test_slot_label_for_a_span_of_days():
+    label = slot_label(language="de", day_date="2026-08-08", end_date="2026-08-10", all_day=True)
+    assert label == "Sa 08.08. – Mo 10.08. ganztägig"
+
+
+# -- projects and slots -----------------------------------------------------
+
+
+def test_unbuilt_date_kinds_are_refused_by_name(projects):
+    """The concept knows six kinds; four say so instead of half-working."""
+    with pytest.raises(ValueError, match="stage 2"):
+        projects.create_project(occasion="X", organizer="L", date_kind=DateKind.WEEK)
+
+
+def test_two_slots_that_sound_alike_are_refused(projects):
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    with pytest.raises(ValueError, match="spoken identically"):
+        projects.replace_slots(
+            project,
+            [
+                {"day_date": "2026-08-08", "start_time": "14:00", "end_time": "18:00"},
+                {"day_date": "2026-08-08", "start_time": "14:00", "end_time": "18:00"},
+            ],
+        )
+
+
+def test_a_slot_that_ends_before_it_starts_is_refused(projects):
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    with pytest.raises(ValueError, match="not after"):
+        projects.replace_slots(
+            project, [{"day_date": "2026-08-08", "start_time": "18:00", "end_time": "14:00"}]
+        )
+
+
+def test_times_are_normalised(projects):
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    slots = projects.replace_slots(
+        project, [{"day_date": "2026-08-08", "start_time": "9", "end_time": "17:5"}]
+    )
+    assert slots[0].start_time == "09:00"
+    assert slots[0].end_time == "17:05"
+
+
+# -- criteria ---------------------------------------------------------------
+
+
+def test_criteria_count_only_what_was_configured(projects):
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    assert projects.criteria(project.id).configured == 0
+    projects.set_criteria(project.id, favourite_slot_id="slot_x")
+    assert projects.criteria(project.id).configured == 1
+    projects.set_criteria(project.id, favourite_slot_id="slot_x", min_count=3)
+    assert projects.criteria(project.id).configured == 2
+
+
+def test_decision_is_replaced_not_appended(projects):
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    projects.set_decision(project.id, "slot_a")
+    projects.set_decision(project.id, "slot_b")
+    assert projects.decision(project.id).slot_id == "slot_b"
+    assert projects.project(project.id).state == "decided"

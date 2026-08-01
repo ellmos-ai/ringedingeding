@@ -65,6 +65,8 @@ def build_requests(
     existing: dict[str, Answer] | None = None,
     retry: bool = False,
     include_names: bool = True,
+    opening: Sequence[str] = (),
+    closing: Sequence[str] = (),
 ) -> tuple[list[CallRequest], list[Participant], list[tuple[Participant, str]]]:
     """Prepare one :class:`CallRequest` per participant that still needs a call.
 
@@ -96,7 +98,10 @@ def build_requests(
                 poll=poll,
                 participant=participant,
                 task_text=build_task_text(
-                    poll, participant.given_name if include_names else None
+                    poll,
+                    participant.given_name if include_names else None,
+                    opening=opening,
+                    closing=closing,
                 ),
                 recipient_schema=recipient_schema,
                 aggregate_schema=aggregate_schema,
@@ -116,6 +121,8 @@ def run_poll(
     on_event: EventSink = _noop,
     retry: bool = False,
     include_names: bool = True,
+    opening: Sequence[str] = (),
+    closing: Sequence[str] = (),
 ) -> RunReport:
     """Place the outstanding calls of ``poll`` and store what comes back."""
     participants = store.participants(poll.id)
@@ -126,6 +133,8 @@ def run_poll(
         existing=store.answers(poll.id),
         retry=retry,
         include_names=include_names,
+        opening=opening,
+        closing=closing,
     )
     report = RunReport(poll=poll, requests=requests, skipped=skipped, rejected=rejected)
 

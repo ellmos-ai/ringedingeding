@@ -164,6 +164,8 @@ class Participant:
     state: ParticipantState = ParticipantState.PENDING
     call_run_id: str | None = None
     attempted_at: str | None = None
+    contact_id: str | None = None
+    """The address-book entry this participant came from, when there was one."""
 
     def __post_init__(self) -> None:
         # Validate on construction: an invalid number must never reach a dialer.
@@ -198,6 +200,19 @@ class Poll:
 
     created_at: str = ""
     status: str = "open"
+
+    project_id: str | None = None
+    """Set when this poll is one round of a project. ``None`` for a poll made
+    straight from the command line — the two are the same thing to everything
+    downstream, which is the point of keeping one engine."""
+
+    round_kind: str | None = None
+    """``availability`` | ``roundtable`` | ``invitation``. See
+    :class:`ringedingeding.projects.RoundKind`."""
+
+    simulated: bool = False
+    """True when the answers were invented locally for a rehearsal. Everything
+    that displays this poll has to say so."""
 
     @property
     def has_window(self) -> bool:
