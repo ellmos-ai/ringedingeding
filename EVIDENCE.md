@@ -487,3 +487,94 @@ stream and asserts it emits a `panel` event and then `done`.
   was exercised through the FastAPI test client and through `curl` against a
   real `uvicorn` process. Visual layout is therefore **unverified by eye** —
   the HTML and CSS are asserted only by the tests above.
+
+---
+
+# Reconciliation against ABLAUF.md — 2026-08-02
+
+`ABLAUF.md` was written by another agent after the build above and declared the
+binding basis for both the skill and the interface. The data model was checked
+against it node by node. Result: **one gap, two contradictions between the
+source documents, and three behavioural corrections.**
+
+## 15. The gap: B3 Dringlichkeit had no home
+
+The only node of ABLAUF.md with nowhere to live in the model. Added as
+`project.urgency` (free text), reachable from all three ways in, and carried
+into the order text as **unquoted** guidance — quoted, the organizer's private
+note would have been read out loud.
+
+Executed against a database created the way the previous commit created them,
+to prove the additive migration:
+
+```
+before: [... 'state', 'group_id', 'fixture_name', 'created_at']
+after : [... 'state', 'group_id', 'fixture_name', 'created_at', 'urgency']
+read old row -> Altes Projekt | urgency = ''
+```
+
+And the wording it produces, from the real command line:
+
+```
+$ ringedingeding project plan --project <id> --show-task
+   Es eilt (wirklich dringend). Komm entsprechend zügig zur Sache — aber dränge
+   trotzdem niemanden und akzeptiere ein Nein sofort.
+2. Frage, ob es gerade passt. …
+```
+
+The "do not press anybody" clause is deliberate: urgency changes the tone, and
+rule 4 of the call instructions ("do not persuade") still comes first.
+
+## 16. Where the two source documents disagree
+
+Reported rather than silently resolved.
+
+**Live-view colours.** `UI-SPEC.md` says, for the calls in progress, "nicht
+erreicht → rot, durchgestrichen". `ABLAUF.md` section 2 splits that: `DECLINED`
+red, `NO_ANSWER`/`BUSY`/`VOICEMAIL` question mark and greyed.
+
+**ABLAUF was implemented**, for two reasons: it keeps the very distinction
+`UI-SPEC` demands for the result view ("bewusst unterschieden!"), and a
+struck-through name against a telephone that merely rang out claims knowledge
+nobody has. `FAILED`/`EXPIRED`/`CANCELED` now render red **with the reason**.
+
+**Order of the questions.** `UI-SPEC` puts the contacts after the kind of date,
+`ABLAUF` (A2 before A3) before it. The interface follows `UI-SPEC`, the skill
+follows `ABLAUF`; the steps are freely navigable and nothing depends on the
+order.
+
+## 17. What changed in the code, and what pins it
+
+| change | test |
+|---|---|
+| six end states instead of three, per ABLAUF §2 | `test_the_six_end_states_are_kept_apart` |
+| absence marked `?` and grey, refusal `✕` and red | `test_the_panel_marks_absence_with_a_question_mark_not_a_cross` |
+| OPTIONAL sections collapsed (`<details>`), open only when filled | `test_optional_steps_stay_folded_away`, `test_a_set_optional_step_is_shown_open` |
+| `project.urgency`, unquoted, tone only | `test_urgency_changes_the_tone_and_nothing_else` |
+
+Status wording also changed where ABLAUF names the state more precisely:
+`NO_ANSWER` reads "niemand da" (was "nicht abgenommen") and `DECLINED` reads
+"weggedrückt" (was "wollte nicht antworten", which now describes only the case
+where somebody was reached and declined to answer).
+
+```
+$ python -m pytest
+297 passed, 1 warning in 49.34s
+```
+
+## 18. What the reconciliation did NOT change
+
+* **No table was restructured.** Every other node of ABLAUF.md already had a
+  place; section 8 of `ARCHITEKTUR.md` is the node-by-node map.
+* **The proactive lookup of phone numbers in mail or calendar** (node B1a) is
+  described in `SKILL.md` as required agent behaviour, but the connectors that
+  would do it are stage 3 and are **not built**. `connector` and
+  `contact.source_connector_id` exist and are empty.
+* **Branch B (Runder Tisch) is still stage 2.** Its nodes map onto existing
+  structures (`PollKind.CHOICE`/`OPEN`, `contact_group`, `project_question`),
+  and none of them needed a change.
+* **Criteria still do not reorder the calendar.** ABLAUF calls them
+  "[OPTIONAL, verändert nur die Sortierung]"; the board shows the score per slot
+  and names the best fit but leaves the slots in date order. Nothing is filtered
+  out either way — which is the part that matters.
+* **The interface was again not opened in a browser by a human.**

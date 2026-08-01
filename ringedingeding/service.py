@@ -116,6 +116,7 @@ def create_project(
     language: str = "de",
     region: str = "DE",
     locale: str = "de-DE",
+    urgency: str = "",
     fixture_name: str | None = None,
 ) -> Project:
     """Create a project. The occasion is checked for refused content first.
@@ -132,6 +133,7 @@ def create_project(
         language=language,
         region=region,
         locale=locale,
+        urgency=urgency,
         fixture_name=fixture_name,
     )
 
@@ -482,6 +484,7 @@ def preview(
         retry=retry,
         opening=greeting,
         closing=closing,
+        urgency=project.urgency,
     )
     return Preview(
         poll=poll,
@@ -582,6 +585,7 @@ def run_round(
         retry=retry,
         opening=greeting,
         closing=closing,
+        urgency=project.urgency,
     )
 
 

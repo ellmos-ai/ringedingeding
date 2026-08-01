@@ -179,6 +179,10 @@ CREATE TABLE IF NOT EXISTS project (
     locale        TEXT NOT NULL DEFAULT 'de-DE',
     state         TEXT NOT NULL DEFAULT 'draft',
     group_id      TEXT REFERENCES contact_group(id) ON DELETE SET NULL,
+    -- How pressing this is, in the organizer's own words ("wirklich dringend").
+    -- Changes the tone of the call, not the flow. Stage 2 also uses it to
+    -- decide who gets called first.
+    urgency       TEXT NOT NULL DEFAULT '',
     fixture_name  TEXT,
     created_at    TEXT NOT NULL
 );
@@ -255,6 +259,13 @@ CREATE INDEX IF NOT EXISTS idx_slot_project ON project_slot(project_id);
 CREATE INDEX IF NOT EXISTS idx_invitee_project ON project_invitee(project_id);
 CREATE INDEX IF NOT EXISTS idx_phrase_scope ON phrase(scope, scope_id);
 """
+
+_ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    # (table, column, definition) — appended to databases written before the
+    # column existed. Added on 2026-08-02 when ABLAUF.md node B3 turned out to
+    # have no home in the model.
+    ("project", "urgency", "TEXT NOT NULL DEFAULT ''"),
+)
 
 
 # --------------------------------------------------------------------------
@@ -341,6 +352,11 @@ class Project:
     locale: str = "de-DE"
     state: str = ProjectState.DRAFT
     group_id: str | None = None
+    urgency: str = ""
+    """How pressing it is, in the organizer's own words. Changes the tone of
+    the call, never the flow — an urgent question is still asked once and still
+    accepts a refusal."""
+
     fixture_name: str | None = None
     created_at: str = ""
 
@@ -523,7 +539,27 @@ class ProjectStore:
         self.store = store
         self.connection: sqlite3.Connection = store.connection
         self.connection.executescript(PROJECT_SCHEMA)
+        self._add_missing_columns()
         self.connection.commit()
+
+    def _add_missing_columns(self) -> None:
+        """Bring a database written by an earlier version up to date.
+
+        ``CREATE TABLE IF NOT EXISTS`` does nothing to a table that already
+        exists, so a column added later has to be appended explicitly — the same
+        rule, and the same one-way discipline, as in
+        :class:`ringedingeding.store.Store`: things are added, never dropped or
+        rewritten.
+        """
+        for table, column, definition in _ADDED_COLUMNS:
+            existing = {
+                row["name"]
+                for row in self.connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if existing and column not in existing:
+                self.connection.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                )
 
     # -- contacts -----------------------------------------------------------
 
@@ -679,6 +715,7 @@ class ProjectStore:
         language: str = "de",
         region: str = "DE",
         locale: str = "de-DE",
+        urgency: str = "",
         fixture_name: str | None = None,
         project_id: str | None = None,
     ) -> Project:
@@ -703,12 +740,14 @@ class ProjectStore:
             region=region,
             locale=locale,
             state=ProjectState.DRAFT,
+            urgency=urgency.strip(),
             fixture_name=fixture_name,
             created_at=utc_now(),
         )
         self.connection.execute(
             "INSERT INTO project (id, occasion, mode, date_kind, organizer, language, region,"
-            " locale, state, group_id, fixture_name, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            " locale, state, group_id, urgency, fixture_name, created_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 project.id,
                 project.occasion,
@@ -720,6 +759,7 @@ class ProjectStore:
                 project.locale,
                 project.state,
                 project.group_id,
+                project.urgency,
                 project.fixture_name,
                 project.created_at,
             ),
@@ -1040,6 +1080,7 @@ def _project_from_row(row: sqlite3.Row) -> Project:
         locale=row["locale"],
         state=row["state"],
         group_id=row["group_id"],
+        urgency=(row["urgency"] or "") if "urgency" in row.keys() else "",
         fixture_name=row["fixture_name"],
         created_at=row["created_at"] or "",
     )

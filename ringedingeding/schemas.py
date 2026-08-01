@@ -325,12 +325,39 @@ def _closing_block(lines: Sequence[str], german: bool) -> str:
     return "\n".join([lead] + [f"   {_quote(line)}" for line in said]) + "\n"
 
 
+def _urgency_block(urgency: str, german: bool) -> str:
+    """How pressing it is — guidance, and deliberately *not* quoted.
+
+    Quotation marks would make the agent read the organizer's private note about
+    urgency out loud. What is wanted is a change of tone, so this goes in as
+    unquoted guidance, which the measured behaviour says will be rephrased and
+    acted on rather than recited.
+
+    Urgency changes the tone and nothing else. It is not a licence to ask twice,
+    to press for an answer, or to keep somebody on the telephone — rule 4 above
+    still holds and says so first.
+    """
+    text = " ".join(str(urgency).split())
+    if not text:
+        return ""
+    if german:
+        return (
+            f"   Es eilt ({text}). Komm entsprechend zügig zur Sache — aber "
+            "dränge trotzdem niemanden und akzeptiere ein Nein sofort.\n"
+        )
+    return (
+        f"   This is time-sensitive ({text}). Come to the point accordingly — "
+        "but still press nobody, and accept a no immediately.\n"
+    )
+
+
 def build_task_text(
     poll: Poll,
     given_name: str | None = None,
     *,
     opening: Sequence[str] = (),
     closing: Sequence[str] = (),
+    urgency: str = "",
 ) -> str:
     """The ``task`` free text sent to CALL-E for one recipient.
 
@@ -351,7 +378,7 @@ def build_task_text(
     text = template.format(
         organizer=poll.organizer,
         question_block=block,
-        opening_block=_opening_block(opening, german),
+        opening_block=_opening_block(opening, german) + _urgency_block(urgency, german),
         closing_block=_closing_block(closing, german),
     )
     if given_name:

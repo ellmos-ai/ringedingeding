@@ -67,6 +67,7 @@ def build_requests(
     include_names: bool = True,
     opening: Sequence[str] = (),
     closing: Sequence[str] = (),
+    urgency: str = "",
 ) -> tuple[list[CallRequest], list[Participant], list[tuple[Participant, str]]]:
     """Prepare one :class:`CallRequest` per participant that still needs a call.
 
@@ -102,6 +103,7 @@ def build_requests(
                     participant.given_name if include_names else None,
                     opening=opening,
                     closing=closing,
+                    urgency=urgency,
                 ),
                 recipient_schema=recipient_schema,
                 aggregate_schema=aggregate_schema,
@@ -123,6 +125,7 @@ def run_poll(
     include_names: bool = True,
     opening: Sequence[str] = (),
     closing: Sequence[str] = (),
+    urgency: str = "",
 ) -> RunReport:
     """Place the outstanding calls of ``poll`` and store what comes back."""
     participants = store.participants(poll.id)
@@ -135,6 +138,7 @@ def run_poll(
         include_names=include_names,
         opening=opening,
         closing=closing,
+        urgency=urgency,
     )
     report = RunReport(poll=poll, requests=requests, skipped=skipped, rejected=rejected)
 

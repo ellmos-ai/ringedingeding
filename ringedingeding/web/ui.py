@@ -129,13 +129,34 @@ _STATUS_WORDS = {
     CallStatus.PREPARING: "im Gespräch",
     CallStatus.COMPLETED: "hat geantwortet",
     CallStatus.FAILED: "fehlgeschlagen",
-    CallStatus.NO_ANSWER: "nicht abgenommen",
-    CallStatus.DECLINED: "wollte nicht antworten",
+    CallStatus.NO_ANSWER: "niemand da",
+    CallStatus.DECLINED: "weggedrückt",
     CallStatus.CANCELED: "abgebrochen",
     CallStatus.VOICEMAIL: "Anrufbeantworter",
     CallStatus.BUSY: "besetzt",
     CallStatus.EXPIRED: "abgelaufen",
 }
+
+# The end states of ABLAUF.md section 2, and the three groups it puts them in.
+# The grouping carries a judgement and is worth spelling out:
+#
+# ``declined``
+#     Somebody was there and said no — to the call or to answering. A definite
+#     negative, shown in red like "kann nicht".
+# ``absent``
+#     Nobody was there. **Uncertain, not negative**, so a question mark and grey
+#     — never red, and never struck through, because striking a name through
+#     reads as "this person is out" when in truth nothing is known about them.
+# ``failed``
+#     Something went wrong on the way. Red, and it has to say why.
+_DECLINED_STATUSES = (CallStatus.DECLINED,)
+_ABSENT_STATUSES = (CallStatus.NO_ANSWER, CallStatus.BUSY, CallStatus.VOICEMAIL)
+_FAILED_STATUSES = (
+    CallStatus.FAILED,
+    CallStatus.EXPIRED,
+    CallStatus.CANCELED,
+    CallStatus.SKIPPED,
+)
 
 
 def status_word(status: CallStatus | str) -> str:
@@ -159,13 +180,24 @@ class LiveRow:
     initials: str
     has_photo: bool
     state: str
-    """``waiting`` | ``calling`` | ``answered`` | ``refused`` | ``unreached``"""
+    """``waiting`` | ``calling`` | ``answered`` | ``declined`` | ``absent``
+    | ``failed`` — the end states of ABLAUF.md section 2."""
 
     detail: str = ""
 
     @property
     def colour(self) -> str:
         return avatar_colour(self.contact_id or self.name)
+
+    @property
+    def uncertain(self) -> bool:
+        """Whether nothing is known about this person yet.
+
+        Drives the question mark. Kept as a property rather than being decided
+        in the template so the live view and any later report cannot disagree
+        about who counts as unknown.
+        """
+        return self.state in ("waiting", "absent")
 
 
 def live_rows(
@@ -176,6 +208,10 @@ def live_rows(
     Stored state first, live event second: that ordering is what makes the page
     correct after a reload. The only thing that comes from the running job is
     which telephone symbol is moving.
+
+    The six end states come from ABLAUF.md section 2 and are deliberately not
+    collapsed into "reached / not reached": somebody who pressed the call away
+    told you something, somebody whose telephone rang out did not.
     """
     rows: list[LiveRow] = []
     for participant in participants:
@@ -187,15 +223,21 @@ def live_rows(
         else:
             status = answer.call_status
             if status is CallStatus.COMPLETED and answer.structured.get("refused") is True:
-                state, detail = "refused", status_word(status) + " — wollte nicht antworten"
+                state, detail = "declined", "wollte nicht antworten"
             elif status is CallStatus.COMPLETED:
                 state, detail = "answered", status_word(status)
-            elif status is CallStatus.DECLINED:
-                state, detail = "refused", status_word(status)
+            elif status in _DECLINED_STATUSES:
+                state, detail = "declined", status_word(status)
+            elif status in _ABSENT_STATUSES:
+                state, detail = "absent", status_word(status)
             elif status in (CallStatus.PENDING, CallStatus.PREPARING):
                 state, detail = "calling", status_word(status)
             else:
-                state, detail = "unreached", status_word(status)
+                # FAILED, EXPIRED, CANCELED, SKIPPED — red, and it has to say why.
+                state = "failed"
+                detail = status_word(status)
+                if answer.error:
+                    detail = f"{detail}: {answer.error}"
         rows.append(
             LiveRow(
                 ref=participant.ref,
