@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ringedingeding"
+version = "0.1.0"
+description = "Ask one question to several people by phone and merge the answers into one result. Built on CALL-E."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["call-e", "phone", "voice-agent", "poll", "scheduling"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+# No runtime dependencies on purpose: the dry run has to work on a machine with
+# nothing installed and no network. The live path speaks the documented HTTP API
+# through the standard library.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ringedingeding = "ringedingeding.cli:main"
+
+[tool.setuptools]
+packages = ["ringedingeding", "ringedingeding.transports"]
+
+[tool.setuptools.package-data]
+ringedingeding = ["fixtures/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

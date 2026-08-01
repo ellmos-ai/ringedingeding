@@ -1,0 +1,55 @@
+{
+  "name": "team-retro",
+  "description": "Open question in English. One person declines to answer, one is on voicemail. Free-text answers are quoted, never summarised.",
+  "_numbers": "The +1 555 range used as fictional numbers in the upstream CALL-E examples.",
+  "poll": {
+    "question": "What is the one thing you would change about how we run our weekly meeting?",
+    "kind": "open",
+    "organizer": "Lukas",
+    "language": "en",
+    "region": "US",
+    "locale": "en-US"
+  },
+  "participants": [
+    { "ref": "mia", "name": "Mia", "phone": "+15555550101" },
+    { "ref": "noah", "name": "Noah", "phone": "+15555550102" },
+    { "ref": "olia", "name": "Olia", "phone": "+15555550103" },
+    { "ref": "pete", "name": "Pete", "phone": "+15555550104" }
+  ],
+  "outcomes": {
+    "mia": {
+      "call_status": "COMPLETED",
+      "summary": "Mia wants a shorter meeting.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "answer": "Cut it to thirty minutes and send the status in writing beforehand.",
+        "note": ""
+      }
+    },
+    "noah": {
+      "call_status": "COMPLETED",
+      "summary": "Noah wants a different time.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "answer": "Move it away from Monday morning. Nobody has read anything by then.",
+        "note": "Said he is happy either way if the agenda goes out on Friday."
+      }
+    },
+    "olia": {
+      "call_status": "COMPLETED",
+      "summary": "Olia did not want to answer.",
+      "structured_result": {
+        "reachable": true,
+        "refused": true,
+        "answer": "",
+        "note": ""
+      }
+    },
+    "pete": {
+      "call_status": "VOICEMAIL",
+      "summary": "Reached the mailbox."
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "name": "grandma-gift",
+  "description": "Decision between two options. Shows a tally, an abstention, an answer outside the options, a refusal and one person not reached.",
+  "_numbers": "Placeholders, see family-dinner.json.",
+  "poll": {
+    "question": "Sollen wir Oma zum Geburtstag ein Fotobuch schenken oder einen Gutschein?",
+    "kind": "choice",
+    "organizer": "Lukas",
+    "language": "de",
+    "region": "DE",
+    "locale": "de-DE",
+    "options": ["Fotobuch", "Gutschein"]
+  },
+  "participants": [
+    { "ref": "anna", "name": "Anna", "phone": "+49010000011" },
+    { "ref": "ben", "name": "Ben", "phone": "+49010000012" },
+    { "ref": "clara", "name": "Clara", "phone": "+49010000013" },
+    { "ref": "david", "name": "David", "phone": "+49010000014" },
+    { "ref": "erik", "name": "Erik", "phone": "+49010000015" },
+    { "ref": "frida", "name": "Frida", "phone": "+49010000016" }
+  ],
+  "outcomes": {
+    "anna": {
+      "call_status": "COMPLETED",
+      "summary": "Anna ist fuer das Fotobuch, mit Preisgrenze.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "choice": "Fotobuch",
+        "abstained": false,
+        "condition": "Ja, aber nur wenn es unter 50 Euro bleibt."
+      }
+    },
+    "ben": {
+      "call_status": "COMPLETED",
+      "summary": "Ben ist fuer das Fotobuch.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "choice": "Fotobuch",
+        "abstained": false,
+        "condition": ""
+      }
+    },
+    "clara": {
+      "call_status": "COMPLETED",
+      "summary": "Clara ist fuer den Gutschein.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "choice": "Gutschein",
+        "abstained": false,
+        "condition": ""
+      }
+    },
+    "david": {
+      "call_status": "COMPLETED",
+      "summary": "David ist beides recht.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "abstained": true,
+        "condition": ""
+      }
+    },
+    "erik": {
+      "call_status": "COMPLETED",
+      "summary": "Erik schlaegt etwas anderes vor.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "abstained": false,
+        "other_choice": "Lieber zusammen essen gehen statt ein Geschenk.",
+        "condition": ""
+      }
+    },
+    "frida": {
+      "call_status": "NO_ANSWER",
+      "summary": "Mailbox, keine Nachricht hinterlassen."
+    }
+  }
+}
