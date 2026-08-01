@@ -4,24 +4,51 @@ Nothing here runs during a dry run, and nothing here can be constructed by
 accident: the constructor refuses unless ``live_confirmed=True`` was passed,
 which the CLI only does after ``--live`` *and* a typed confirmation.
 
-Built against the documented Developer API
-(``POST /v1/calls``, ``GET /v1/calls/{id}``) with the standard library only, so
-that installing this project never pulls a network stack it does not need.
+Built against the REST API (``POST /v1/calls``, ``GET /v1/calls/{id}``) with the
+standard library only, so that installing this project never pulls a network
+stack it does not need.
 
-Assumptions that are written down rather than hidden — see EVIDENCE.md:
+Why REST and not the MCP tools
+------------------------------
 
-* The batch response's ``recipients`` array is assumed to be in request order.
-  There is no per-recipient identifier in the documented response shape. If the
-  lengths disagree, every call in the batch is reported as ``FAILED`` instead of
-  guessing — attributing one person's answer to another would be the worst
-  possible failure mode for this tool.
-* Whether several calls run in parallel is not verified. Both paths exist and
-  the operator chooses.
-* Whether the transcript grows during the call is not verified, so progress is
-  reported from whatever ``status``/``activity`` the poll returns and nothing
-  is assumed to be present.
+Measured, not assumed (FINDINGS.md section 5): the MCP surface
+(``plan_call`` / ``run_call`` / ``get_call_run``) has **no result-schema
+parameter at all**. Schema-validated per-recipient answers exist only over
+REST. Since this whole project is built on ``recipient_result_schema`` — the
+schema is what makes the voice agent ask the right questions — the MCP path
+cannot carry it and is not used.
 
-None of this has been executed. There is no account.
+The two surfaces are also **separate worlds**: a call started over MCP is not
+retrievable via ``GET /v1/calls/{run_id}`` (measured: HTTP 404 with a valid
+key). So there is no mixing them, and no fallback from one to the other.
+
+What is measured and what is not
+--------------------------------
+
+Measured, and therefore relied upon here:
+
+* progress comes from ``activity``, not from ``status`` — the status field sat
+  on ``PREPARING`` throughout an ongoing conversation,
+* the transcript lives in ``result.transcript`` as a string, not in
+  ``transcript`` at the top level, which stayed ``null``,
+* roughly 40 seconds pass before a telephone rings, whatever the call.
+
+Still **not** measured, and therefore kept open rather than assumed:
+
+* whether several calls may run in parallel. Both paths exist and the operator
+  chooses; nothing here claims one is safe.
+* the REST base URL. :data:`DEFAULT_BASE_URL` is what the documentation states;
+  the observed calls went through the MCP endpoint, which is a different host.
+  Override with ``CALLE_BASE_URL`` if it turns out to be wrong.
+* the exact JSON shape of an ``activity`` entry. Only its rendered form was
+  seen, so :mod:`ringedingeding.activity` parses permissively.
+* whether the batch response's ``recipients`` array is in request order. There
+  is no per-recipient identifier in the documented response, so if the lengths
+  disagree every call in the batch is reported as ``FAILED`` instead of being
+  guessed at — attributing one person's answer to another is the worst thing
+  this tool could do.
+
+No code in this module has been executed against the live API. See EVIDENCE.md.
 """
 
 from __future__ import annotations
@@ -32,11 +59,13 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Iterator, Sequence
+from typing import Any, Callable, Iterator, Sequence
 
+from ..activity import ActivityLine, dedupe, extract_activity, extract_transcript
 from ..models import CallStatus
 from ..phone import mask_text
 from ..safety import LiveCallBlocked
+from ..timings import LEAD_SECONDS
 from .base import CallOutcome, CallRequest, CallTransport
 
 __all__ = ["CalleTransport", "CalleBatchTransport", "DEFAULT_BASE_URL", "API_KEY_ENV"]
@@ -45,13 +74,23 @@ DEFAULT_BASE_URL = "https://api.heycall-e.com"
 API_KEY_ENV = "CALLE_API_KEY"
 BASE_URL_ENV = "CALLE_BASE_URL"
 
-_FIRST_POLL_DELAY = 60.0
-"""Documented guidance: do not poll before roughly a minute has passed."""
+_FIRST_POLL_DELAY = LEAD_SECONDS
+"""Nothing observable happens in the first ~40 seconds; the telephone has not
+even rung. Polling earlier costs requests and shows an empty list.
+
+Nothing is missed by starting late: ``activity`` is cumulative, so the first
+poll returns the ringing and connecting lines as well."""
 
 _POLL_INTERVAL = 8.0
 """Documented guidance: every 5 to 10 seconds after the first poll."""
 
 _DEFAULT_TIMEOUT = 900.0
+
+ActivitySink = Callable[[ActivityLine], None]
+
+
+def _ignore(_line: ActivityLine) -> None:  # pragma: no cover - default sink
+    return None
 
 
 class CalleTransport(CallTransport):
@@ -72,6 +111,7 @@ class CalleTransport(CallTransport):
         first_poll_delay: float = _FIRST_POLL_DELAY,
         poll_interval: float = _POLL_INTERVAL,
         cancel: threading.Event | None = None,
+        on_activity: ActivitySink | None = None,
     ) -> None:
         if live_confirmed is not True:
             raise LiveCallBlocked(
@@ -91,6 +131,7 @@ class CalleTransport(CallTransport):
         self.first_poll_delay = first_poll_delay
         self.poll_interval = poll_interval
         self.cancel = cancel
+        self._on_activity: ActivitySink = on_activity or _ignore
 
     # -- HTTP ---------------------------------------------------------------
 
@@ -152,18 +193,58 @@ class CalleTransport(CallTransport):
         )
 
     def _poll_until_terminal(self, call_id: str) -> dict[str, Any]:
+        """Poll until ``status`` reaches a terminal value, reporting progress.
+
+        Two different fields do two different jobs here, and swapping them is
+        the mistake this whole method exists to avoid:
+
+        ``activity``
+            what is happening right now. Read on every poll and forwarded to
+            the caller line by line.
+        ``status``
+            when it is over. Useless as progress — it stayed on ``PREPARING``
+            through an entire conversation — but it is what finally says
+            ``COMPLETED``, and only then does ``result.transcript`` appear.
+        """
         deadline = time.monotonic() + self.poll_timeout
+        reported = 0
+        last_seen: Any = None
         self._sleep(self.first_poll_delay, deadline)
         while True:
             payload = self._request("GET", f"/v1/calls/{call_id}")
-            status = CallStatus.parse(payload.get("status"))
-            if status.is_terminal and status is not CallStatus.PENDING:
+            last_seen = payload.get("status")
+            # known(), not parse(): an unrecognised status must not end the
+            # wait. The terminal statuses are a closed documented list, so
+            # anything outside it — PREPARING, or something never seen before —
+            # means the call is still running. Treating it as FAILED would
+            # declare a conversation dead while it is still going on, and the
+            # next run would then dial that person a second time.
+            status = CallStatus.known(last_seen)
+            terminal = status is not None and status.is_terminal
+            reported = self._report_activity(payload, reported, final=terminal)
+            if terminal:
                 return payload
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"no terminal status for call {call_id} after {self.poll_timeout:.0f}s"
+                    f"call {call_id} never reached a terminal status within "
+                    f"{self.poll_timeout:.0f}s; last status was {last_seen!r}"
                 )
             self._sleep(self.poll_interval, deadline)
+
+    def _report_activity(self, payload: dict[str, Any], reported: int, *, final: bool) -> int:
+        """Forward activity lines that have not been shown yet.
+
+        While the call runs, the newest line is deliberately **held back** for
+        one poll. Speech recognition streams a rough version and corrects it a
+        fraction of a second later ("hallo" then "Hallo."), so showing the last
+        line immediately means showing the version that is about to be wrong.
+        On the final poll everything remaining is flushed.
+        """
+        lines = dedupe(extract_activity(payload))
+        limit = len(lines) if final else max(0, len(lines) - 1)
+        for line in lines[reported:limit]:
+            self._on_activity(line)
+        return max(reported, limit)
 
     def _sleep(self, seconds: float, deadline: float) -> None:
         """Sleep in short steps so Ctrl-C is noticed promptly."""
@@ -272,6 +353,12 @@ def _outcome_from(
     Per-recipient status wins over the batch status: in a batch of six, one
     ``NO_ANSWER`` must not turn the other five into failures, and a batch that
     "completed" says nothing about whether a given person picked up.
+
+    The transcript is looked for **per recipient first**. In a batch there is
+    one conversation per person, so the call-level transcript is only used when
+    a single recipient is involved and no per-recipient text exists — handing
+    somebody else's conversation to the wrong person would be exactly the kind
+    of mix-up the length check above refuses to make.
     """
     status_source = recipient.get("status", call.get("status"))
     status = CallStatus.parse(status_source)
@@ -284,10 +371,19 @@ def _outcome_from(
         if isinstance(value, str) and value.strip():
             summary = mask_text(value.strip())
             break
+
+    transcript = extract_transcript(recipient)
+    if not transcript:
+        others = call.get("recipients")
+        single = not isinstance(others, list) or len(others) <= 1
+        if single:
+            transcript = extract_transcript(call)
+
     return CallOutcome(
         participant_id=participant_id,
         status=status,
         structured=structured,
         summary=summary,
+        transcript=mask_text(transcript),
         run_id=run_id,
     )

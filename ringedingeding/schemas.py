@@ -6,6 +6,15 @@ The schema is the stronger lever. Whatever the agent is required to fill in, it
 has to find out during the call. So the schema is designed first and the prose
 is written to match it, not the other way round.
 
+The free text has one measured property worth knowing (FINDINGS.md section 4):
+**quotation marks are honoured to the letter.** A question written in quotes
+came out of the loudspeaker character for character, including a deliberate
+typo that any rephrasing agent would have fixed. Text *outside* quotes is
+rephrased, and extended — the planner adds behaviour of its own that was never
+asked for. So the two things that must not drift, the question itself and the
+sentence disclosing that this is an automated call, are quoted below; the rest
+is left as guidance on purpose.
+
 Every schema here carries three fields that exist purely to keep the merge
 honest:
 
@@ -234,11 +243,14 @@ def _question_block_de(poll: Poll) -> str:
 
 
 _RULES_EN = """\
+Anything in quotation marks is spoken exactly as written, word for word.
+Everything outside quotation marks is guidance you put into your own words.
+
 Rules for this call, in this order:
 
-1. In your very first sentence, unprompted, say that you are an automated
-   assistant calling on behalf of {organizer}, and say why you are calling.
-   Do not wait to be asked.
+1. Open with this sentence, before anything else and unprompted:
+   "Hello, this is an automated assistant calling on behalf of {organizer}.
+   I have one short question." Do not wait to be asked.
 2. Ask whether now is a good moment. If it is not, say you will not call back
    automatically and end the call politely.
 3. {question_block}
@@ -253,11 +265,14 @@ Rules for this call, in this order:
 """
 
 _RULES_DE = """\
+Alles in Anführungszeichen wird wortwörtlich so gesprochen, wie es dasteht.
+Alles außerhalb der Anführungszeichen formulierst du selbst.
+
 Regeln für dieses Gespräch, in dieser Reihenfolge:
 
-1. Sage im allerersten Satz von dir aus, dass du ein automatischer Assistent
-   bist, der im Auftrag von {organizer} anruft, und nenne den Grund des Anrufs.
-   Warte nicht, bis jemand nachfragt.
+1. Beginne von dir aus mit genau diesem Satz, vor allem anderen:
+   "Guten Tag, hier ist ein automatischer Assistent im Auftrag von {organizer}.
+   Ich habe eine kurze Frage." Warte nicht, bis jemand nachfragt.
 2. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
    erneut anrufst, und beende das Gespräch freundlich.
 3. {question_block}

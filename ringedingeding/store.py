@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS answer (
     call_status     TEXT NOT NULL,
     structured_json TEXT NOT NULL DEFAULT '{}',
     raw_text        TEXT NOT NULL DEFAULT '',
+    transcript      TEXT NOT NULL DEFAULT '',
     received_at     TEXT NOT NULL,
     run_id          TEXT,
     error           TEXT
@@ -72,6 +73,13 @@ CREATE TABLE IF NOT EXISTS answer (
 
 CREATE INDEX IF NOT EXISTS idx_participant_poll ON participant(poll_id);
 """
+
+_ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    # (table, column, definition) — appended to databases written by an
+    # earlier version. Adding a column is the only migration this project
+    # performs; nothing is ever dropped or rewritten.
+    ("answer", "transcript", "TEXT NOT NULL DEFAULT ''"),
+)
 
 
 def utc_now() -> str:
@@ -92,7 +100,25 @@ class Store:
         self.connection = sqlite3.connect(str(self.path))
         self.connection.row_factory = sqlite3.Row
         self.connection.executescript(_SCHEMA)
+        self._add_missing_columns()
         self.connection.commit()
+
+    def _add_missing_columns(self) -> None:
+        """Bring a database written by an older version up to date.
+
+        ``CREATE TABLE IF NOT EXISTS`` does nothing to a table that already
+        exists, so a new column has to be added explicitly — otherwise the
+        first run after an update fails on somebody's saved poll.
+        """
+        for table, column, definition in _ADDED_COLUMNS:
+            existing = {
+                row["name"]
+                for row in self.connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if existing and column not in existing:
+                self.connection.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                )
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -239,16 +265,18 @@ class Store:
         """Insert or replace the answer for one participant."""
         self.connection.execute(
             "INSERT INTO answer (participant_id, call_status, structured_json, raw_text,"
-            " received_at, run_id, error) VALUES (?,?,?,?,?,?,?)"
+            " transcript, received_at, run_id, error) VALUES (?,?,?,?,?,?,?,?)"
             " ON CONFLICT(participant_id) DO UPDATE SET"
             " call_status=excluded.call_status, structured_json=excluded.structured_json,"
-            " raw_text=excluded.raw_text, received_at=excluded.received_at,"
+            " raw_text=excluded.raw_text, transcript=excluded.transcript,"
+            " received_at=excluded.received_at,"
             " run_id=excluded.run_id, error=excluded.error",
             (
                 answer.participant_id,
                 answer.call_status.value,
                 json.dumps(answer.structured or {}, ensure_ascii=False),
                 answer.raw_text or "",
+                answer.transcript or "",
                 answer.received_at or utc_now(),
                 answer.run_id,
                 answer.error,
@@ -331,11 +359,13 @@ def _answer_from_row(row: sqlite3.Row) -> Answer:
         structured = json.loads(row["structured_json"] or "{}")
     except (TypeError, ValueError):
         structured = {}
+    keys = row.keys()
     return Answer(
         participant_id=row["participant_id"],
         call_status=CallStatus.parse(row["call_status"]),
         structured=structured if isinstance(structured, dict) else {},
         raw_text=row["raw_text"] or "",
+        transcript=(row["transcript"] or "") if "transcript" in keys else "",
         received_at=row["received_at"] or "",
         run_id=row["run_id"],
         error=row["error"],

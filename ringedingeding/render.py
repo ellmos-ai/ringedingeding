@@ -149,6 +149,40 @@ def _coverage_block(coverage: Coverage) -> list[str]:
     for result in coverage.pending:
         rows.append([result.label, result.phone_masked, "not called yet", result.status_label, ""])
     out.append(table(["Name", "Number", "Counts as", "Call status", "Detail"], rows))
+    transcribed = coverage.transcribed
+    if transcribed:
+        out.append("")
+        out.append(
+            f"Transcripts available for {len(transcribed)} call(s): "
+            + ", ".join(result.label for result in transcribed)
+            + ". They are in the Markdown report - the categories above are the "
+            "voice agent's reading of them."
+        )
+    return out
+
+
+def _transcript_block(coverage: Coverage) -> list[str]:
+    """The verbatim conversations, for checking the categories against.
+
+    The voice agent interprets: a measured call turned "2. Yes, dissatisfied."
+    into the category *dissatisfied* by itself, with a confidence score and
+    three supporting quotes. That is useful, and it is also exactly why the
+    wording has to stay readable underneath.
+    """
+    transcribed = coverage.transcribed
+    if not transcribed:
+        return []
+    out = [
+        "## What was actually said",
+        "",
+        "The results above are the voice agent's reading of these conversations. "
+        "They are printed verbatim so that reading can be checked.",
+        "",
+    ]
+    for result in transcribed:
+        out += [f"### {result.label} ({result.status_label})", "", "```"]
+        out += [mask_text(line) for line in result.transcript.splitlines()]
+        out += ["```", ""]
     return out
 
 
@@ -331,6 +365,11 @@ def render_markdown(merge: MergeResult) -> str:
             ],
         ),
         "",
+    ]
+
+    out += _transcript_block(coverage)
+
+    out += [
         "---",
         "",
         "_Phone numbers are masked. People who were not reached are listed with "

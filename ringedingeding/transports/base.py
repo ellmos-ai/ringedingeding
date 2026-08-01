@@ -74,6 +74,16 @@ class CallOutcome:
     summary: str = ""
     """Free text from the call side. Untrusted — masked before display."""
 
+    transcript: str = ""
+    """What was actually said, in ``[mm:ss] SPEAKER: Text`` form.
+
+    Carried alongside ``structured`` rather than instead of it, because the
+    voice agent interprets free answers: a measured call turned "2. Yes,
+    dissatisfied." into the category *dissatisfied* on its own. Keeping only
+    the interpretation would make that step unverifiable, so both travel
+    together. Untrusted text — masked before display.
+    """
+
     run_id: str | None = None
     error: str | None = None
 

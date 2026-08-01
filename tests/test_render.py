@@ -112,3 +112,54 @@ def test_every_poll_kind_renders_without_answers(kind):
     merged = merge_poll(poll, [make_participant("anna", RAW)], {})
     assert render_result(merged)
     assert render_markdown(merged)
+
+
+def _transcribed_scenario():
+    """One answer the agent interpreted, with the wording behind it."""
+    poll = make_poll(kind=PollKind.CHOICE, options=("Photo book", "Voucher"), slots=())
+    people = [make_participant("anna", RAW), make_participant("ben", "+15555550101")]
+    answers = {
+        "p_anna": Answer(
+            participant_id="p_anna",
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "choice": "Photo book"},
+            transcript="[00:09] BOT: Photo book or voucher?\n[00:15] USER: The book I guess.",
+        ),
+        "p_ben": Answer(participant_id="p_ben", call_status=CallStatus.NO_ANSWER),
+    }
+    return merge_poll(poll, people, answers)
+
+
+def test_the_markdown_report_quotes_what_was_actually_said():
+    rendered = render_markdown(_transcribed_scenario())
+    assert "What was actually said" in rendered
+    assert "The book I guess." in rendered
+    assert "Anna (COMPLETED)" in rendered
+
+
+def test_the_console_points_at_the_transcripts_without_printing_them():
+    """A whole conversation per person would bury the result table."""
+    rendered = render_result(_transcribed_scenario())
+    assert "Transcripts available for 1 call(s): Anna" in rendered
+    assert "The book I guess." not in rendered
+
+
+def test_a_report_without_transcripts_has_no_empty_section():
+    rendered = render_markdown(_slot_scenario())
+    assert "What was actually said" not in rendered
+
+
+def test_a_transcript_is_masked_in_the_report():
+    poll = make_poll(kind=PollKind.OPEN, slots=())
+    people = [make_participant("anna", RAW)]
+    answers = {
+        "p_anna": Answer(
+            participant_id="p_anna",
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "answer": "call me"},
+            transcript=f"[00:15] USER: Call me on {RAW} instead.",
+        )
+    }
+    rendered = render_markdown(merge_poll(poll, people, answers))
+    assert "5555550100" not in rendered
+    assert "Call me on" in rendered
