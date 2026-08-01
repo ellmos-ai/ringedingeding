@@ -1,0 +1,221 @@
+"""Domain model: polls, participants, call outcomes.
+
+The one invariant worth spelling out: a participant who was never reached is
+*not* a participant without an opinion. ``Bucket`` keeps those apart, and every
+aggregation in :mod:`ringedingeding.merge` is computed over ``ANSWERED`` only
+while reporting the rest verbatim.
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+from .phone import mask, normalize_e164
+
+__all__ = [
+    "PollKind",
+    "CallStatus",
+    "Bucket",
+    "ParticipantState",
+    "Poll",
+    "Participant",
+    "Answer",
+    "new_id",
+]
+
+
+def new_id(prefix: str) -> str:
+    """Short, collision-safe local identifier. Never leaves this machine."""
+    return f"{prefix}_{uuid.uuid4().hex[:10]}"
+
+
+class PollKind(str, Enum):
+    """What kind of question is being asked."""
+
+    SLOT = "slot"
+    """A scheduling question. Merged into an intersection of time slots."""
+
+    CHOICE = "choice"
+    """A decision between named options. Merged into a tally."""
+
+    OPEN = "open"
+    """A free-text question. Collected verbatim, never auto-summarised."""
+
+    @classmethod
+    def parse(cls, value: str) -> "PollKind":
+        try:
+            return cls(str(value).strip().lower())
+        except ValueError as error:
+            allowed = ", ".join(k.value for k in cls)
+            raise ValueError(f"unknown poll kind {value!r} (expected one of: {allowed})") from error
+
+
+class CallStatus(str, Enum):
+    """Terminal call status as reported by CALL-E, plus two local states.
+
+    The upstream set is kept intact on purpose: ``NO_ANSWER`` is not
+    ``DECLINED`` is not ``BUSY``. Collapsing them would throw away exactly the
+    information the report needs.
+    """
+
+    # --- local, never returned by the API ---
+    PENDING = "PENDING"
+    """Not attempted yet."""
+
+    SKIPPED = "SKIPPED"
+    """Deliberately not attempted (aborted run, invalid number)."""
+
+    # --- terminal statuses reported by CALL-E ---
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    NO_ANSWER = "NO_ANSWER"
+    DECLINED = "DECLINED"
+    CANCELED = "CANCELED"
+    VOICEMAIL = "VOICEMAIL"
+    BUSY = "BUSY"
+    EXPIRED = "EXPIRED"
+
+    @classmethod
+    def parse(cls, value: Any) -> "CallStatus":
+        """Map an API status onto the enum.
+
+        The Developer API documents lowercase statuses (``"completed"``) while
+        the MCP/CLI surface documents uppercase ones (``"COMPLETED"``); both are
+        accepted. ``CANCELLED`` (two L) is folded into ``CANCELED``.
+        """
+        if isinstance(value, cls):
+            return value
+        text = str(value or "").strip().upper().replace("-", "_").replace(" ", "_")
+        if text == "CANCELLED":
+            return cls.CANCELED
+        try:
+            return cls(text)
+        except ValueError:
+            return cls.FAILED
+
+    @property
+    def is_terminal(self) -> bool:
+        return self not in (CallStatus.PENDING,)
+
+
+class Bucket(str, Enum):
+    """How a participant counts towards the merged result."""
+
+    ANSWERED = "answered"
+    """Reached and gave an answer. The only bucket that enters an aggregate."""
+
+    REFUSED = "refused"
+    """Reached, chose not to answer. A valid outcome, never argued with."""
+
+    UNREACHED = "unreached"
+    """Not reached at all. Carries the concrete status (NO_ANSWER, BUSY, …)."""
+
+    PENDING = "pending"
+    """Not attempted yet, or attempt aborted."""
+
+
+class ParticipantState(str, Enum):
+    PENDING = "pending"
+    DONE = "done"
+
+
+@dataclass(frozen=True)
+class Participant:
+    """One person to call.
+
+    ``ref`` is a short local handle used in fixtures, logs and reports so that
+    neither the name nor the number has to be repeated.
+    """
+
+    id: str
+    poll_id: str
+    ref: str
+    name: str
+    phone_e164: str
+    state: ParticipantState = ParticipantState.PENDING
+    call_run_id: str | None = None
+    attempted_at: str | None = None
+
+    def __post_init__(self) -> None:
+        # Validate on construction: an invalid number must never reach a dialer.
+        object.__setattr__(self, "phone_e164", normalize_e164(self.phone_e164))
+
+    @property
+    def phone_masked(self) -> str:
+        return mask(self.phone_e164)
+
+    @property
+    def given_name(self) -> str:
+        """First token of the name — the only part sent to the voice agent."""
+        return self.name.strip().split()[0] if self.name.strip() else self.ref
+
+
+@dataclass(frozen=True)
+class Poll:
+    """A question asked to several people."""
+
+    id: str
+    question: str
+    kind: PollKind
+    organizer: str
+    language: str = "en"
+    region: str = "US"
+    locale: str = "en-US"
+    options: tuple[str, ...] = ()
+    """Answer options for ``choice`` polls."""
+
+    slots: tuple[str, ...] = ()
+    """Proposed time windows for ``slot`` polls. Empty means 'open question'."""
+
+    created_at: str = ""
+    status: str = "open"
+
+    @property
+    def has_window(self) -> bool:
+        """True when the poll proposes a fixed set of slots.
+
+        With a window the recipient schema can constrain answers to an enum,
+        which makes the intersection exact instead of best-effort.
+        """
+        return bool(self.slots)
+
+
+@dataclass(frozen=True)
+class Answer:
+    """What came back for one participant."""
+
+    participant_id: str
+    call_status: CallStatus
+    structured: dict[str, Any] = field(default_factory=dict)
+    raw_text: str = ""
+    """Transcript excerpt or call summary. Untrusted, always masked on output."""
+
+    received_at: str = ""
+    run_id: str | None = None
+    error: str | None = None
+
+    @property
+    def bucket(self) -> Bucket:
+        """Classify this answer for the merge step.
+
+        Order matters. ``refused`` and ``reachable`` come from the recipient
+        schema and override an otherwise ``COMPLETED`` call: a call can complete
+        technically while the person declined to answer.
+        """
+        if self.call_status is CallStatus.PENDING:
+            return Bucket.PENDING
+        if self.call_status is CallStatus.SKIPPED:
+            return Bucket.PENDING
+        if self.call_status is CallStatus.DECLINED:
+            return Bucket.REFUSED
+        if self.call_status is not CallStatus.COMPLETED:
+            # NO_ANSWER, BUSY, VOICEMAIL, EXPIRED, FAILED, CANCELED
+            return Bucket.UNREACHED
+        if self.structured.get("refused") is True:
+            return Bucket.REFUSED
+        if self.structured.get("reachable") is False:
+            return Bucket.UNREACHED
+        return Bucket.ANSWERED
