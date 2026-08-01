@@ -1,0 +1,43 @@
+Third-party code bundled with Ringedingeding
+============================================
+
+Ringedingeding itself is MIT licensed. Exactly one third-party file is
+committed into this repository.
+
+--------------------------------------------------------------------------
+htmx 2.0.4
+--------------------------------------------------------------------------
+File     : ringedingeding/web/static/htmx.min.js
+Size     : 50917 bytes
+SHA-256  : e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447
+Source   : https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js
+Home     : https://htmx.org
+Licence  : BSD Zero Clause License (0BSD)
+
+Why it is vendored rather than loaded from a CDN: the web interface has to work
+with no network at all, because the dry run is the default mode of this program
+and a page that needs the internet to render would contradict that. Vendoring
+also means there is no build step, no package manager and no third-party host
+involved in serving it.
+
+    Zero-Clause BSD
+
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+    SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+    OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+    CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+--------------------------------------------------------------------------
+Runtime dependencies (not bundled, installed by pip)
+--------------------------------------------------------------------------
+The command line has none.
+
+The optional [web] extra pulls in FastAPI (MIT), Starlette (BSD-3-Clause),
+uvicorn (BSD-3-Clause), Jinja2 (BSD-3-Clause) and python-multipart (Apache-2.0).
+These are installed by the package manager and are not part of this repository.

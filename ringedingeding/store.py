@@ -45,7 +45,12 @@ CREATE TABLE IF NOT EXISTS poll (
     options_json TEXT NOT NULL DEFAULT '[]',
     window_json  TEXT NOT NULL DEFAULT '[]',
     created_at   TEXT NOT NULL,
-    status       TEXT NOT NULL DEFAULT 'open'
+    status       TEXT NOT NULL DEFAULT 'open',
+    -- Set when this poll is one round of a project (see ringedingeding.projects).
+    -- Null for a poll created straight from the command line.
+    project_id   TEXT,
+    round_kind   TEXT,
+    simulated    INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS participant (
@@ -57,6 +62,8 @@ CREATE TABLE IF NOT EXISTS participant (
     state        TEXT NOT NULL DEFAULT 'pending',
     call_run_id  TEXT,
     attempted_at TEXT,
+    -- Back-reference to the address book, when the poll came from a project.
+    contact_id   TEXT,
     UNIQUE (poll_id, ref)
 );
 
@@ -79,6 +86,10 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     # earlier version. Adding a column is the only migration this project
     # performs; nothing is ever dropped or rewritten.
     ("answer", "transcript", "TEXT NOT NULL DEFAULT ''"),
+    ("poll", "project_id", "TEXT"),
+    ("poll", "round_kind", "TEXT"),
+    ("poll", "simulated", "INTEGER NOT NULL DEFAULT 0"),
+    ("participant", "contact_id", "TEXT"),
 )
 
 
@@ -148,6 +159,9 @@ class Store:
         options: Sequence[str] = (),
         slots: Sequence[str] = (),
         poll_id: str | None = None,
+        project_id: str | None = None,
+        round_kind: str | None = None,
+        simulated: bool = False,
     ) -> Poll:
         parsed_kind = kind if isinstance(kind, PollKind) else PollKind.parse(kind)
         if parsed_kind is PollKind.CHOICE and not options:
@@ -167,11 +181,14 @@ class Store:
             slots=tuple(slots),
             created_at=utc_now(),
             status="open",
+            project_id=project_id,
+            round_kind=round_kind,
+            simulated=bool(simulated),
         )
         self.connection.execute(
             "INSERT INTO poll (id, question, kind, organizer, language, region, locale,"
-            " options_json, window_json, created_at, status)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            " options_json, window_json, created_at, status, project_id, round_kind, simulated)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 poll.id,
                 poll.question,
@@ -184,6 +201,9 @@ class Store:
                 json.dumps(list(poll.slots), ensure_ascii=False),
                 poll.created_at,
                 poll.status,
+                poll.project_id,
+                poll.round_kind,
+                int(poll.simulated),
             ),
         )
         self.connection.commit()
@@ -203,6 +223,33 @@ class Store:
         self.connection.execute("UPDATE poll SET status = ? WHERE id = ?", (status, poll_id))
         self.connection.commit()
 
+    def set_poll_window(self, poll_id: str, slots: Sequence[str]) -> None:
+        """Replace the proposed slots of a poll.
+
+        The window is what the voice agent reads out *and* what the merge
+        matches answers against, so it has to be rewritten whenever the project
+        changes its candidate dates — otherwise the calendar and the answers
+        stop describing the same thing.
+        """
+        self.connection.execute(
+            "UPDATE poll SET window_json = ? WHERE id = ?",
+            (json.dumps([str(slot) for slot in slots], ensure_ascii=False), poll_id),
+        )
+        self.connection.commit()
+
+    def set_poll_question(self, poll_id: str, question: str) -> None:
+        self.connection.execute(
+            "UPDATE poll SET question = ? WHERE id = ?", (question.strip(), poll_id)
+        )
+        self.connection.commit()
+
+    def set_poll_simulated(self, poll_id: str, simulated: bool) -> None:
+        """Mark (or unmark) a poll whose answers were invented locally."""
+        self.connection.execute(
+            "UPDATE poll SET simulated = ? WHERE id = ?", (int(bool(simulated)), poll_id)
+        )
+        self.connection.commit()
+
     # -- participants -------------------------------------------------------
 
     def add_participant(
@@ -212,6 +259,7 @@ class Store:
         name: str,
         phone: str,
         ref: str | None = None,
+        contact_id: str | None = None,
     ) -> Participant:
         """Add one participant. The number is validated here, before storage."""
         existing = {row["ref"] for row in self._participant_rows(poll_id)}
@@ -228,10 +276,11 @@ class Store:
             ref=candidate,
             name=name.strip(),
             phone_e164=phone,  # validated in __post_init__
+            contact_id=contact_id,
         )
         self.connection.execute(
-            "INSERT INTO participant (id, poll_id, ref, name, phone_e164, state)"
-            " VALUES (?,?,?,?,?,?)",
+            "INSERT INTO participant (id, poll_id, ref, name, phone_e164, state, contact_id)"
+            " VALUES (?,?,?,?,?,?,?)",
             (
                 participant.id,
                 participant.poll_id,
@@ -239,6 +288,7 @@ class Store:
                 participant.name,
                 participant.phone_e164,
                 participant.state.value,
+                participant.contact_id,
             ),
         )
         self.connection.commit()
@@ -251,6 +301,16 @@ class Store:
 
     def participants(self, poll_id: str) -> list[Participant]:
         return [_participant_from_row(row) for row in self._participant_rows(poll_id)]
+
+    def delete_participant(self, participant_id: str) -> None:
+        """Remove a participant. Callers must check there is no answer first.
+
+        Deleting cascades to ``answer``, which is why the only caller
+        (:func:`ringedingeding.service.sync_participants`) refuses to remove
+        anybody who has already given one.
+        """
+        self.connection.execute("DELETE FROM participant WHERE id = ?", (participant_id,))
+        self.connection.commit()
 
     def mark_attempted(self, participant_id: str, run_id: str | None = None) -> None:
         self.connection.execute(
@@ -326,6 +386,7 @@ def _json_list(raw: Any) -> tuple[str, ...]:
 
 
 def _poll_from_row(row: sqlite3.Row) -> Poll:
+    keys = row.keys()
     return Poll(
         id=row["id"],
         question=row["question"],
@@ -338,10 +399,14 @@ def _poll_from_row(row: sqlite3.Row) -> Poll:
         slots=_json_list(row["window_json"]),
         created_at=row["created_at"],
         status=row["status"],
+        project_id=row["project_id"] if "project_id" in keys else None,
+        round_kind=row["round_kind"] if "round_kind" in keys else None,
+        simulated=bool(row["simulated"]) if "simulated" in keys else False,
     )
 
 
 def _participant_from_row(row: sqlite3.Row) -> Participant:
+    keys = row.keys()
     return Participant(
         id=row["id"],
         poll_id=row["poll_id"],
@@ -351,6 +416,7 @@ def _participant_from_row(row: sqlite3.Row) -> Participant:
         state=ParticipantState(row["state"]),
         call_run_id=row["call_run_id"],
         attempted_at=row["attempted_at"],
+        contact_id=row["contact_id"] if "contact_id" in keys else None,
     )
 
 

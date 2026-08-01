@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — Ringedingeding{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<div class="card error-card">
+  <pre class="detail">{{ detail }}</pre>
+</div>
+<p><a href="{{ back if back is defined and back else '/' }}">zurück</a></p>
+{% endblock %}

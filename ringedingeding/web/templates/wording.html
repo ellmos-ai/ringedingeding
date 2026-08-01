@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Wie soll begrüßt und verabschiedet werden?</h1>
+
+<p class="muted">
+  Was hier steht, wird <strong>wörtlich gesprochen</strong> — gemessen am echten
+  Dienst: Text in Anführungszeichen kommt Zeichen für Zeichen aus dem
+  Lautsprecher. Alles andere formuliert der Sprach-Agent selbst.
+</p>
+
+<div class="card muted-card">
+  <p class="small">
+    Der Pflichtsatz „hier ist ein automatischer Assistent im Auftrag von
+    {{ project.organizer }}" steht immer davor und lässt sich nicht ersetzen.
+    Deine Begrüßung kommt danach.
+  </p>
+</div>
+
+<form method="post" action="/projects/{{ project.id }}/wording" class="card">
+  <fieldset>
+    <legend>Begrüßung</legend>
+    {% for index in range(3) %}
+      <input type="text" name="greeting" placeholder="Schön, dass ich dich erreiche."
+             value="{{ greeting[index] if index < greeting|length else '' }}">
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Schlussformel</legend>
+    {% for index in range(3) %}
+      <input type="text" name="closing" placeholder="Danke dir, bis bald!"
+             value="{{ closing[index] if index < closing|length else '' }}">
+    {% endfor %}
+  </fieldset>
+
+  <p class="muted small">
+    Leere Felder werden ignoriert. Eigene Regeln und gespeicherte Policies je
+    Projekt folgen in Stufe 2 (PromptBoard-Muster).
+  </p>
+  <button type="submit" class="primary">Weiter zum Auftragstext</button>
+</form>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Kontakte — Ringedingeding{% endblock %}
+{% block content %}
+
+<h1>Kontaktbuch</h1>
+<p class="muted">
+  Das Werkzeug ergibt nur mit den eigenen Kontakten Sinn. Rufnummern werden hier
+  nie vollständig angezeigt — auch nicht im Bearbeiten-Feld.
+</p>
+
+<h2>Neuer Kontakt</h2>
+<form method="post" action="/contacts" enctype="multipart/form-data" class="card">
+  <input type="hidden" name="project" value="{{ back_to }}">
+  <label>Name <input type="text" name="name" required placeholder="Anna Beispiel"></label>
+  <label>
+    Telefonnummer in E.164 — mit <code>+</code> und Ländervorwahl, ohne die 0
+    <input type="tel" name="phone" placeholder="+49…">
+  </label>
+  <label>E-Mail (für Stufe 2) <input type="email" name="email" placeholder="anna@example.org"></label>
+  <label>Notiz <input type="text" name="note"></label>
+  <label>Bild <input type="file" name="photo" accept="image/*"></label>
+  <p class="muted small">
+    Ohne Telefonnummer wird der Kontakt angelegt, aber nicht angerufen — er
+    erscheint ausgegraut und im Ergebnis in der Liste „nicht kontaktierbar".
+  </p>
+  <button type="submit" class="primary">Anlegen</button>
+</form>
+
+{% if contacts %}
+<h2>{{ contacts|length }} Kontakt(e)</h2>
+{% for contact in contacts %}
+<form method="post" action="/contacts/{{ contact.id }}" enctype="multipart/form-data"
+      class="card contact-row {% if not contact.callable %}greyed{% endif %}">
+  <input type="hidden" name="project" value="{{ back_to }}">
+  <div class="contact-head">
+    {% if contact.has_photo %}
+      <img class="avatar big" src="/contacts/{{ contact.id }}/photo" alt="">
+    {% else %}
+      <span class="avatar big initials" style="background: {{ avatar_colour(contact.id) }}">{{ contact.initials }}</span>
+    {% endif %}
+    <div>
+      <input type="text" name="name" value="{{ contact.name }}" required>
+      <p class="muted small">
+        Telefon: {{ contact.phone_masked }}
+        {% if contact.email %} · E-Mail: {{ contact.channels|selectattr('kind','equalto','email')|map(attribute='masked')|first }}{% endif %}
+        {% if not contact.callable %}
+          <span class="badge warn">keine Telefonnummer</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="row">
+    <label class="grow">Neue Nummer <input type="tel" name="phone" placeholder="leer lassen = unverändert"></label>
+    <label class="grow">Neue E-Mail <input type="email" name="email" placeholder="leer lassen = unverändert"></label>
+  </div>
+  <div class="row">
+    <label class="grow">Notiz <input type="text" name="note" value="{{ contact.note }}"></label>
+    <label class="grow">Bild ersetzen <input type="file" name="photo" accept="image/*"></label>
+  </div>
+  <div class="row spread">
+    <button type="submit">Speichern</button>
+  </div>
+</form>
+<form method="post" action="/contacts/{{ contact.id }}/delete" class="inline-form"
+      onsubmit="return confirm('Kontakt wirklich löschen?')">
+  <input type="hidden" name="project" value="{{ back_to }}">
+  <button type="submit" class="link danger">löschen</button>
+</form>
+{% endfor %}
+{% endif %}
+
+{% if back_to %}
+<p><a class="next" href="/projects/{{ back_to }}/people">Zurück zum Projekt →</a></p>
+{% endif %}
+{% endblock %}

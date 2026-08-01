@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Wozu möchtest du einladen?</h1>
+
+<form method="post" action="/projects" class="card">
+  <label>
+    Um was geht's?
+    <input type="text" name="occasion" required autofocus
+           placeholder="Familienessen am Wochenende">
+  </label>
+  <label>
+    In wessen Auftrag wird angerufen?
+    <input type="text" name="organizer" required placeholder="Lukas">
+  </label>
+  <fieldset>
+    <legend>Terminart</legend>
+    <label class="inline">
+      <input type="radio" name="date_kind" value="day_slots" checked>
+      Tagestermin — einzelne Zeiträume an ausgewählten Tagen
+    </label>
+    <label class="inline">
+      <input type="radio" name="date_kind" value="whole_day">
+      Ganzer Tag — Tage ohne Uhrzeit
+    </label>
+    <p class="muted small">
+      Woche, Monat, mehrere Tage am Stück und regelmäßige Wochentermine sind
+      Teil des Konzepts und folgen in Stufe 2.
+    </p>
+  </fieldset>
+  <button type="submit" class="primary">Projekt anlegen</button>
+</form>
+
+{% if projects %}
+<h2>Deine Projekte</h2>
+<ul class="list">
+  {% for item in projects %}
+  <li>
+    <a href="/projects/{{ item.id }}"><strong>{{ item.occasion }}</strong></a>
+    <span class="badge">{{ {'draft':'Entwurf','asking':'Anrufe','decided':'terminiert','invited':'eingeladen'}.get(item.state, item.state) }}</span>
+    {% if item.fixture_name %}<span class="badge script">Beispieldaten</span>{% endif %}
+    <form method="post" action="/projects/{{ item.id }}/delete" class="inline-form"
+          onsubmit="return confirm('Projekt wirklich löschen?')">
+      <button type="submit" class="link danger">löschen</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Ohne Konto ausprobieren</h2>
+<div class="card muted-card">
+  <p>
+    Ein Beispielprojekt entsteht aus einer mitgelieferten Datei: Kontakte,
+    Terminvorschläge und die hinterlegten Antworten. Nichts davon geht ins Netz,
+    es wird nicht telefoniert und es wird kein Konto gebraucht.
+  </p>
+  <form method="post" action="/demo" class="row">
+    <select name="fixture">
+      {% for name in fixtures %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+    </select>
+    <button type="submit">Beispielprojekt anlegen</button>
+  </form>
+</div>
+
+<p class="muted small">
+  {{ contact_count }} Kontakt(e) im Buch. <a href="/contacts">Kontakte verwalten</a> —
+  ohne Telefonnummer kann jemand nicht angerufen werden.
+</p>
+{% endblock %}
