@@ -1,0 +1,76 @@
+{
+  "name": "family-dinner",
+  "description": "Scheduling question to six relatives. Four answer, two are not reached.",
+  "_numbers": "Placeholders. A German national number never starts with 0 after the country code (the trunk 0 is dropped in E.164), so +490... cannot route anywhere. The live path additionally refuses every number that appears in a bundled fixture.",
+  "poll": {
+    "question": "Wann kannst du am Wochenende zum Familienessen?",
+    "kind": "slot",
+    "organizer": "Lukas",
+    "language": "de",
+    "region": "DE",
+    "locale": "de-DE",
+    "slots": ["Sa 14-18", "Sa 18-21", "So 10-14"]
+  },
+  "participants": [
+    { "ref": "anna", "name": "Anna", "phone": "+49010000001" },
+    { "ref": "ben", "name": "Ben", "phone": "+49010000002" },
+    { "ref": "clara", "name": "Clara", "phone": "+49010000003" },
+    { "ref": "david", "name": "David", "phone": "+49010000004" },
+    { "ref": "erik", "name": "Erik", "phone": "+49010000005" },
+    { "ref": "frida", "name": "Frida", "phone": "+49010000006" }
+  ],
+  "outcomes": {
+    "anna": {
+      "call_status": "COMPLETED",
+      "summary": "Anna kann Samstag, Sonntag nicht.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sa 14-18", "Sa 18-21"],
+        "cannot": ["So 10-14"],
+        "note": "Nur wenn wir bis 20 Uhr fertig sind."
+      }
+    },
+    "ben": {
+      "call_status": "COMPLETED",
+      "summary": "Ben kann nur Samstagnachmittag.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sa 14-18"],
+        "cannot": ["Sa 18-21", "So 10-14"],
+        "note": ""
+      }
+    },
+    "clara": {
+      "call_status": "COMPLETED",
+      "summary": "Clara kann Samstagnachmittag und Sonntag.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sa 14-18", "So 10-14"],
+        "cannot": ["Sa 18-21"],
+        "note": ""
+      }
+    },
+    "david": {
+      "call_status": "COMPLETED",
+      "summary": "David kann an allen drei Terminen.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sa 14-18", "Sa 18-21", "So 10-14"],
+        "cannot": [],
+        "note": ""
+      }
+    },
+    "erik": {
+      "call_status": "NO_ANSWER",
+      "summary": "Niemand ist rangegangen."
+    },
+    "frida": {
+      "call_status": "BUSY",
+      "summary": "Besetzt."
+    }
+  }
+}
