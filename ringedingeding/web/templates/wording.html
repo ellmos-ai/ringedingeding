@@ -17,27 +17,43 @@
   </p>
 </div>
 
-<form method="post" action="/projects/{{ project.id }}/wording" class="card">
-  <fieldset>
-    <legend>Begrüßung</legend>
-    {% for index in range(3) %}
-      <input type="text" name="greeting" placeholder="Schön, dass ich dich erreiche."
-             value="{{ greeting[index] if index < greeting|length else '' }}">
-    {% endfor %}
-  </fieldset>
+{# OPTIONAL im Sinne von ABLAUF.md: aufgeklappt nur, wenn schon etwas drinsteht.
+   Ein optionaler Schritt, der aufgeklappt dasteht, wird abgearbeitet — und
+   genau das soll er nicht. #}
+<details class="optional" {% if greeting or closing %}open{% endif %}>
+  <summary>
+    Eigene Sätze hinzufügen <span class="muted small">— optional</span>
+  </summary>
 
-  <fieldset>
-    <legend>Schlussformel</legend>
-    {% for index in range(3) %}
-      <input type="text" name="closing" placeholder="Danke dir, bis bald!"
-             value="{{ closing[index] if index < closing|length else '' }}">
-    {% endfor %}
-  </fieldset>
+  <form method="post" action="/projects/{{ project.id }}/wording" class="card">
+    <fieldset>
+      <legend>Begrüßung</legend>
+      {% for index in range(3) %}
+        <input type="text" name="greeting" placeholder="Schön, dass ich dich erreiche."
+               value="{{ greeting[index] if index < greeting|length else '' }}">
+      {% endfor %}
+    </fieldset>
 
-  <p class="muted small">
-    Leere Felder werden ignoriert. Eigene Regeln und gespeicherte Policies je
-    Projekt folgen in Stufe 2 (PromptBoard-Muster).
-  </p>
-  <button type="submit" class="primary">Weiter zum Auftragstext</button>
-</form>
+    <fieldset>
+      <legend>Schlussformel</legend>
+      {% for index in range(3) %}
+        <input type="text" name="closing" placeholder="Danke dir, bis bald!"
+               value="{{ closing[index] if index < closing|length else '' }}">
+      {% endfor %}
+    </fieldset>
+
+    <p class="muted small">
+      Leere Felder werden ignoriert. Eigene Regeln und gespeicherte Policies je
+      Projekt folgen in Stufe 2 (PromptBoard-Muster).
+    </p>
+    <button type="submit">Sätze übernehmen</button>
+  </form>
+</details>
+
+<p>
+  <a class="next" href="/projects/{{ project.id }}/preview">
+    Weiter zum Auftragstext →
+  </a>
+  <span class="muted small">Ohne eigene Sätze ist der Anruf trotzdem vollständig.</span>
+</p>
 {% endblock %}

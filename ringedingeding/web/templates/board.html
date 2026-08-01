@@ -78,7 +78,10 @@
 </div>
 {% endif %}
 
-<h2>Was ist dir wichtig?</h2>
+{# OPTIONAL nach ABLAUF.md — verändert nur die Bewertung, nie die Auswahl.
+   Zugeklappt, solange nichts gesetzt ist. #}
+<details class="optional" {% if board.criteria and not board.criteria.is_empty %}open{% endif %}>
+  <summary>Was ist dir wichtig? <span class="muted small">— optional</span></summary>
 <form method="post" action="/projects/{{ project.id }}/criteria" class="card">
   <label>
     Lieblingstermin
@@ -114,6 +117,7 @@
 
   <button type="submit">Kriterien übernehmen</button>
 </form>
+</details>
 
 {% if board.best and board.criteria and not board.criteria.is_empty %}
 <p class="suggestion">

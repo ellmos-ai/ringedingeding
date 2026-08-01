@@ -280,7 +280,64 @@ ein Verstoß gegen die Trockenlauf-Pflicht.
 
 ---
 
-## 8. Was bewusst nicht gebaut wird
+## 8. Abgleich mit `ABLAUF.md`
+
+`ABLAUF.md` ist die Formalisierung desselben Konzepts als Fragebaum und die
+verbindliche Grundlage für Skill **und** Oberfläche. Dieser Abschnitt hält fest, wo jeder
+Knoten im Datenmodell landet — und wo abgewichen wird.
+
+| Knoten | Art | Wohin im Modell | Stufe |
+|---|---|---|---|
+| A1 Anlass | PFLICHT | `project.occasion` → `service.question_for()` | 1 |
+| A2 / B1 wen | PFLICHT | `project_invitee` → `contact` | 1 |
+| B1a Nummern beschaffen | ABLEITBAR | `contact_channel`; Mail/Kalender über `connector` | 1 / 3 |
+| B1b ohne Nummer | SONDERFALL | kein `contact_channel` vom Typ `phone` → `service.uncallable()`, Nachholen über `resync_contact()` | 1 |
+| B1c Gruppe merken | OPTIONAL | `contact_group` | 2 |
+| A3 Terminart | PFLICHT | `project.date_kind` | 1 (2 von 6) |
+| A4a–A4d Slots | PFLICHT | `project_slot` — **ein** Zeilenformat | 1 (a, b) |
+| B2 Frage | PFLICHT | `poll.question` | 2 |
+| B2a Antwortform | ABLEITBAR | `PollKind` `slot`/`choice`/`open` | 2 |
+| **B3 Dringlichkeit** | OPTIONAL | **`project.urgency`** — am 2026-08-02 nachgetragen | 1 |
+| A5 / B4 Sätze, Policy | OPTIONAL | `phrase` (`greeting`/`closing`/`policy`) | 1 / 2 |
+| A6 / B5 Vorlegen | GATE | `service.preview()` + `RunMode` | 1 |
+| A7 Kanal | PFLICHT | Einladungsrunde; E-Mail über `contact_channel` | 1 / 2 |
+| A8 Einladungstext | ABLEITBAR | `default_invitation_text()`, in `poll.question` überschreibbar | 1 |
+| A9 nachträglich informieren | OPTIONAL | `set_invitees()` gleicht **beide** Runden ab | 1 |
+| A10 Übersicht | — | Live-Ansicht der Einladungsrunde | 1 |
+
+### Die eine Lücke, die der Abgleich fand
+
+**B3 Dringlichkeit** hatte im Modell keinen Platz. Nachgetragen als
+`project.urgency` (Freitext, additive Spaltenmigration). Sie geht als **unzitierte**
+Anweisung in den Auftragstext — zitiert würde die private Notiz vorgelesen —, verändert
+also den Ton und sonst nichts. Die Regel „nicht überreden" steht davor und bleibt.
+
+### Zwei Stellen, an denen die Quellen sich widersprechen
+
+**1. Farben der Live-Ansicht.** `UI-SPEC.md` sagt für die laufenden Anrufe
+*„nicht erreicht → rot, durchgestrichen"*. `ABLAUF.md` §2 trennt feiner:
+`DECLINED` (weggedrückt) → **rot**, `NO_ANSWER`/`BUSY`/`VOICEMAIL` → **Fragezeichen,
+ausgegraut**. **Gebaut ist ABLAUF**, weil es dieselbe Unterscheidung durchhält, die
+`UI-SPEC` für die Ergebnisansicht ausdrücklich verlangt (*„bewusst unterschieden!"*), und
+weil ein durchgestrichener Name bei einem klingelnden Telefon Wissen behauptet, das
+niemand hat. `FAILED`/`EXPIRED`/`CANCELED` bekommen rot **mit Grund**.
+
+**2. Reihenfolge der Fragen.** `UI-SPEC` stellt die Kontakte **nach** der Terminart,
+`ABLAUF` (A2 vor A3) davor. Die Oberfläche folgt `UI-SPEC` (Termine → Personen), weil die
+Schritte dort ohnehin frei anspringbar sind; der Skill folgt `ABLAUF`. Das ist folgenlos —
+kein Schritt hängt vom anderen ab.
+
+### Was Abschnitt 6 für die Oberfläche bedeutet
+
+PFLICHT → Feld mit `required`. ABLEITBAR → vorausgefülltes, änderbares Feld (in Stufe 1
+ist das der Einladungstext). OPTIONAL → `<details class="optional">`, **zugeklappt**,
+solange nichts darin steht — ein aufgeklappter optionaler Abschnitt wird abgearbeitet, und
+dann war er nicht optional. GATE → die Auftragsseite mit Anzahl, Kosten und getippter
+Bestätigung.
+
+---
+
+## 9. Was bewusst nicht gebaut wird
 
 * **Kein Nutzerkonto, keine Anmeldung.** Die Oberfläche bindet an `127.0.0.1`. Ein
   Mehrbenutzerbetrieb würde Rechteverwaltung erfordern, die niemand verlangt hat.

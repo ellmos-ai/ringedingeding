@@ -183,12 +183,21 @@ pre.speech { max-height: 320px; overflow-y: auto; }
 .caller .detail { margin-left: auto; }
 .caller.calling { border-color: var(--accent); background: #f4f8fc; }
 .caller.calling .mark { color: var(--accent); animation: ring 1.1s ease-in-out infinite; }
+/* The end states of ABLAUF.md section 2. Red means somebody said no; grey with
+   a question mark means nobody was there and nothing is known. Striking a name
+   through belongs to the first case only — a struck-out name reads as "this
+   person is out", which about an unanswered telephone would be a lie. */
 .caller.answered .mark { color: var(--can); }
 .caller.answered { border-color: #cfe6d8; background: #f6fbf8; }
-.caller.unreached .mark { color: var(--cannot); }
-.caller.unreached { border-color: #f0d3d1; background: #fdf7f7; }
-.caller.unreached .name { text-decoration: line-through; color: var(--muted); }
-.caller.refused { border-color: #e6d9b8; background: #fdfaf2; }
+.caller.declined .mark { color: var(--cannot); }
+.caller.declined { border-color: #f0d3d1; background: #fdf7f7; }
+.caller.declined .name { text-decoration: line-through; color: var(--muted); }
+.caller.absent .mark { color: var(--muted); font-weight: 700; }
+.caller.absent { border-color: var(--line); background: var(--soft); }
+.caller.absent .name { color: var(--muted); }
+.caller.absent .avatar { filter: grayscale(1); opacity: 0.7; }
+.caller.failed .mark { color: var(--cannot); font-weight: 700; }
+.caller.failed { border-color: var(--cannot); background: #fdf7f7; }
 .caller.waiting { opacity: 0.65; }
 
 @keyframes ring { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
@@ -239,3 +248,13 @@ tr.extra { background: var(--soft); }
 
 .channels { list-style: none; padding: 0; margin: 0; }
 .channels li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+
+/* Optional steps stay folded away. An optional section that sits open gets
+   worked through, and then it was not optional. */
+details.optional { margin: 20px 0; border-top: 1px solid var(--line); }
+details.optional > summary {
+  cursor: pointer; padding: 12px 0; font-weight: 600; font-size: 1.05rem;
+  list-style-position: outside;
+}
+details.optional > summary::marker { color: var(--muted); }
+details.optional > summary:hover { color: var(--accent); }
