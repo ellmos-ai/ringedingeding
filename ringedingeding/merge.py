@@ -47,6 +47,14 @@ class ParticipantResult:
     bucket: Bucket
     status: CallStatus
     structured: dict[str, Any] = field(default_factory=dict)
+    transcript: str = ""
+    """What was actually said, when the call side provided it.
+
+    The structured fields above are the voice agent's reading of this text. The
+    two are reported side by side so the reading can be checked; nothing in the
+    merge is computed from the transcript.
+    """
+
     error: str | None = None
 
     @property
@@ -84,6 +92,16 @@ class Coverage:
     def missing(self) -> tuple[ParticipantResult, ...]:
         """Everyone who is not in the aggregate, in reporting order."""
         return self.refused + self.unreached + self.pending
+
+    @property
+    def transcribed(self) -> tuple[ParticipantResult, ...]:
+        """Everyone whose call came with a transcript.
+
+        Not restricted to the people who answered: a voicemail or a refusal has
+        a transcript too, and that is often the one worth reading.
+        """
+        everybody = self.answered + self.refused + self.unreached + self.pending
+        return tuple(result for result in everybody if result.transcript.strip())
 
     @property
     def basis(self) -> str:
@@ -125,6 +143,7 @@ def _classify(participants: Sequence[Participant], answers: dict[str, Answer]) -
             bucket=answer.bucket,
             status=answer.call_status,
             structured=dict(answer.structured or {}),
+            transcript=answer.transcript or "",
             error=answer.error,
         )
         groups[result.bucket].append(result)

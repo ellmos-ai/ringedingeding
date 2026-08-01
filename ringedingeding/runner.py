@@ -168,6 +168,9 @@ def run_poll(
                 call_status=outcome.status,
                 structured=outcome.structured,
                 raw_text=outcome.summary,
+                # Stored, not just displayed: the agent's own categorisation of
+                # a free answer is only checkable against the wording it heard.
+                transcript=outcome.transcript,
                 received_at=utc_now(),
                 run_id=outcome.run_id,
                 error=outcome.error,

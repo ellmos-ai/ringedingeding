@@ -23,6 +23,7 @@
     "anna": {
       "call_status": "COMPLETED",
       "summary": "Anna ist fuer das Fotobuch, mit Preisgrenze.",
+      "transcript": "[00:00] BOT: Guten Tag, hier ist ein automatischer Assistent im Auftrag von Lukas. Ich habe eine kurze Frage.\n[00:06] USER: Ja, passt gerade.\n[00:09] BOT: Sollen wir Oma zum Geburtstag ein Fotobuch schenken oder einen Gutschein?\n[00:15] USER: Also Fotobuch schon eher, aber nur wenn es unter 50 Euro bleibt.\n[00:22] BOT: Verstanden, vielen Dank. Einen schoenen Tag noch.",
       "structured_result": {
         "reachable": true,
         "refused": false,
@@ -76,7 +77,8 @@
     },
     "frida": {
       "call_status": "NO_ANSWER",
-      "summary": "Mailbox, keine Nachricht hinterlassen."
+      "summary": "Mailbox, keine Nachricht hinterlassen.",
+      "transcript": "[00:00] USER: Hier ist der Anrufbeantworter. Bitte hinterlassen Sie eine Nachricht nach dem Signalton.\n[00:07] BOT: Kein Anliegen fuer die Mailbox. Auflegen."
     }
   }
 }
