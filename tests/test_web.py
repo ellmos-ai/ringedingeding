@@ -81,7 +81,7 @@ def test_the_whole_flow_works_offline_from_a_fixture(client):
     assert board.status_code == 200
     assert "4 von 6" in board.text
     assert "NO_ANSWER" not in board.text  # statuses are shown in German words
-    assert "nicht abgenommen" in board.text
+    assert "niemand da" in board.text
     assert "besetzt" in board.text
 
     ids = slot_ids(board.text)
@@ -172,7 +172,7 @@ def test_the_live_panel_is_complete_without_the_stream(client):
     panel = client.get(f"/projects/{project_id}/live/panel")
     assert panel.status_code == 200
     assert "hat geantwortet" in panel.text
-    assert "nicht abgenommen" in panel.text
+    assert "niemand da" in panel.text
 
 
 def test_the_stream_sends_a_panel_and_then_closes(client):
@@ -347,3 +347,139 @@ def test_htmx_is_served_from_this_machine(client):
     for page in ("/", "/contacts"):
         assert "https://unpkg" not in client.get(page).text
         assert "cdn." not in client.get(page).text
+
+
+# -- the node kinds and end states of ABLAUF.md -----------------------------
+
+
+def test_the_six_end_states_are_kept_apart(client, db):
+    """ABLAUF.md section 2: red means somebody said no, grey means nobody was there.
+
+    Collapsing the two is the mistake this test exists to catch. A struck-out
+    name against an unanswered telephone would claim knowledge nobody has.
+    """
+    from ringedingeding.models import Answer, CallStatus
+    from ringedingeding.web.ui import live_rows
+
+    project_id = make_demo(client)
+    store = Store(db)
+    try:
+        projects = ProjectStore(store)
+        poll_id = projects.round_ids(project_id, "availability")[0]
+        people = store.participants(poll_id)
+        statuses = [
+            CallStatus.COMPLETED,
+            CallStatus.DECLINED,
+            CallStatus.NO_ANSWER,
+            CallStatus.BUSY,
+            CallStatus.VOICEMAIL,
+            CallStatus.FAILED,
+        ]
+        for participant, status in zip(people, statuses):
+            store.record_answer(
+                Answer(
+                    participant_id=participant.id,
+                    call_status=status,
+                    structured={"reachable": True, "refused": False}
+                    if status is CallStatus.COMPLETED
+                    else {},
+                    error="something went wrong" if status is CallStatus.FAILED else None,
+                )
+            )
+        rows = live_rows(
+            store.participants(poll_id), store.answers(poll_id), {}, None
+        )
+    finally:
+        store.close()
+
+    states = {row.ref: row.state for row in rows}
+    by_status = dict(zip([p.ref for p in people], statuses))
+    for ref, status in by_status.items():
+        expected = {
+            CallStatus.COMPLETED: "answered",
+            CallStatus.DECLINED: "declined",
+            CallStatus.NO_ANSWER: "absent",
+            CallStatus.BUSY: "absent",
+            CallStatus.VOICEMAIL: "absent",
+            CallStatus.FAILED: "failed",
+        }[status]
+        assert states[ref] == expected, f"{status.value} should render as {expected}"
+
+    # "Nobody was there" is uncertain, never a verdict.
+    assert all(row.uncertain for row in rows if row.state == "absent")
+    assert not any(row.uncertain for row in rows if row.state == "declined")
+    # A failure has to say why.
+    failure = next(row for row in rows if row.state == "failed")
+    assert "something went wrong" in failure.detail
+
+
+def test_the_panel_marks_absence_with_a_question_mark_not_a_cross(client):
+    project_id = make_demo(client)
+    client.post(f"/projects/{project_id}/run", data={"mode": "script"})
+    wait_for_round(client, project_id)
+
+    panel = client.get(f"/projects/{project_id}/live/panel").text
+    assert "caller absent" in panel
+    assert "caller answered" in panel
+    # The fixture has NO_ANSWER and BUSY, so nothing may be struck through.
+    assert "caller declined" not in panel
+
+
+def test_optional_steps_stay_folded_away(client):
+    """ABLAUF.md section 6: an OPTIONAL node is a collapsed section.
+
+    An optional step that sits open gets worked through, and then it was not
+    optional.
+    """
+    project_id = make_demo(client)
+
+    wording = client.get(f"/projects/{project_id}/wording").text
+    assert "<details class=\"optional\"" in wording
+    assert "<details class=\"optional\" open" not in wording
+
+    board = client.get(f"/projects/{project_id}/board").text
+    assert "Was ist dir wichtig?" in board
+    assert "<details class=\"optional\"" in board
+
+
+def test_a_set_optional_step_is_shown_open(client):
+    """Folded away when empty, open once it carries something."""
+    project_id = make_demo(client)
+    client.post(
+        f"/projects/{project_id}/wording", data={"greeting": ["Schön, dich zu hören."]}
+    )
+    wording = client.get(f"/projects/{project_id}/wording").text
+    assert "<details class=\"optional\" open" in wording
+
+
+def test_urgency_changes_the_tone_and_nothing_else(client, db):
+    """ABLAUF.md B3 — and it must not become a licence to press somebody."""
+    created = client.post(
+        "/projects",
+        data={
+            "occasion": "Spieleabend",
+            "organizer": "Lukas",
+            "date_kind": "day_slots",
+            "urgency": "wirklich dringend",
+        },
+        follow_redirects=False,
+    )
+    project_id = created.headers["location"].split("/")[2]
+    client.post(
+        f"/projects/{project_id}/dates",
+        data={"date_kind": "day_slots", "day": ["2026-08-08"],
+              "start": ["18:00"], "end": ["21:00"]},
+    )
+    store = Store(db)
+    try:
+        projects = ProjectStore(store)
+        contact = projects.create_contact(name="Anna", phone="+15555550100")
+    finally:
+        store.close()
+    client.post(f"/projects/{project_id}/people", data={"contact": [contact.id]})
+
+    task = client.get(f"/projects/{project_id}/preview").text
+    assert "Es eilt (wirklich dringend)" in task
+    assert "dränge trotzdem niemanden" in task
+    # Not quoted: the organizer's private note is never read out loud.
+    assert '"wirklich dringend"' not in task

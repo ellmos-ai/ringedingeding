@@ -16,8 +16,16 @@
 <ul class="callers">
   {% for row in rows %}
   <li class="caller {{ row.state }}">
+    {# The symbols carry the distinction of ABLAUF.md section 2: "?" means
+       nothing is known, "✕" means somebody said no. They are not
+       interchangeable. #}
     <span class="mark" aria-hidden="true">
-      {%- if row.state == 'calling' %}☎{% elif row.state == 'answered' %}✓{% elif row.state == 'unreached' %}✕{% elif row.state == 'refused' %}–{% else %}·{% endif -%}
+      {%- if row.state == 'calling' %}☎
+      {%- elif row.state == 'answered' %}✓
+      {%- elif row.state == 'declined' %}✕
+      {%- elif row.state == 'absent' %}?
+      {%- elif row.state == 'failed' %}!
+      {%- else %}·{% endif -%}
     </span>
     {% if row.has_photo %}
       <img class="avatar" src="/contacts/{{ row.contact_id }}/photo" alt="">

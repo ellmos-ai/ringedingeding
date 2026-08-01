@@ -194,6 +194,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         occasion: str = Form(...),
         organizer: str = Form(...),
         date_kind: str = Form(DateKind.DAY_SLOTS),
+        urgency: str = Form(""),
     ) -> Response:
         context = ctx()
         try:
@@ -202,6 +203,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 occasion=occasion,
                 organizer=organizer,
                 date_kind=date_kind,
+                urgency=urgency,
             )
             return back(project.id, "dates")
         finally:

@@ -183,6 +183,7 @@ def cmd_project_new(args: argparse.Namespace, store: Store) -> int:
         occasion=args.occasion,
         organizer=args.organizer,
         date_kind=args.date_kind,
+        urgency=args.urgency or "",
         language=args.language,
         region=args.region,
         locale=args.locale,
@@ -502,6 +503,11 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     new.add_argument("--organizer", required=True, help="whose name the call is made in")
     new.add_argument(
         "--date-kind", default=DateKind.DAY_SLOTS, choices=list(DateKind.IMPLEMENTED)
+    )
+    new.add_argument(
+        "--urgency",
+        help="how pressing it is, in the organizer's words ('wirklich dringend'). "
+             "Changes the tone of the call, never the flow.",
     )
     new.add_argument("--language", default="de")
     new.add_argument("--region", default="DE")

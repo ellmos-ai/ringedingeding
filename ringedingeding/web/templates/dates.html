@@ -48,11 +48,17 @@
 </form>
 
 {% if slots %}
-<h2>Abweichungen je Tag</h2>
+<h2>{{ slots|length }} Vorschläge</h2>
+<ul class="list">
+  {% for slot in slots %}<li>{{ slot.label }}</li>{% endfor %}
+</ul>
+
+{# OPTIONAL: bleibt zugeklappt. Die Standardzeiten oben reichen den meisten. #}
+<details class="optional">
+  <summary>Abweichungen je Tag <span class="muted small">— optional</span></summary>
 <p class="muted">
-  Das sind die {{ slots|length }} Vorschläge, die angerufen werden. Hier lässt
-  sich jeder einzeln verschieben oder löschen — ein leeres Feld entfernt den
-  Zeitraum.
+  Hier lässt sich jeder Zeitraum einzeln verschieben oder löschen — ein leeres
+  Feld entfernt ihn, die leere Zeile unten fügt einen hinzu.
 </p>
 
 <form method="post" action="/projects/{{ project.id }}/dates/adjust" class="card">
@@ -89,6 +95,7 @@
   </table>
   <button type="submit">Änderungen übernehmen</button>
 </form>
+</details>
 {% endif %}
 
 <p><a class="next" href="/projects/{{ project.id }}/people">Weiter zu den Personen →</a></p>
