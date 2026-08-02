@@ -248,15 +248,16 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
     @app.post("/settings")
     def settings_save(api_key: str = Form(...)) -> Response:
         if not huckepack_key.host_may_store_a_key():
-            # In huckepack-only-host the key belongs in the visitor's browser.
-            # Writing it here would hand the next visitor's calls to this one's
-            # account — the exact confusion the mode exists to prevent.
+            # This route writes host configuration over an unauthenticated
+            # request. Hosted, that is a stranger replacing the credential that
+            # pays for everyone's calls — the finding from the 2026-08-02 audit.
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "This installation runs in huckepack-only-host: your key stays "
-                    "in your browser and is never stored on the server. Enter it in "
-                    "the bar at the top of the page."
+                    "This installation runs in a huckepack mode: no key is stored on "
+                    "the server. In huckepack-only-host, enter yours in the bar at the "
+                    "top of the page — it stays in your browser. In huckepack-gift the "
+                    "calls are paid for by the operator and no key is needed."
                 ),
             )
         try:

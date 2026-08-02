@@ -97,9 +97,13 @@ def credential_override(mode: Optional[ServerMode] = None) -> Optional[str]:
 
 
 def host_may_store_a_key(mode: Optional[ServerMode] = None) -> bool:
-    """False where the settings page must refuse to write a key to the host.
+    """False wherever the settings page must refuse to write a key to the host.
 
-    In only-host, saving a key on the server would defeat the mode: the next
-    visitor would place calls on the previous visitor's account.
+    The settings page writes *host configuration* over an unauthenticated
+    route. On a local installation that is the owner talking to their own
+    machine. In every huckepack mode it would be a visitor overwriting the
+    credential of whoever hosts — in `gift` they would replace the key that
+    pays for everyone's calls, in `only-host` they would leave their own key
+    behind for the next visitor to spend. Both are refused.
     """
-    return not (mode or current_mode()).key_from_browser
+    return not (mode or current_mode()).stores_in_browser
