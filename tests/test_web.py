@@ -261,11 +261,21 @@ def test_no_page_ever_renders_a_full_phone_number(client, path):
 
 
 def test_the_interface_never_asks_for_credentials(client):
+    """The working pages take no key, and point at the one page that does.
+
+    The preview page used to name ``CALLE_API_KEY`` itself; it now links to the
+    settings page, which is the better place for it. The settings page has a
+    key field on purpose — that is what it is for — and refuses to write one in
+    ``huckepack-only-host`` mode; see ``test_huckepack.py``.
+    """
     project_id = make_demo(client)
-    html = client.get(f"/projects/{project_id}/preview").text
-    assert "CALLE_API_KEY" in html  # it says where the key belongs
-    assert 'name="api_key"' not in html
-    assert 'type="password"' not in html
+    preview = client.get(f"/projects/{project_id}/preview").text
+    assert "/settings" in preview  # it says where the key belongs
+    assert 'name="api_key"' not in preview
+    assert 'type="password"' not in preview
+
+    settings = client.get("/settings").text
+    assert "CALLE_API_KEY" in settings  # and there the env variable is named
 
 
 def test_live_without_the_phrase_dials_nothing(client):
