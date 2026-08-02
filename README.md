@@ -115,6 +115,34 @@ cd ringedingeding
 pip install -e .
 ```
 
+## CALL-E API access
+
+Dry runs (`proof`, fixtures, `--mode script`, and `--mode rehearsal`) work
+without an API key. A live run resolves `CALLE_API_KEY` in this exact order;
+the first non-empty value wins:
+
+1. the process environment variable `CALLE_API_KEY`;
+2. `CALLE_API_KEY` in `.env` in the project directory (override the path with
+   `CALLE_ENV_FILE`);
+3. `CALLE_API_KEY` in the ignored project file `config.local.json` (override
+   the path with `CALLE_CONFIG_FILE`).
+
+The `.env` entry is:
+
+```dotenv
+CALLE_API_KEY=...
+```
+
+The local JSON config uses `{"CALLE_API_KEY": "..."}`. The web interface at
+`/settings` can save that config value and displays only a masked fingerprint
+with the final four characters. It never returns the full value in HTML, logs,
+or errors. The operator-managed credential directory is
+`C:\_Local_DEV\CREDENTIALS\call-e\` (`call-e.md`, `call-e.env`); point
+`CALLE_ENV_FILE` at the env file if you want to use it in place.
+
+Real calls cost money. They still require the explicit live mode and its typed
+confirmation; configuring a key alone never starts a call.
+
 Or run it straight from the source tree without installing:
 
 ```bash
@@ -265,8 +293,9 @@ comes out of SQLite.
 Click "Beispielprojekt anlegen" on the front page to get a complete project —
 contacts, candidate dates and scripted answers — with no account and no network.
 
-The interface **never accepts credentials**. It reads `CALLE_API_KEY` from the
-environment and says whether one is there; there is no field to type one into.
+The local `/settings` page accepts a key for the ignored project config and
+shows only its masked final four characters. Environment and `.env` values keep
+their documented higher priority.
 
 The interface is complete in German and English. The language switch uses the
 ported Editor-PythonBox `TranslationSystem`, its UTF-8 JSON catalog in
@@ -412,8 +441,9 @@ These are not settings. They are how the program is built.
 * **No hidden schedule.** No daemon, no retry loop, no background timer. One
   invocation makes at most one attempt per person and exits. If you want it
   repeated, your Task Scheduler or cron does it, where you can see it.
-* **Credentials come from the environment only** (`CALLE_API_KEY`), never from
-  a file, a flag, a commit, or a form field in the web interface.
+* **Credentials use the documented three-source resolver.** They never belong
+  in commits, command-line arguments, logs, or error messages; the settings
+  page writes only the ignored local config.
 * **Invented answers admit it.** A rehearsal flags its round in the database,
   and every screen and report that shows it says the answers were made up.
 * **One round at a time per project.** The web interface refuses to start a

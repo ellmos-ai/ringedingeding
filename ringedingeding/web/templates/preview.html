@@ -70,7 +70,8 @@
   </p>
   {% if not api_key %}
     <p class="warn-line">
-      {{ t('Kein API-Schlüssel in der Umgebung. Setze') }} <code>CALLE_API_KEY</code>, {{ t('bevor du den Server startest —') }} <strong>{{ t('in dieser Oberfläche werden keine Zugangsdaten entgegengenommen.') }}</strong>
+      {{ t('Kein API-Schlüssel eingerichtet.') }}
+      <a href="/settings">{{ t('Jetzt in den Einstellungen hinterlegen') }} →</a>
     </p>
   {% endif %}
   <form method="post" action="/projects/{{ project.id }}/run" class="row">

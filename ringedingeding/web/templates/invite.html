@@ -74,7 +74,8 @@
   </p>
   {% if not api_key %}
   <p class="warn-line">
-    {{ t('Kein') }} <code>CALLE_API_KEY</code> {{ t('in der Umgebung — hier werden keine Zugangsdaten entgegengenommen.') }}
+    {{ t('Kein API-Schlüssel eingerichtet.') }}
+    <a href="/settings">{{ t('Jetzt in den Einstellungen hinterlegen') }} →</a>
   </p>
   {% endif %}
   <form method="post" action="/projects/{{ project.id }}/run" class="row">

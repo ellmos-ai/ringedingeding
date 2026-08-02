@@ -19,8 +19,8 @@ Safety, restated for this surface
 * The order text is shown in full **before** anything is sent.
 * Live calling needs the confirmation phrase typed into the page, exactly as
   the command line needs it typed into the terminal.
-* **No credentials are accepted or displayed.** The API key is read from the
-  environment; the page only says whether one is there.
+* The settings page accepts a key for the ignored local config and displays
+  only a masked fingerprint. It never sends the value back to the browser.
 * The server binds to ``127.0.0.1``. There is no login because there is no
   network exposure to protect.
 """
@@ -40,6 +40,13 @@ from fastapi.templating import Jinja2Templates
 
 from .. import __version__
 from ..calendar_export import calendar_entries, render_ics, render_xlsx
+from ..calle_credentials import (
+    CalleCredentialError,
+    DEFAULT_CONFIG_FILE,
+    DEFAULT_ENV_FILE,
+    load_calle_settings,
+    save_project_api_key,
+)
 from ..fixtures import bundled_fixtures
 from ..phone import InvalidPhoneNumber
 from ..projects import (
@@ -76,7 +83,7 @@ from ..service import (
     wording,
 )
 from ..store import DEFAULT_DB_PATH, Store
-from ..translator import TranslationSystem
+from ..calle_translator import TranslationSystem
 from .jobs import Job, JobBusy, JobRegistry
 from .ui import (
     avatar_colour,
@@ -211,6 +218,35 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         response = RedirectResponse(target, status_code=303)
         response.set_cookie("rd_lang", language, max_age=31_536_000, samesite="lax")
         return response
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_page(request: Request, saved: bool = False) -> Response:
+        error = ""
+        try:
+            settings = load_calle_settings(required=False)
+        except CalleCredentialError as caught:
+            settings = None
+            error = str(caught)
+        return page(
+            request,
+            "settings.html",
+            settings=settings,
+            masked_key=settings.masked_key if settings else "",
+            source=settings.source if settings else "",
+            env_file=settings.env_file if settings else DEFAULT_ENV_FILE,
+            config_file=settings.config_file if settings else DEFAULT_CONFIG_FILE,
+            saved=saved,
+            error=error,
+        )
+
+    @app.post("/settings")
+    def settings_save(api_key: str = Form(...)) -> Response:
+        try:
+            save_project_api_key(api_key)
+        except (CalleCredentialError, OSError, ValueError) as error:
+            # Credential helpers never include the submitted key in errors.
+            raise HTTPException(status_code=422, detail=str(error)) from None
+        return RedirectResponse("/settings?saved=true", status_code=303)
 
     @app.post("/projects")
     def create(
