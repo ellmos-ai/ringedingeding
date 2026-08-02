@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="eyebrow">{{ t('Wiederverwendbare Zielgruppen') }}</p>
+<h1>{{ t('Deine Gruppen') }}</h1>
+<p class="lead">{{ t('Friends, Family, Tennisclub oder Lauftreff sind Beispiele. Name und Zusammensetzung bestimmst du selbst.') }}</p>
+
+<form method="post" action="/groups" class="card group-accent">
+  <h2>{{ t('Neue Gruppe') }}</h2>
+  <label>{{ t('Name') }}<input name="name" required placeholder="{{ t('Donnerstagsrunde') }}"></label>
+  <label>{{ t('Notiz') }} <span class="muted small">— {{ t('optional') }}</span><input name="note"></label>
+  <fieldset><legend>{{ t('Mitglieder') }}</legend>
+    <div class="check-grid">{% for contact in contacts %}<label class="inline"><input type="checkbox" name="contact" value="{{ contact.id }}">{{ contact.name }}</label>{% endfor %}</div>
+  </fieldset>
+  <button class="primary">{{ t('Gruppe anlegen') }}</button>
+</form>
+
+{% for group in groups %}
+<form method="post" action="/groups/{{ group.id }}" class="card">
+  <div class="section-title"><h2>{{ group.name }}</h2><span class="badge">{{ group.members|length }} {{ t('Mitglieder') }}</span></div>
+  {% if group.note %}<p class="muted">{{ group.note }}</p>{% endif %}
+  <div class="check-grid">{% for contact in contacts %}<label class="inline"><input type="checkbox" name="contact" value="{{ contact.id }}" {% if contact in group.members %}checked{% endif %}>{{ contact.name }}</label>{% endfor %}</div>
+  <div class="row"><button>{{ t('Zusammensetzung speichern') }}</button><button formmethod="post" formaction="/groups/{{ group.id }}/delete" class="link danger">{{ t('Gruppe löschen') }}</button></div>
+</form>
+{% else %}
+<div class="empty-state">{{ t('Noch keine Gruppe angelegt.') }}</div>
+{% endfor %}
+{% endblock %}

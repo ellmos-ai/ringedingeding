@@ -134,6 +134,21 @@ def recipient_result_schema(poll: Poll) -> dict[str, Any]:
                     "words, for example 'yes, but only under 50 euros'."
                 ),
             },
+            "reason": {
+                "type": "string",
+                "description": (
+                    "Why the person prefers this option, in their own words. "
+                    "Empty if they gave no reason."
+                ),
+            },
+            "concerns": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "Reservations or counterarguments the person raised, each "
+                    "kept in their own words."
+                ),
+            },
         }
         required = ["reachable", "refused"]
 
@@ -146,6 +161,25 @@ def recipient_result_schema(poll: Poll) -> dict[str, Any]:
                     "The person's answer in their own words, condensed to at "
                     "most two sentences. Do not interpret, do not judge."
                 ),
+            },
+            "stance": {
+                "type": "string",
+                "enum": ["support", "against", "mixed", "neutral", "unclear"],
+                "description": (
+                    "The direction of the answer for a local tendency count. "
+                    "Use mixed when support and opposition are both material, "
+                    "neutral for no preference, and unclear when no direction can be justified."
+                ),
+            },
+            "reasons": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Reasons supporting the person's position, in their own words.",
+            },
+            "concerns": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Reservations and counterarguments, in their own words.",
             },
             "note": {"type": "string", "description": "Anything else worth passing on."},
         }
@@ -202,11 +236,14 @@ def _question_block_en(poll: Poll) -> str:
             f"Read out these options: {options}.\n"
             "If they pick one, record it. If they name something else, record "
             "that separately in their own words. If they have no preference, "
-            "record that as an abstention — do not push for a pick."
+            "record that as an abstention — do not push for a pick. Ask briefly "
+            "why, and record any reservation or counterargument separately."
         )
     return (
         f'Ask: "{poll.question}"\n'
-        "Let them answer freely. Record what they said, do not interpret it."
+        "Let them answer freely. Record what they said, their reasons and concerns. "
+        "Classify only the direction of the answer as support, against, mixed, "
+        "neutral or unclear so the local report can show a tendency and countervoices."
     )
 
 
@@ -233,12 +270,15 @@ def _question_block_de(poll: Poll) -> str:
             f"Lies diese Möglichkeiten vor: {options}.\n"
             "Wenn eine davon gewählt wird, halte sie fest. Wird etwas anderes "
             "genannt, halte das getrennt in eigenen Worten fest. Gibt es keine "
-            "Präferenz, ist das eine Enthaltung — dränge nicht auf eine Wahl."
+            "Präferenz, ist das eine Enthaltung — dränge nicht auf eine Wahl. "
+            "Frage kurz nach dem Grund und halte Bedenken oder Gegenargumente getrennt fest."
         )
     return (
         f'Stelle die Frage: "{poll.question}"\n'
-        "Lass die Person frei antworten. Halte fest, was gesagt wurde, ohne es "
-        "zu deuten."
+        "Lass die Person frei antworten. Halte Antwort, Gründe und Bedenken in "
+        "ihren eigenen Worten fest. Ordne nur die Richtung als Zustimmung, "
+        "Ablehnung, gemischt, neutral oder unklar ein, damit der lokale Bericht "
+        "Tendenz und Gegenstimmen zeigen kann."
     )
 
 

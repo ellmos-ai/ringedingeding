@@ -3,11 +3,11 @@
    updated. #}
 {% if poll.simulated %}
 <div class="banner rehearsal">
-  Erfundene Antworten — es wurde nicht telefoniert.
+  {{ t('Erfundene Antworten — es wurde nicht telefoniert.') }}
 </div>
 {% endif %}
 {% if job and job.live %}
-<div class="banner live">Echte Anrufe laufen.</div>
+<div class="banner live">{{ t('Echte Anrufe laufen.') }}</div>
 {% endif %}
 {% if job and job.error %}
 <div class="banner error">{{ job.error }}</div>
@@ -39,18 +39,16 @@
 </ul>
 
 {% if speech %}
-<h2>Mitgehört</h2>
+<h2>{{ t('Mitgehört') }}</h2>
 <p class="muted small">
-  Der Fortschritt kommt aus <code>activity</code>, nicht aus <code>status</code> —
-  der Status steht während des ganzen Gesprächs auf <code>PREPARING</code>.
-  Rufnummern sind auch hier maskiert.
+  {{ t('Der Fortschritt kommt aus') }} <code>activity</code>, {{ t('nicht aus') }} <code>status</code> — {{ t('der Status steht während des ganzen Gesprächs auf') }} <code>PREPARING</code>. {{ t('Rufnummern sind auch hier maskiert.') }}
 </p>
 <pre class="speech">{% for line in speech %}{{ line }}
 {% endfor %}</pre>
 {% endif %}
 
 {% if job and not job.running %}
-<p class="muted">Runde beendet.</p>
+<p class="muted">{{ t('Runde beendet.') }}</p>
 {% elif not job %}
-<p class="muted">Zurzeit läuft keine Runde. Angezeigt ist der gespeicherte Stand.</p>
+<p class="muted">{{ t('Zurzeit läuft keine Runde. Angezeigt ist der gespeicherte Stand.') }}</p>
 {% endif %}

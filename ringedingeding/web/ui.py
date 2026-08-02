@@ -24,6 +24,7 @@ from typing import Iterable, Sequence
 from ..models import CallStatus
 from ..projects import WEEKDAYS
 from ..service import Board, Person, SlotView
+from ..translator import TranslationSystem
 
 __all__ = [
     "avatar_colour",
@@ -159,15 +160,16 @@ _FAILED_STATUSES = (
 )
 
 
-def status_word(status: CallStatus | str) -> str:
-    """The German word for a call status, keeping every status distinct.
+def status_word(status: CallStatus | str, language: str = "de") -> str:
+    """The localized word for a call status, keeping every status distinct.
 
     ``NO_ANSWER``, ``BUSY`` and ``VOICEMAIL`` deliberately get three different
     words. Collapsing them into "nicht erreicht" would throw away the one thing
     that tells somebody whether calling again is worth it.
     """
     known = CallStatus.known(status)
-    return _STATUS_WORDS.get(known, str(status)) if known else str(status)
+    german = _STATUS_WORDS.get(known, str(status)) if known else str(status)
+    return TranslationSystem(language=language).t(german)
 
 
 @dataclass(frozen=True)
@@ -201,7 +203,11 @@ class LiveRow:
 
 
 def live_rows(
-    participants: Sequence, answers: dict, contacts: dict, current_ref: str | None
+    participants: Sequence,
+    answers: dict,
+    contacts: dict,
+    current_ref: str | None,
+    language: str = "de",
 ) -> list[LiveRow]:
     """Build the live list from stored state plus who is on the phone now.
 
@@ -214,28 +220,29 @@ def live_rows(
     told you something, somebody whose telephone rang out did not.
     """
     rows: list[LiveRow] = []
+    translator = TranslationSystem(language=language)
     for participant in participants:
         answer = answers.get(participant.id)
         contact = contacts.get(participant.contact_id) if participant.contact_id else None
         if answer is None:
             state = "calling" if participant.ref == current_ref else "waiting"
-            detail = "wird angerufen" if state == "calling" else "wartet"
+            detail = translator.t("wird angerufen") if state == "calling" else translator.t("wartet")
         else:
             status = answer.call_status
             if status is CallStatus.COMPLETED and answer.structured.get("refused") is True:
-                state, detail = "declined", "wollte nicht antworten"
+                state, detail = "declined", translator.t("wollte nicht antworten")
             elif status is CallStatus.COMPLETED:
-                state, detail = "answered", status_word(status)
+                state, detail = "answered", status_word(status, language)
             elif status in _DECLINED_STATUSES:
-                state, detail = "declined", status_word(status)
+                state, detail = "declined", status_word(status, language)
             elif status in _ABSENT_STATUSES:
-                state, detail = "absent", status_word(status)
+                state, detail = "absent", status_word(status, language)
             elif status in (CallStatus.PENDING, CallStatus.PREPARING):
-                state, detail = "calling", status_word(status)
+                state, detail = "calling", status_word(status, language)
             else:
                 # FAILED, EXPIRED, CANCELED, SKIPPED — red, and it has to say why.
                 state = "failed"
-                detail = status_word(status)
+                detail = status_word(status, language)
                 if answer.error:
                     detail = f"{detail}: {answer.error}"
         rows.append(

@@ -39,13 +39,23 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .. import __version__
+from ..calendar_export import calendar_entries, render_ics, render_xlsx
 from ..fixtures import bundled_fixtures
 from ..phone import InvalidPhoneNumber
-from ..projects import ChannelKind, DateKind, ProjectState, ProjectStore, RoundKind
+from ..projects import (
+    ChannelKind,
+    DateKind,
+    ProjectMode,
+    ProjectState,
+    ProjectStore,
+    RoundKind,
+)
 from ..safety import LIVE_CONFIRMATION_PHRASE, LiveCallBlocked, SensitiveContent
 from ..service import (
     COST_PER_CALL_USD,
     RunMode,
+    advisor_board,
+    advisor_question,
     availability_round,
     board,
     day_slot_specs,
@@ -56,7 +66,9 @@ from ..service import (
     invitation_round,
     preview,
     resync_contact,
+    roundtable_round,
     seed_from_fixture,
+    set_advisor_question,
     set_criteria,
     set_dates,
     set_invitees,
@@ -64,6 +76,7 @@ from ..service import (
     wording,
 )
 from ..store import DEFAULT_DB_PATH, Store
+from ..translator import TranslationSystem
 from .jobs import Job, JobBusy, JobRegistry
 from .ui import (
     avatar_colour,
@@ -128,6 +141,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         live_phrase=LIVE_CONFIRMATION_PHRASE,
         data_note=DATA_NOTE,
         version=__version__,
+        t=lambda text, **values: text.format(**values) if values else text,
     )
     app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
@@ -136,8 +150,18 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
     def ctx() -> Ctx:
         return Ctx(db)
 
-    def page(request: Request, name: str, **values: Any) -> HTMLResponse:
-        return templates.TemplateResponse(request, name, values)
+    def page(
+        request: Request, name: str, *, status_code: int = 200, **values: Any
+    ) -> HTMLResponse:
+        language = _ui_language(request)
+        translator = TranslationSystem(language=language)
+        values.update(
+            t=translator.t,
+            status_word=lambda status: status_word(status, language),
+            ui_language=language,
+            html_language=language,
+        )
+        return templates.TemplateResponse(request, name, values, status_code=status_code)
 
     def back(project_id: str, step: str = "") -> RedirectResponse:
         target = f"/projects/{project_id}" + (f"/{step}" if step else "")
@@ -145,30 +169,19 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
 
     @app.exception_handler(SensitiveContent)
     async def _sensitive(request: Request, error: SensitiveContent) -> Response:
-        return templates.TemplateResponse(
-            request, "error.html", {"title": "Abgelehnt", "detail": str(error)}, status_code=422
-        )
+        return page(request, "error.html", title=_t(request, "Abgelehnt"), detail=str(error), status_code=422)
 
     @app.exception_handler(LiveCallBlocked)
     async def _blocked(request: Request, error: LiveCallBlocked) -> Response:
-        return templates.TemplateResponse(
-            request,
-            "error.html",
-            {"title": "Echte Anrufe blockiert", "detail": str(error)},
-            status_code=403,
-        )
+        return page(request, "error.html", title=_t(request, "Echte Anrufe blockiert"), detail=str(error), status_code=403)
 
     @app.exception_handler(InvalidPhoneNumber)
     async def _phone(request: Request, error: InvalidPhoneNumber) -> Response:
-        return templates.TemplateResponse(
-            request, "error.html", {"title": "Rufnummer", "detail": str(error)}, status_code=422
-        )
+        return page(request, "error.html", title=_t(request, "Rufnummer"), detail=str(error), status_code=422)
 
     @app.exception_handler(JobBusy)
     async def _busy(request: Request, error: JobBusy) -> Response:
-        return templates.TemplateResponse(
-            request, "error.html", {"title": "Läuft schon", "detail": str(error)}, status_code=409
-        )
+        return page(request, "error.html", title=_t(request, "Läuft schon"), detail=str(error), status_code=409)
 
     # -- home ---------------------------------------------------------------
 
@@ -183,18 +196,32 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 "index.html",
                 projects=projects,
                 contact_count=len(contacts),
+                groups=context.projects.groups(),
                 fixtures=sorted(bundled_fixtures()),
                 today=_today(),
             )
         finally:
             context.close()
 
+    @app.get("/language/{language}")
+    def change_language(language: str, next: str = "/") -> Response:
+        if language not in TranslationSystem.SUPPORTED_LANGUAGES:
+            raise HTTPException(status_code=404, detail="language not supported")
+        target = next if next.startswith("/") and not next.startswith("//") else "/"
+        response = RedirectResponse(target, status_code=303)
+        response.set_cookie("rd_lang", language, max_age=31_536_000, samesite="lax")
+        return response
+
     @app.post("/projects")
     def create(
+        request: Request,
         occasion: str = Form(...),
         organizer: str = Form(...),
+        mode: str = Form(ProjectMode.SCHEDULE),
         date_kind: str = Form(DateKind.DAY_SLOTS),
         urgency: str = Form(""),
+        group_id: str = Form(""),
+        language: str = Form(""),
     ) -> Response:
         context = ctx()
         try:
@@ -202,10 +229,14 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 context.projects,
                 occasion=occasion,
                 organizer=organizer,
+                mode=mode,
                 date_kind=date_kind,
                 urgency=urgency,
+                group_id=group_id or None,
+                language=language or _ui_language(request),
+                locale="en-US" if (language or _ui_language(request)) == "en" else "de-DE",
             )
-            return back(project.id, "dates")
+            return back(project.id, "advisor" if mode == ProjectMode.ROUNDTABLE else "dates")
         finally:
             context.close()
 
@@ -226,6 +257,10 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         context = ctx()
         try:
             project = context.projects.project(project_id)
+            if project.mode == ProjectMode.ROUNDTABLE:
+                if context.projects.round_ids(project_id, RoundKind.ROUNDTABLE):
+                    return back(project_id, "board")
+                return back(project_id, "advisor")
             if project.state in (ProjectState.DECIDED, ProjectState.INVITED):
                 return back(project_id, "board")
             if context.projects.round_ids(project_id, RoundKind.AVAILABILITY):
@@ -233,6 +268,49 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             return back(project_id, "dates")
         except KeyError:
             raise HTTPException(status_code=404, detail="Projekt nicht gefunden") from None
+        finally:
+            context.close()
+
+    @app.get("/projects/{project_id}/advisor", response_class=HTMLResponse)
+    def advisor_form(request: Request, project_id: str) -> Response:
+        context = ctx()
+        try:
+            project = _project(context, project_id)
+            if project.mode != ProjectMode.ROUNDTABLE:
+                return back(project_id, "dates")
+            configured = advisor_question(context.projects, project)
+            return page(
+                request,
+                "advisor.html",
+                project=project,
+                question=configured,
+                step="advisor",
+            )
+        finally:
+            context.close()
+
+    @app.post("/projects/{project_id}/advisor")
+    async def advisor_save(request: Request, project_id: str) -> Response:
+        context = ctx()
+        try:
+            project = _project(context, project_id)
+            form = await request.form()
+            set_advisor_question(
+                context.projects,
+                project,
+                str(form.get("question") or ""),
+                options=[str(value) for value in form.getlist("option")],
+            )
+            return back(project_id, "people")
+        except ValueError as error:
+            return page(
+                request,
+                "error.html",
+                title="Advisor-Frage",
+                detail=str(error),
+                back=f"/projects/{project_id}/advisor",
+                status_code=422,
+            )
         finally:
             context.close()
 
@@ -285,11 +363,9 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             set_dates(context.store, context.projects, project, specs)
             return back(project_id, "people")
         except ValueError as error:
-            return templates.TemplateResponse(
-                request,
-                "error.html",
-                {"title": "Termine", "detail": str(error), "back": f"/projects/{project_id}/dates"},
-                status_code=422,
+            return page(
+                request, "error.html", title=_t(request, "Termine"), detail=str(error),
+                back=f"/projects/{project_id}/dates", status_code=422,
             )
         finally:
             context.close()
@@ -329,11 +405,9 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             set_dates(context.store, context.projects, project, specs)
             return back(project_id, "dates")
         except ValueError as error:
-            return templates.TemplateResponse(
-                request,
-                "error.html",
-                {"title": "Termine", "detail": str(error), "back": f"/projects/{project_id}/dates"},
-                status_code=422,
+            return page(
+                request, "error.html", title=_t(request, "Termine"), detail=str(error),
+                back=f"/projects/{project_id}/dates", status_code=422,
             )
         finally:
             context.close()
@@ -407,7 +481,11 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         context = ctx()
         try:
             project = _project(context, project_id)
-            poll = availability_round(context.store, context.projects, project)
+            poll = (
+                roundtable_round(context.store, context.projects, project)
+                if project.mode == ProjectMode.ROUNDTABLE
+                else availability_round(context.store, context.projects, project)
+            )
             view = preview(context.store, context.projects, project, poll)
             job = app.state.jobs.get(project_id)
             return page(
@@ -437,6 +515,9 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             project = _project(context, project_id)
             if round_kind == RoundKind.INVITATION:
                 poll = invitation_round(context.store, context.projects, project, create=False)
+            elif round_kind == RoundKind.ROUNDTABLE or project.mode == ProjectMode.ROUNDTABLE:
+                round_kind = RoundKind.ROUNDTABLE
+                poll = roundtable_round(context.store, context.projects, project)
             else:
                 poll = availability_round(context.store, context.projects, project)
             if poll is None:
@@ -506,14 +587,16 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         project = context.projects.project(project_id)
         poll_ids = context.projects.round_ids(project_id, round_kind)
         if not poll_ids:
-            return "<p class='muted'>Diese Runde wurde noch nicht gestartet.</p>"
+            return f"<p class='muted'>{_t(request, 'Diese Runde wurde noch nicht gestartet.')}</p>"
         poll = context.store.get_poll(poll_ids[0])
         contacts = {c.id: c for c in context.projects.contacts()}
+        language = _ui_language(request)
         rows = live_rows(
             context.store.participants(poll.id),
             context.store.answers(poll.id),
             contacts,
             job.current_ref if job and job.running else None,
+            language,
         )
         speech = [event.text for event in (job.events() if job else []) if event.kind == "speech"]
         template = templates.get_template("_live_panel.html")
@@ -526,7 +609,9 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             speech=speech[-40:],
             round_kind=round_kind,
             avatar_colour=avatar_colour,
-            status_word=status_word,
+            status_word=lambda status: status_word(status, language),
+            t=TranslationSystem(language=language).t,
+            ui_language=language,
         )
 
     @app.get("/projects/{project_id}/live/stream")
@@ -574,6 +659,19 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         context = ctx()
         try:
             project = _project(context, project_id)
+            if project.mode == ProjectMode.ROUNDTABLE:
+                view = advisor_board(context.store, context.projects, project)
+                translator = TranslationSystem(language=_ui_language(request))
+                return page(
+                    request,
+                    "advisor_board.html",
+                    project=project,
+                    board=view,
+                    advisor_summary=_advisor_summary(view.merge, translator),
+                    invitees=context.projects.invitees(project_id),
+                    job=app.state.jobs.get(project_id),
+                    step="board",
+                )
             view = board(context.store, context.projects, project)
             invitation = invitation_round(
                 context.store, context.projects, project, create=False
@@ -583,7 +681,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 "board.html",
                 project=project,
                 board=view,
-                days=calendar_days(view, project.language),
+                days=calendar_days(view, _ui_language(request)),
                 invitees=context.projects.invitees(project_id),
                 invitation=invitation,
                 job=app.state.jobs.get(project_id),
@@ -693,6 +791,108 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
 
     # -- contacts -----------------------------------------------------------
 
+    @app.get("/groups", response_class=HTMLResponse)
+    def groups_page(request: Request) -> Response:
+        context = ctx()
+        try:
+            return page(
+                request,
+                "groups.html",
+                groups=context.projects.groups(),
+                contacts=context.projects.contacts(),
+            )
+        finally:
+            context.close()
+
+    @app.post("/groups")
+    async def group_create(request: Request) -> Response:
+        context = ctx()
+        try:
+            form = await request.form()
+            group = context.projects.create_group(
+                name=str(form.get("name") or ""), note=str(form.get("note") or "")
+            )
+            context.projects.set_group_members(
+                group.id, [str(value) for value in form.getlist("contact")]
+            )
+            return RedirectResponse("/groups", status_code=303)
+        finally:
+            context.close()
+
+    @app.post("/groups/{group_id}")
+    async def group_update(request: Request, group_id: str) -> Response:
+        context = ctx()
+        try:
+            form = await request.form()
+            context.projects.set_group_members(
+                group_id, [str(value) for value in form.getlist("contact")]
+            )
+            return RedirectResponse("/groups", status_code=303)
+        finally:
+            context.close()
+
+    @app.post("/groups/{group_id}/delete")
+    def group_delete(group_id: str) -> Response:
+        context = ctx()
+        try:
+            context.projects.delete_group(group_id)
+            return RedirectResponse("/groups", status_code=303)
+        finally:
+            context.close()
+
+    @app.get("/calendar", response_class=HTMLResponse)
+    def calendar_page(request: Request) -> Response:
+        context = ctx()
+        try:
+            candidates = [
+                project for project in context.projects.projects()
+                if project.mode == ProjectMode.SCHEDULE
+            ]
+            filtered = request.query_params.get("filtered") == "1"
+            selected = request.query_params.getlist("project") if filtered else None
+            entries = calendar_entries(context.projects, selected)
+            selected_ids = {project.id for project in candidates} if selected is None else set(selected)
+            return page(
+                request,
+                "calendar.html",
+                projects=candidates,
+                selected_ids=selected_ids,
+                entries=entries,
+                export_query=_calendar_query(selected_ids),
+            )
+        finally:
+            context.close()
+
+    @app.get("/calendar.ics")
+    def calendar_ics(request: Request) -> Response:
+        context = ctx()
+        try:
+            selected = request.query_params.getlist("project")
+            entries = calendar_entries(context.projects, selected)
+            return Response(
+                render_ics(entries),
+                media_type="text/calendar; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="ringedingeding.ics"'},
+            )
+        finally:
+            context.close()
+
+    @app.get("/calendar.xlsx")
+    def calendar_xlsx(request: Request) -> Response:
+        context = ctx()
+        try:
+            selected = request.query_params.getlist("project")
+            entries = calendar_entries(context.projects, selected)
+            return Response(
+                render_xlsx(entries),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": 'attachment; filename="ringedingeding.xlsx"'},
+            )
+        finally:
+            context.close()
+
+    # -- contacts -----------------------------------------------------------
+
     @app.get("/contacts", response_class=HTMLResponse)
     def contacts_page(request: Request, project: str = "") -> Response:
         context = ctx()
@@ -795,7 +995,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
         context = ctx()
         try:
             _project(context, project_id)
-            for kind in (RoundKind.AVAILABILITY, RoundKind.INVITATION):
+            for kind in (RoundKind.AVAILABILITY, RoundKind.ROUNDTABLE, RoundKind.INVITATION):
                 for poll_id in context.projects.round_ids(project_id, kind):
                     poll = context.store.get_poll(poll_id)
                     if poll.simulated:
@@ -832,6 +1032,46 @@ def _project(context: Ctx, project_id: str):
 def _contacts_target(project_id: str) -> str:
     """Back to the address book, keeping the project the person came from."""
     return f"/contacts?project={project_id}" if project_id else "/contacts"
+
+
+def _ui_language(request: Request) -> str:
+    language = request.cookies.get("rd_lang", "de")
+    return language if language in TranslationSystem.SUPPORTED_LANGUAGES else "de"
+
+
+def _t(request: Request, text: str) -> str:
+    return TranslationSystem(language=_ui_language(request)).t(text)
+
+
+def _calendar_query(project_ids: set[str]) -> str:
+    from urllib.parse import urlencode
+
+    return urlencode([("project", project_id) for project_id in sorted(project_ids)])
+
+
+def _advisor_summary(merge: Any, translator: TranslationSystem) -> str:
+    if merge is None or not getattr(merge, "entries", None) and not getattr(merge, "tally", None):
+        return translator.t("Keine auswertbare Antwort.")
+    if getattr(merge, "tally", None) is not None:
+        votes = sum(item.count for item in merge.tally)
+        if votes == 0:
+            return translator.t("Keine Stimme abgegeben.")
+        leaders = merge.leaders
+        if merge.is_tie:
+            names = ", ".join(item.option for item in leaders)
+            return f"{translator.t('Gleichstand:')} {names} ({leaders[0].count})"
+        leader = leaders[0]
+        return f"{translator.t('Vorne:')} {leader.option} ({leader.count} {translator.t('von')} {votes})"
+    primary = merge.primary_tendency
+    if primary is None:
+        return translator.t("Keine eindeutige Tendenz; die Stimmen liegen auseinander.")
+    summary = (
+        f"{translator.t('Tendenz:')} {translator.t(primary.stance)} "
+        f"({primary.count} {translator.t('von')} {len(merge.entries)})"
+    )
+    if merge.countervoices:
+        summary += f"; {len(merge.countervoices)} {translator.t('Gegenstimme(n)')}"
+    return summary
 
 
 def _today() -> str:

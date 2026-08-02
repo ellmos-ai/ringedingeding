@@ -31,6 +31,7 @@ __all__ = [
     "ChoiceCount",
     "ChoiceMerge",
     "OpenEntry",
+    "StanceCount",
     "OpenMerge",
     "MergeResult",
     "merge_poll",
@@ -284,6 +285,12 @@ class ChoiceMerge:
     conditions: tuple[tuple[str, str], ...] = ()
     """Qualifiers attached to a vote: (name, wording). Never folded into the count."""
 
+    reasons: tuple[tuple[str, str], ...] = ()
+    """Why somebody chose an option, in their own words."""
+
+    concerns: tuple[tuple[str, str], ...] = ()
+    """Reservations and counterarguments, kept next to the tally."""
+
     unclear: tuple[str, ...] = ()
     """Answered, but no option, no 'other', no abstention could be recorded."""
 
@@ -320,6 +327,8 @@ def _merge_choice(poll: Poll, coverage: Coverage) -> ChoiceMerge:
     other: list[tuple[str, str]] = []
     abstained: list[str] = []
     conditions: list[tuple[str, str]] = []
+    reasons: list[tuple[str, str]] = []
+    concerns: list[tuple[str, str]] = []
     unclear: list[str] = []
 
     for result in coverage.answered:
@@ -327,8 +336,13 @@ def _merge_choice(poll: Poll, coverage: Coverage) -> ChoiceMerge:
         choice = structured.get("choice")
         other_choice = str(structured.get(OTHER_CHOICE_FIELD) or "").strip()
         condition = str(structured.get("condition") or structured.get("note") or "").strip()
+        reason = str(structured.get("reason") or "").strip()
+        concern_values = _as_labels(structured.get("concerns"))
         if condition:
             conditions.append((result.label, condition))
+        if reason:
+            reasons.append((result.label, reason))
+        concerns.extend((result.label, value) for value in concern_values)
 
         if isinstance(choice, str) and choice.strip():
             if choice in voters:
@@ -356,6 +370,8 @@ def _merge_choice(poll: Poll, coverage: Coverage) -> ChoiceMerge:
         other=tuple(other),
         abstained=tuple(abstained),
         conditions=tuple(conditions),
+        reasons=tuple(reasons),
+        concerns=tuple(concerns),
         unclear=tuple(unclear),
     )
 
@@ -370,6 +386,19 @@ class OpenEntry:
     name: str
     answer: str
     note: str = ""
+    stance: str = "unclear"
+    reasons: tuple[str, ...] = ()
+    concerns: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class StanceCount:
+    stance: str
+    people: tuple[str, ...] = ()
+
+    @property
+    def count(self) -> int:
+        return len(self.people)
 
 
 @dataclass(frozen=True)
@@ -377,6 +406,7 @@ class OpenMerge:
     poll: Poll
     coverage: Coverage
     entries: tuple[OpenEntry, ...] = ()
+    tendencies: tuple[StanceCount, ...] = ()
 
     @property
     def kind(self) -> PollKind:
@@ -386,22 +416,69 @@ class OpenMerge:
     def headline(self) -> str:
         if not self.entries:
             return "No answers collected."
+        primary = self.primary_tendency
+        if primary is None:
+            return f"{len(self.entries)} answer(s) collected; no single tendency leads."
+        counters = len(self.countervoices)
+        suffix = f"; {counters} countervoice(s)" if counters else ""
         return (
-            f"{len(self.entries)} answer(s) collected, quoted as given. "
-            "Free-text answers are never summarised automatically."
+            f"Tendency: {primary.stance} ({primary.count} of {len(self.entries)} answers)"
+            f"{suffix}."
+        )
+
+    @property
+    def primary_tendency(self) -> StanceCount | None:
+        ranked = sorted(
+            (entry for entry in self.tendencies if entry.stance not in ("unclear", "neutral")),
+            key=lambda entry: (-entry.count, entry.stance),
+        )
+        if not ranked or ranked[0].count == 0:
+            return None
+        if len(ranked) > 1 and ranked[0].count == ranked[1].count:
+            return None
+        return ranked[0]
+
+    @property
+    def countervoices(self) -> tuple[OpenEntry, ...]:
+        primary = self.primary_tendency
+        if primary is None:
+            return ()
+        return tuple(
+            entry
+            for entry in self.entries
+            if entry.stance not in (primary.stance, "neutral", "unclear")
         )
 
 
 def _merge_open(poll: Poll, coverage: Coverage) -> OpenMerge:
+    valid_stances = ("support", "against", "mixed", "neutral", "unclear")
     entries = tuple(
         OpenEntry(
             name=result.label,
             answer=str(result.structured.get("answer") or "").strip(),
             note=str(result.structured.get("note") or "").strip(),
+            stance=(
+                str(result.structured.get("stance") or "unclear").strip().lower()
+                if str(result.structured.get("stance") or "unclear").strip().lower()
+                in valid_stances
+                else "unclear"
+            ),
+            reasons=tuple(_as_labels(result.structured.get("reasons"))),
+            concerns=tuple(_as_labels(result.structured.get("concerns"))),
         )
         for result in coverage.answered
     )
-    return OpenMerge(poll=poll, coverage=coverage, entries=entries)
+    tendencies = tuple(
+        StanceCount(
+            stance=stance,
+            people=tuple(entry.name for entry in entries if entry.stance == stance),
+        )
+        for stance in valid_stances
+        if any(entry.stance == stance for entry in entries)
+    )
+    return OpenMerge(
+        poll=poll, coverage=coverage, entries=entries, tendencies=tendencies
+    )
 
 
 MergeResult = SlotMerge | ChoiceMerge | OpenMerge

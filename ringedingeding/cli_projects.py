@@ -21,10 +21,11 @@ import argparse
 import threading
 from typing import Any, Sequence
 
-from .projects import ChannelKind, DateKind, ProjectStore, RoundKind
+from .projects import ChannelKind, DateKind, ProjectMode, ProjectStore, RoundKind
 from .service import (
     COST_PER_CALL_USD,
     RunMode,
+    advisor_board,
     availability_round,
     board,
     day_slot_specs,
@@ -35,11 +36,13 @@ from .service import (
     make_transport,
     preview,
     resync_contact,
+    roundtable_round,
     run_round,
     seed_from_fixture,
     set_criteria,
     set_dates,
     set_invitees,
+    set_advisor_question,
     set_wording,
     uncallable,
 )
@@ -113,6 +116,15 @@ def _resolve_contacts(projects: ProjectStore, needles: Sequence[str]) -> list[st
     return resolved
 
 
+def _resolve_group(projects: ProjectStore, needle: str | None) -> str | None:
+    if not needle:
+        return None
+    matches = [group for group in projects.groups() if group.id == needle or group.name.casefold() == needle.casefold()]
+    if len(matches) != 1:
+        raise ValueError(f"expected one group matching {needle!r}, found {len(matches)}")
+    return matches[0].id
+
+
 def _time_range(text: str) -> tuple[str, str]:
     """``"18:00-21:00"`` -> ``("18:00", "21:00")``."""
     parts = str(text).replace("–", "-").split("-")
@@ -182,14 +194,19 @@ def cmd_project_new(args: argparse.Namespace, store: Store) -> int:
         projects,
         occasion=args.occasion,
         organizer=args.organizer,
+        mode=args.mode,
         date_kind=args.date_kind,
         urgency=args.urgency or "",
         language=args.language,
         region=args.region,
         locale=args.locale,
+        group_id=_resolve_group(projects, args.group),
     )
     _out(f"created project {project.id}")
-    _out(f"next: ringedingeding project dates --project {project.id} --day YYYY-MM-DD --time 18:00-21:00")
+    if project.mode == ProjectMode.ROUNDTABLE:
+        _out(f"next: ringedingeding project question --project {project.id} --question 'What do you think?' ")
+    else:
+        _out(f"next: ringedingeding project dates --project {project.id} --day YYYY-MM-DD --time 18:00-21:00")
     return 0
 
 
@@ -230,6 +247,30 @@ def cmd_project_dates(args: argparse.Namespace, store: Store) -> int:
         _out(f"{index:>2}. {slot.label}")
     _out("")
     _out(f"{len(slots)} candidate date(s).")
+    return 0
+
+
+def cmd_project_question(args: argparse.Namespace, store: Store) -> int:
+    projects = _projects(store)
+    project = _resolve_project(projects, args.project)
+    question = set_advisor_question(projects, project, args.question, options=args.option or [])
+    shape = f"choice: {', '.join(question.options)}" if question.options else "open advice"
+    _out(f"advisor question saved ({shape})")
+    _out(f"next: ringedingeding project people --project {project.id} --all")
+    return 0
+
+
+def cmd_group_add(args: argparse.Namespace, store: Store) -> int:
+    projects = _projects(store)
+    group = projects.create_group(name=args.name, note=args.note or "")
+    projects.set_group_members(group.id, _resolve_contacts(projects, args.member or []))
+    _out(f"created group {group.name} [{group.id}]")
+    return 0
+
+
+def cmd_group_list(args: argparse.Namespace, store: Store) -> int:
+    for group in _projects(store).groups():
+        _out(f"{group.id}  {group.name}: {', '.join(contact.name for contact in group.members) or '(empty)'}")
     return 0
 
 
@@ -347,6 +388,30 @@ def cmd_project_call(args: argparse.Namespace, store: Store) -> int:
 def cmd_project_board(args: argparse.Namespace, store: Store) -> int:
     projects = _projects(store)
     project = _resolve_project(projects, args.project)
+    if project.mode == ProjectMode.ROUNDTABLE:
+        view = advisor_board(store, projects, project)
+        _out(f"# {project.occasion}")
+        if view.simulated:
+            _out("!! SIMULATED - these answers were invented locally, no call was made.")
+        if view.merge is None:
+            _out("No round has been run yet.")
+            return 0
+        _out(view.merge.headline)
+        if getattr(view.merge, "tally", None):
+            for item in view.merge.tally:
+                _out(f"  {item.count:>2}  {item.option}: {', '.join(item.voters)}")
+            for name, reason in view.merge.reasons:
+                _out(f"  reason — {name}: {reason}")
+            for name, concern in view.merge.concerns:
+                _out(f"  counter — {name}: {concern}")
+        else:
+            for answer in view.merge.entries:
+                _out(f"  [{answer.stance}] {answer.name}: {answer.answer}")
+                for reason in answer.reasons:
+                    _out(f"      why: {reason}")
+                for concern in answer.concerns:
+                    _out(f"      concern: {concern}")
+        return 0
     view = board(store, projects, project)
 
     _out(f"# {project.occasion}")
@@ -437,6 +502,8 @@ def cmd_project_invite(args: argparse.Namespace, store: Store) -> int:
 
 
 def _poll_for(store: Store, projects: ProjectStore, project, round_kind: str):
+    if project.mode == ProjectMode.ROUNDTABLE or round_kind == RoundKind.ROUNDTABLE:
+        return roundtable_round(store, projects, project)
     if round_kind == RoundKind.INVITATION:
         poll = invitation_round(store, projects, project, create=False)
         if poll is None:
@@ -492,6 +559,16 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     phone.add_argument("phone")
     phone.set_defaults(func=cmd_contact_phone)
 
+    group = subparsers.add_parser("group", help="reusable, freely named target groups")
+    group_sub = group.add_subparsers(dest="group_command", required=True)
+    group_add = group_sub.add_parser("add", help="create a group")
+    group_add.add_argument("--name", required=True)
+    group_add.add_argument("--note")
+    group_add.add_argument("--member", action="append", help="contact id or name")
+    group_add.set_defaults(func=cmd_group_add)
+    group_list = group_sub.add_parser("list", help="list groups and members")
+    group_list.set_defaults(func=cmd_group_list)
+
     # -- projects ----------------------------------------------------------
     project = subparsers.add_parser(
         "project", help="find one date with several people (the full flow)"
@@ -501,6 +578,8 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     new = project_sub.add_parser("new", help="1. what is it about?")
     new.add_argument("--occasion", required=True, help="'Familienessen am Wochenende'")
     new.add_argument("--organizer", required=True, help="whose name the call is made in")
+    new.add_argument("--mode", default=ProjectMode.SCHEDULE, choices=[ProjectMode.SCHEDULE, ProjectMode.ROUNDTABLE])
+    new.add_argument("--group", help="group id or exact name; copies its current members")
     new.add_argument(
         "--date-kind", default=DateKind.DAY_SLOTS, choices=list(DateKind.IMPLEMENTED)
     )
@@ -531,6 +610,12 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     dates.add_argument("--whole-day", action="store_true", help="no time of day")
     dates.set_defaults(func=cmd_project_dates)
 
+    question = project_sub.add_parser("question", help="2. what should the advisors answer?")
+    _add_project_selector(question)
+    question.add_argument("--question", required=True)
+    question.add_argument("--option", action="append", help="repeat; 2+ creates a vote")
+    question.set_defaults(func=cmd_project_question)
+
     people = project_sub.add_parser("people", help="3. whom do you want to invite?")
     _add_project_selector(people)
     people.add_argument("who", nargs="*", help="contact ids or names")
@@ -546,7 +631,7 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     plan = project_sub.add_parser("plan", help="5. what would happen (nothing is dialed)")
     _add_project_selector(plan)
     plan.add_argument("--round", default=RoundKind.AVAILABILITY,
-                      choices=[RoundKind.AVAILABILITY, RoundKind.INVITATION])
+                      choices=[RoundKind.AVAILABILITY, RoundKind.ROUNDTABLE, RoundKind.INVITATION])
     plan.add_argument("--retry", action="store_true")
     plan.add_argument("--show-task", action="store_true", help="print the order text")
     plan.set_defaults(func=cmd_project_plan)
@@ -560,7 +645,7 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
              "live = real telephones (needs the typed confirmation)",
     )
     call.add_argument("--round", default=RoundKind.AVAILABILITY,
-                      choices=[RoundKind.AVAILABILITY, RoundKind.INVITATION])
+                      choices=[RoundKind.AVAILABILITY, RoundKind.ROUNDTABLE, RoundKind.INVITATION])
     call.add_argument("--concurrency", type=int, default=1)
     call.add_argument("--retry", action="store_true")
     call.add_argument("--yes", action="store_true", help="see 'run --yes'")

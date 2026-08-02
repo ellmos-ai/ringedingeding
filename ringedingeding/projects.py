@@ -31,6 +31,7 @@ answers every time it is needed — a second copy of that would drift.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, time
@@ -47,7 +48,9 @@ __all__ = [
     "ProjectState",
     "Channel",
     "Contact",
+    "ContactGroup",
     "Project",
+    "ProjectQuestion",
     "Slot",
     "Invitee",
     "Phrase",
@@ -65,13 +68,13 @@ __all__ = [
 
 
 class ProjectMode:
-    """What the project is for. Stage 1 builds ``SCHEDULE``."""
+    """What the project is for."""
 
     SCHEDULE = "schedule"
     """Terminkonzil — find one date that works."""
 
     ROUNDTABLE = "roundtable"
-    """Runder Tisch — collect opinions. Stage 2."""
+    """Ask your Advisor — collect and synthesise opinions."""
 
     ALL = (SCHEDULE, ROUNDTABLE)
 
@@ -265,6 +268,8 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     # column existed. Added on 2026-08-02 when ABLAUF.md node B3 turned out to
     # have no home in the model.
     ("project", "urgency", "TEXT NOT NULL DEFAULT ''"),
+    ("project_question", "kind", "TEXT NOT NULL DEFAULT 'open'"),
+    ("project_question", "options_json", "TEXT NOT NULL DEFAULT '[]'"),
 )
 
 
@@ -338,6 +343,30 @@ class Contact:
         if len(parts) == 1:
             return parts[0][:2].upper()
         return (parts[0][0] + parts[-1][0]).upper()
+
+
+@dataclass(frozen=True)
+class ContactGroup:
+    """A reusable, freely named audience such as Family or Tennisclub."""
+
+    id: str
+    name: str
+    note: str = ""
+    created_at: str = ""
+    members: tuple[Contact, ...] = ()
+
+
+@dataclass(frozen=True)
+class ProjectQuestion:
+    """One advisor question and the answer shape it asks CALL-E to fill."""
+
+    id: str
+    text: str
+    kind: str = "open"
+    options: tuple[str, ...] = ()
+    scope: str = "project"
+    scope_id: str | None = None
+    position: int = 0
 
 
 @dataclass(frozen=True)
@@ -716,6 +745,7 @@ class ProjectStore:
         region: str = "DE",
         locale: str = "de-DE",
         urgency: str = "",
+        group_id: str | None = None,
         fixture_name: str | None = None,
         project_id: str | None = None,
     ) -> Project:
@@ -741,6 +771,7 @@ class ProjectStore:
             locale=locale,
             state=ProjectState.DRAFT,
             urgency=urgency.strip(),
+            group_id=group_id,
             fixture_name=fixture_name,
             created_at=utc_now(),
         )
@@ -766,6 +797,158 @@ class ProjectStore:
         )
         self.connection.commit()
         return project
+
+    # -- groups -------------------------------------------------------------
+
+    def create_group(
+        self,
+        *,
+        name: str,
+        contact_ids: Sequence[str] = (),
+        note: str = "",
+        group_id: str | None = None,
+    ) -> ContactGroup:
+        clean_name = name.strip()
+        if not clean_name:
+            raise ValueError("a group needs a name")
+        identifier = group_id or new_id("grp")
+        self.connection.execute(
+            "INSERT INTO contact_group (id, name, note, created_at) VALUES (?,?,?,?)",
+            (identifier, clean_name, note.strip(), utc_now()),
+        )
+        self.connection.commit()
+        self.set_group_members(identifier, contact_ids)
+        return self.group(identifier)
+
+    def set_group_members(
+        self, group_id: str, contact_ids: Sequence[str]
+    ) -> ContactGroup:
+        self.connection.execute(
+            "DELETE FROM contact_group_member WHERE group_id = ?", (group_id,)
+        )
+        seen: set[str] = set()
+        rows: list[tuple[str, str, int]] = []
+        for contact_id in contact_ids:
+            if contact_id in seen:
+                continue
+            # Fail before committing a half-valid group.
+            self.contact(contact_id)
+            seen.add(contact_id)
+            rows.append((group_id, contact_id, len(rows)))
+        self.connection.executemany(
+            "INSERT INTO contact_group_member (group_id, contact_id, position) VALUES (?,?,?)",
+            rows,
+        )
+        self.connection.commit()
+        return self.group(group_id)
+
+    def group(self, group_id: str) -> ContactGroup:
+        row = self.connection.execute(
+            "SELECT * FROM contact_group WHERE id = ?", (group_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"no group with id {group_id!r}")
+        members = tuple(
+            self.contact(member["contact_id"])
+            for member in self.connection.execute(
+                "SELECT contact_id FROM contact_group_member WHERE group_id = ?"
+                " ORDER BY position, rowid",
+                (group_id,),
+            ).fetchall()
+        )
+        return ContactGroup(
+            id=row["id"],
+            name=row["name"],
+            note=row["note"] or "",
+            created_at=row["created_at"] or "",
+            members=members,
+        )
+
+    def groups(self) -> list[ContactGroup]:
+        rows = self.connection.execute(
+            "SELECT id FROM contact_group ORDER BY name COLLATE NOCASE"
+        ).fetchall()
+        return [self.group(row["id"]) for row in rows]
+
+    def delete_group(self, group_id: str) -> None:
+        self.connection.execute("DELETE FROM contact_group WHERE id = ?", (group_id,))
+        self.connection.commit()
+
+    # -- advisor questions -------------------------------------------------
+
+    def set_questions(
+        self,
+        texts: Sequence[str],
+        *,
+        kind: str = "open",
+        options: Sequence[str] = (),
+        scope: str = "project",
+        scope_id: str | None = None,
+    ) -> list[ProjectQuestion]:
+        if kind not in ("open", "choice"):
+            raise ValueError(f"unknown question kind {kind!r}")
+        clean_options = tuple(dict.fromkeys(str(value).strip() for value in options if str(value).strip()))
+        if kind == "choice" and len(clean_options) < 2:
+            raise ValueError("a choice question needs at least two distinct options")
+        self.connection.execute(
+            "DELETE FROM project_question WHERE scope = ? AND scope_id IS ?",
+            (scope, scope_id),
+        )
+        questions = [
+            ProjectQuestion(
+                id=new_id("q"),
+                text=str(value).strip(),
+                kind=kind,
+                options=clean_options,
+                scope=scope,
+                scope_id=scope_id,
+                position=position,
+            )
+            for position, value in enumerate(texts)
+            if str(value).strip()
+        ]
+        self.connection.executemany(
+            "INSERT INTO project_question"
+            " (id, scope, scope_id, text, position, kind, options_json)"
+            " VALUES (?,?,?,?,?,?,?)",
+            [
+                (
+                    question.id,
+                    question.scope,
+                    question.scope_id,
+                    question.text,
+                    question.position,
+                    question.kind,
+                    json.dumps(list(question.options), ensure_ascii=False),
+                )
+                for question in questions
+            ],
+        )
+        self.connection.commit()
+        return questions
+
+    def questions(
+        self, *, scope: str = "project", scope_id: str | None = None
+    ) -> list[ProjectQuestion]:
+        rows = self.connection.execute(
+            "SELECT * FROM project_question WHERE scope = ? AND scope_id IS ?"
+            " ORDER BY position, rowid",
+            (scope, scope_id),
+        ).fetchall()
+        return [
+            ProjectQuestion(
+                id=row["id"],
+                text=row["text"],
+                kind=(row["kind"] or "open") if "kind" in row.keys() else "open",
+                options=tuple(json.loads(row["options_json"] or "[]"))
+                if "options_json" in row.keys()
+                else (),
+                scope=row["scope"],
+                scope_id=row["scope_id"],
+                position=row["position"],
+            )
+            for row in rows
+        ]
 
     def project(self, project_id: str) -> Project:
         row = self.connection.execute(

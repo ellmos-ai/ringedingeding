@@ -1,9 +1,24 @@
+![Ringedingeding](banner.png)
+
 # Ringedingeding
+
+**English · [Deutsch](README_de.md)**
 
 **Ask everyone, get one answer.**
 
 Ask one question to several people by telephone and merge the replies into a
 single result. Built on [CALL-E](https://github.com/CALLE-AI/call-e-integrations).
+
+There are now two deliberately separate products on top of that mechanism:
+
+* **Find a Date** asks *“when can you?”*, intersects availability and lets the
+  organizer decide and announce one date.
+* **Ask Your Advisor** asks *“what do you think?”*, then reports the leading
+  tendency, countervoices, reasons and concerns. It never turns dissent into a
+  false consensus.
+
+Both can start from a freely named, reusable group. “Friends”, “Family” and
+“Tennis Club” are examples, not presets.
 
 Anyone who has tried to arrange a family dinner knows the problem: three people
 reply immediately, two never do, and one calls back and tells you out loud. A
@@ -174,6 +189,30 @@ ringedingeding project invite   --project prj_a1b2
 The board keeps five things apart, and that is the whole point of it:
 
 ```
+
+## Asking your advisors
+
+The opinion flow shares contacts, groups, safety gates and call mechanics with
+scheduling, but its result is not an intersection:
+
+```bash
+ringedingeding group add --name "Product council" --member Anna --member Ben
+ringedingeding project new --mode roundtable --occasion "New club room" \
+    --organizer "Mira" --group "Product council"
+
+# no options: open advice; repeat --option at least twice for a reasoned vote
+ringedingeding project question --project prj_a1b2 \
+    --question "Should we rent the larger room?"
+ringedingeding project plan --project prj_a1b2 --show-task
+ringedingeding project call --project prj_a1b2 --mode rehearsal
+ringedingeding project board --project prj_a1b2
+```
+
+Open answers retain each person's wording and classify only their direction
+(`support`, `against`, `mixed`, `neutral`, `unclear`). The board shows the
+leading direction and countervoices next to the underlying reasons and
+concerns. A choice question keeps the tally, abstentions, out-of-list answers,
+conditions, reasons and concerns separate.
   1. Sa 08.08. 14:00-18:00        4 can  [3 von 3 criteria]
        can   : Anna, Ben, Clara, David
        cannot: —
@@ -229,6 +268,18 @@ contacts, candidate dates and scripted answers — with no account and no networ
 The interface **never accepts credentials**. It reads `CALLE_API_KEY` from the
 environment and says whether one is there; there is no field to type one into.
 
+The interface is complete in German and English. The language switch uses the
+ported Editor-PythonBox `TranslationSystem`, its UTF-8 JSON catalog in
+`ringedingeding/locales/translations.json`, and the companion
+`manage_translations.py` maintenance command. No browser translation service
+or network request is involved.
+
+`/calendar` combines the dated candidates of all scheduling projects. Project
+checkboxes are not cosmetic: the visible tuple is passed unchanged to both
+exports. Download it as a real `.xlsx` workbook or an RFC 5545 `.ics` file.
+Google Calendar and Microsoft Calendar can import the ICS file; direct account
+linking is not implemented, so the offline path needs no OAuth credentials.
+
 ## Use it for real
 
 ### 1. Create a poll
@@ -249,7 +300,7 @@ ringedingeding create \
 |----------|---------------------------------|--------------------------------|
 | `slot`   | "When can you make it?"         | intersection, plus who cannot  |
 | `choice` | "Photo book or voucher?"        | tally, plus abstentions        |
-| `open`   | "What should we do about X?"    | answers quoted, never summarised |
+| `open`   | "What should we do about X?"    | tendency + dissent + quoted evidence |
 
 Numbers must be E.164 (`+49…`). They are validated before storage and again
 before dialling.
@@ -299,7 +350,8 @@ ringedingeding report --poll poll_ab12cd34ef --markdown result.md
 | `report`   | show or export the merged result                    |
 | `web`      | start the local web interface                       |
 | `contact`  | the address book (`add`, `list`, `phone`)           |
-| `project`  | the date-finding flow (see above)                   |
+| `group`    | reusable target groups (`add`, `list`)               |
+| `project`  | scheduling and advisor flows (see above)             |
 
 Useful flags for `run`: `--serial` (one API request per person instead of one
 batch), `--concurrency N`, `--retry` (call people who already answered),

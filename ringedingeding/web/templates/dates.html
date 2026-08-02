@@ -1,14 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Wann könnte es sein?</h1>
+<h1>{{ t('Wann könnte es sein?') }}</h1>
 
 {% if project.date_kind == 'whole_day' %}
-  <p class="muted">Ganzer Tag — es wird keine Uhrzeit abgefragt.</p>
+  <p class="muted">{{ t('Ganzer Tag — es wird keine Uhrzeit abgefragt.') }}</p>
 {% else %}
   <p class="muted">
-    Zuerst die Tage, dann eine Standardzeit für alle Tage. Abweichungen
-    einzelner Tage kommen danach.
+    {{ t('Zuerst die Tage, dann eine Standardzeit für alle Tage. Abweichungen einzelner Tage kommen danach.') }}
   </p>
 {% endif %}
 
@@ -16,60 +15,59 @@
   <input type="hidden" name="date_kind" value="{{ project.date_kind }}">
 
   <fieldset>
-    <legend>Tage</legend>
+    <legend>{{ t('Tage') }}</legend>
     <div class="grid-days" id="days">
       {% for index in range(6) %}
         <input type="date" name="day" min="{{ today }}"
                value="{{ chosen_days[index] if index < chosen_days|length else '' }}">
       {% endfor %}
     </div>
-    <p class="muted small">Leere Felder werden ignoriert.</p>
+    <p class="muted small">{{ t('Leere Felder werden ignoriert.') }}</p>
   </fieldset>
 
   {% if project.date_kind != 'whole_day' %}
   <fieldset>
-    <legend>Standardzeit für alle Tage</legend>
+    <legend>{{ t('Standardzeit für alle Tage') }}</legend>
     <div id="default-times">
       {% for index in range(3) %}
       <div class="row time-row">
         <input type="time" name="start" step="900" {% if index == 0 %}value="18:00"{% endif %}>
-        <span>bis</span>
+        <span>{{ t('bis') }}</span>
         <input type="time" name="end" step="900" {% if index == 0 %}value="21:00"{% endif %}>
       </div>
       {% endfor %}
     </div>
     <p class="muted small">
-      Ein Zeitraum, zwei, drei — jeder wird an jedem gewählten Tag angeboten.
+      {{ t('Ein Zeitraum, zwei, drei — jeder wird an jedem gewählten Tag angeboten.') }}
     </p>
   </fieldset>
   {% endif %}
 
-  <button type="submit" class="primary">Auf alle Tage anwenden</button>
+  <button type="submit" class="primary">{{ t('Auf alle Tage anwenden') }}</button>
 </form>
 
 {% if slots %}
-<h2>{{ slots|length }} Vorschläge</h2>
+<h2>{{ slots|length }} {{ t('Vorschläge') }}</h2>
 <ul class="list">
   {% for slot in slots %}<li>{{ slot.label }}</li>{% endfor %}
 </ul>
 
 {# OPTIONAL: bleibt zugeklappt. Die Standardzeiten oben reichen den meisten. #}
 <details class="optional">
-  <summary>Abweichungen je Tag <span class="muted small">— optional</span></summary>
+  <summary>{{ t('Abweichungen je Tag') }} <span class="muted small">— {{ t('optional') }}</span></summary>
 <p class="muted">
-  Hier lässt sich jeder Zeitraum einzeln verschieben oder löschen — ein leeres
-  Feld entfernt ihn, die leere Zeile unten fügt einen hinzu.
+  {{ t('Hier lässt sich jeder Zeitraum einzeln verschieben oder löschen — ein leeres Feld entfernt ihn, die leere Zeile unten fügt einen hinzu.') }}
 </p>
 
 <form method="post" action="/projects/{{ project.id }}/dates/adjust" class="card">
   <table class="slots">
-    <thead><tr><th>Tag</th><th>von</th><th>bis</th><th></th></tr></thead>
+    <thead><tr><th>{{ t('Tag') }}</th><th>{{ t('von') }}</th><th>{{ t('bis') }}</th><th></th></tr></thead>
     <tbody>
     {% for slot in slots %}
       <tr>
         <td><input type="date" name="row_day" value="{{ slot.day_date or '' }}" required></td>
         {% if project.date_kind == 'whole_day' %}
-          <td colspan="2" class="muted">ganzer Tag</td>
+          <td colspan="2" class="muted">{{ t('ganzer Tag') }}</td>
           <input type="hidden" name="row_start" value="">
           <input type="hidden" name="row_end" value="">
         {% else %}
@@ -82,21 +80,21 @@
       <tr class="extra">
         <td><input type="date" name="row_day" min="{{ today }}"></td>
         {% if project.date_kind == 'whole_day' %}
-          <td colspan="2" class="muted">ganzer Tag</td>
+          <td colspan="2" class="muted">{{ t('ganzer Tag') }}</td>
           <input type="hidden" name="row_start" value="">
           <input type="hidden" name="row_end" value="">
         {% else %}
           <td><input type="time" name="row_start" step="900"></td>
           <td><input type="time" name="row_end" step="900"></td>
         {% endif %}
-        <td class="muted small">neuer Zeitraum</td>
+        <td class="muted small">{{ t('neuer Zeitraum') }}</td>
       </tr>
     </tbody>
   </table>
-  <button type="submit">Änderungen übernehmen</button>
+  <button type="submit">{{ t('Änderungen übernehmen') }}</button>
 </form>
 </details>
 {% endif %}
 
-<p><a class="next" href="/projects/{{ project.id }}/people">Weiter zu den Personen →</a></p>
+<p><a class="next" href="/projects/{{ project.id }}/people">{{ t('Weiter zu den Personen') }} →</a></p>
 {% endblock %}
