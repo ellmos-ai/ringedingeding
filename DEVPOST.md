@@ -195,7 +195,11 @@ several of these contradict the documentation:
 
 - Repository: `<<< the repository is private; the URL exists only after the user publishes it >>>`
 - Pull request to `CALLE-AI/awesome-phone-call-agents`: `<<< not opened yet — user step >>>`
-- Video: `<<< not recorded yet; STORYBOARD.md is at the approval gate >>>`
+  (the entry, the title and the description are drafted in `PR-VORSCHAU.md`)
+- Video: `<<< uploaded nowhere yet — user step >>>`
+  The file exists and is finished: 88.8 s, 1920×1080, rendered 2026-08-02, at
+  `_calle-videos/ringedingeding/renders/`. What is missing is a public link, not
+  the video.
 
 ## Required by the rules
 

@@ -64,7 +64,7 @@ jeder sofort (Learning aus Entwurf 1).
 
 | # | Beginn | **gemessen** | Rate | Gesprochener Text (wortgenau) |
 |---|---|---|---|---|
-| **S1** | 0:00,00 | **7,97 s** | +0 % | *"‚Works for all three who answered.' So — Saturday, then?* **(Pause)** *Seven people were asked."* |
+| **S1** | 0:00,00 | **7,97 s** | +0 % | *"‚Works for all three who answered.' So — Saturday, then?* **(Pause)** *Seven people were invited."* |
 | **S2** | 0:08,32 | **13,70 s** | +0 % | *"Four are missing, and each for a different reason. A poll link won't fix that: the people who ignore links are the people whose answer you need. So you call them one by one, and work out the overlap in your head."* |
 | **S3** | 0:22,37 | **13,99 s** | +0 % | *"Ringedingeding takes one brief and makes the calls. Before it dials, it shows who gets called, what they'll be asked, how many calls that is, and what it costs. Nothing rings until you say so."* |
 | **S4** | 0:36,71 | **25,46 s** | +12 % | *"Then it merges the answers, and keeps apart what a person in a hurry runs together. Can. Cannot. Said nothing about that one — which is not a no. Didn't pick up. Line busy. Declined.* **(Pause)** *And Vera, who was never in the round, because the address book has no number for her.* **(Pause)** *Add her number: the same round places exactly one call. Her answer overturns the result."* |
@@ -145,7 +145,7 @@ Flickwerk.
 | **Typografie** | **JetBrains Mono** für alles, was Programmausgabe ist (weil es welche ist), **Inter** für die gesetzten Karten. Zwei Familien, mehr nicht — und beide sind die vom Renderer gebündelten. | Ein Schriftname außerhalb dieser Liste fällt still auf eine Ersatzschrift zurück; der Check meldet das als **Fehler** (`font_family_without_font_face`), im Preview sieht man nichts davon. |
 | **Kennzeichnung** | `CONCEPT DRAFT — NOT BOUND TO REAL DATA` durchgehend, als umgetextetes **vorhandenes** Badge. | Learning: neue Ebenen kollidieren mit Titel/Badges/Untertiteln — neun Layout-Stichproben im ersten Entwurf, alle drei Positionen verworfen. |
 | **Ton** | `edge-tts`, `en-US-ChristopherNeural`, `--rate=+0%`, Ratenanpassung je Abschnitt nach `make_vo.py`. **Jedes Audio-Element bekommt eine `id`.** | Ohne `id` findet der Renderer die Spur nicht und das Video wird **stumm** (`media_missing_id`). |
-| **Musik** | Ruhiges Bett (`ambient`), unter der Sprache **geduckt** — entschieden, siehe §8/D4. Die Sektionen sind die sechs Erzählabschnitte, die Stimmung wechselt mit ihnen; `damp` sitzt auf der Pointe, `outro` auf der Schlusszeile. | Die Musik wird nicht passend ausgewählt, sondern aus derselben Zeitachse erzeugt wie die Sprache (`compose_music.py`, `seed 1908`, deterministisch). |
+| **Musik** | Ruhiges Bett (`ambient`), unter der Sprache **geduckt** — entschieden, siehe §8/D4. Die Sektionen sind die sechs Erzählabschnitte, die Stimmung wechselt mit ihnen; `damp` sitzt auf der Pointe, `outro` in der **gemessenen Sprechpause** vor der Schlusszeile. | Die Musik wird nicht passend ausgewählt, sondern aus derselben Zeitachse erzeugt wie die Sprache (`compose_music.py`, `seed 888`, deterministisch). Die Ereigniszeiten sind nicht geschätzt, sondern mit `silencedetect` an den Sprachspuren gemessen — deshalb wurde die erste Fassung ersetzt. |
 | **Untertitel** | Englisch, eingebrannt, unten. Der Bereich darunter bleibt **frei** von allem anderen. | Learning: eine untere Warnleiste hat im ersten Entwurf die Untertitel verdeckt. |
 | **Format** | 1920×1080. | |
 
@@ -196,7 +196,7 @@ Korrektur → Check → Render.
 |---|---|---|
 | Vertonung | `edge-tts`, `en-US-ChristopherNeural`, Ratenanpassung per `ffprobe` | sechs Spuren, **88,79 s** gesamt; zwei Abschnitte auf +12 % |
 | Untertitel | `scripts/make_subs.py`, Split nach Zeichenzahl je Satz | 21 Cues, letzter endet bei 88,44 s |
-| Musik | `compose_music.py`, Storyline aus denselben sechs Abschnitten | `ambient`, `seed 1908`, 446 Noten; `climax` 56,5–61,0 s, `damp` 60,6 s, `outro` ab 83,0 s |
+| Musik | `compose_music.py`, Storyline aus denselben sechs Abschnitten | **Fassung v2** (`scripts/storyline-v2.json`, `ambient`, `seed 888`): `damp` 60,6 s, `outro` ab **83,7 s**, kein `climax`. Ersetzt die erste Fassung (seed 1908) am 2026-08-02 — deren `outro` bei 83,0 s fiel **in** die dritte gesprochene Zusage hinein (gemessen: 81,46–83,71 s; die Pause danach 83,71–84,58 s). Die alte Fassung liegt in `audio/_alt/`, Begründung in `audio/README.md`. |
 | Komposition | HyperFrames 0.7.88, eine `index.html` | sechs Szenen, GSAP-Zeitachse, gebündelte Schriften |
 | Check | `hyperframes check` | **bestanden**: 0 Fehler, 2 Warnungen (Spurdichte), **53/53 Kontrastprüfungen WCAG AA** |
 | Render | `hyperframes render` | 1920×1080, 30 fps, h264 + AAC, 2664 Frames, **5 min 6 s**, 4,7 MB |
@@ -229,7 +229,7 @@ Regel entscheidet vier der fünf Fragen.
 
 | # | Entscheidung | Warum | Konfidenz |
 |---|---|---|---|
-| **D1** | **Hook bleibt** die eine Zeile echter Programmausgabe: `=> Works for all 3 who answered: Sat 09-13`, dann *„Seven people were asked."* | Er nimmt dem Zuschauer eine Gewissheit weg, die er sich gerade selbst gegeben hat — genau der Overclaim, den das Werkzeug verhindert. Und er ist **echte Ausgabe**, muss also nichts behaupten. | hoch |
+| **D1** | **Hook bleibt** die eine Zeile echter Programmausgabe: `=> Works for all 3 who answered: Sat 09-13`, dann *„Seven people were invited."* | Er nimmt dem Zuschauer eine Gewissheit weg, die er sich gerade selbst gegeben hat — genau der Overclaim, den das Werkzeug verhindert. Und er ist **echte Ausgabe**, muss also nichts behaupten. | hoch |
 | **D2** | **Herzensszene ist Vera** (Nummer nachgetragen, ein Anruf, Ergebnis kippt) — nicht der Bestätigungsschritt vor dem Wählen. | Sicherheit ist Hygiene und wird in S3 ohnehin gezeigt; Ehrlichkeit ist die Aussage. Die Alternative liegt als **Variante B** unten. | hoch |
 | **D3** | **Abgrenzung zur Anbieter-App bleibt drin** (S5, 14 s von 89). | `_analysis/abgrenzung-zur-anbieter-app.md` sagt es wörtlich: *„Diese Frage wird die Jury stellen. Sie gehört beantwortet, bevor sie gestellt wird — in jedem README und im Video."* | hoch |
 | **D4** | **Musik geduckt** (`data-volume="0.17"` auf der Score-Spur) als Hauptfassung. | Der `music-composer` sagt es selbst: Bett, nicht Melodie. Bei 238 gesprochenen Wörtern in 89 s trägt die Stimme. Die präsentere Fassung ist **eine Zahl in einer Zeile** — als Variante dokumentiert, nicht als zweiter Render. | hoch |
@@ -278,18 +278,28 @@ Gebaut in `C:\_Local_DEV\_calle-videos\ringedingeding` (HyperFrames-Projekt,
 CLI auf `0.7.88` gepinnt):
 
 ```
-BRIEF.md                 Auftrag (workflow: general-video, flow: automation)
-index.html               die Komposition — sechs Szenen, 21 Untertitel-Cues
-scripts/make_vo.py       Vertonung, edge-tts + ffprobe-Ratenanpassung
-scripts/make_subs.py     Untertitel-Cues aus den gemessenen Sprechzeiten
-scripts/storyline.json   Musik-Storyline (sechs Sektionen, drei Ereignisse)
-audio/s1..s6.mp3         die Sprachspuren
-audio/score.mp3|wav|mid  der Score + Arrangement-Log
-audio/vo_report.json     gemessene Dauern, Raten, Zeitachse
-renders/                 das gerenderte Video
-snapshots/               Einzelbilder zur Sichtprüfung
+BRIEF.md                    Auftrag (workflow: general-video, flow: automation)
+index.html                  die Komposition — sechs Szenen, 21 Untertitel-Cues
+scripts/make_vo.py          Vertonung, edge-tts + ffprobe-Ratenanpassung; --verify prüft nach
+scripts/make_subs.py        Untertitel-Cues aus den gemessenen Sprechzeiten
+scripts/storyline-v2.json   Musik-Storyline (sechs Sektionen, zwei Ereignisse) — gültig
+scripts/storyline.json      erste Fassung, ersetzt (siehe audio/README.md)
+audio/README.md             welche Audiodateien gelten und was in _alt/ liegt
+audio/s1..s6.mp3            die Sprachspuren
+audio/score-v2.mp3|wav|mid  der gültige Score + Arrangement-Log
+audio/_alt/                 überholte Fassungen, aufgehoben statt gelöscht
+audio/vo_report.json        gemessene Dauern, Raten, Zeitachse
+renders/README.md           welcher Render der gültige ist
+renders/                    das gerenderte Video (genau eine Datei)
+snapshots/                  Einzelbilder zur Sichtprüfung
 ```
 
 Reproduzierbar: `python scripts/make_vo.py`, `python scripts/make_subs.py`,
-`python <ai-media-editor>/tools/compose_music.py scripts/storyline.json -o audio/score`,
+`python <ai-media-editor>/tools/compose_music.py scripts/storyline-v2.json -o audio/score-v2`,
 dann `hyperframes check` und `hyperframes render`.
+
+**Nachprüfbar ohne Neubau:** `python scripts/make_vo.py --verify` synthetisiert
+jeden Abschnitt erneut, vergleicht ihn mit der ausgelieferten Datei und prüft
+danach, ob die Zeitachse in `index.html` noch zu dem Ton passt, den sie abspielt.
+Lauf vom 2026-08-02: alle sechs Abschnitte reproduzieren auf die Millisekunde
+(0,000 s Abweichung), Zeitachse in Ordnung, Exit 0.
