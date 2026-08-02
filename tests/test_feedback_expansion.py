@@ -152,8 +152,11 @@ def test_english_web_surface_and_product_split(tmp_path):
         response = client.get("/language/en?next=/")
         assert response.status_code == 200
         assert "What should we find out together?" in response.text
+        assert "Your cockpit" in response.text
         assert "Find a Date" in response.text
         assert "Ask Your Advisor" in response.text
+        assert "Active chains" in response.text
+        assert "Results &amp; export" in response.text
         assert "Was sollen wir gemeinsam herausfinden?" not in response.text
         assert '<html lang="en">' in response.text
 
@@ -235,6 +238,9 @@ def test_advisor_web_flow_runs_fully_offline(tmp_path):
 def test_design_accents_are_local_and_mode_specific():
     css = (Path(__file__).parents[1] / "ringedingeding/web/static/app.css").read_text(encoding="utf-8")
     assert ".mode-card" in css
+    assert ".cockpit-hero" in css
+    assert "--cockpit-blue" in css
+    assert "prefers-reduced-motion" in css
     assert ".advisor-summary" in css
     assert "linear-gradient" in css
     assert "url(http" not in css

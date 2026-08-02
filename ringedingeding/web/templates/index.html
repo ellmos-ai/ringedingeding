@@ -1,109 +1,210 @@
 {% extends "base.html" %}
 {% block content %}
+{% set selected_mode = request.query_params.get('mode', 'schedule') %}
 
-<section class="hero">
-  <p class="eyebrow">{{ t('Dein persönlicher Telefon-Assistent') }}</p>
-  <h1>{{ t('Was sollen wir gemeinsam herausfinden?') }}</h1>
-  <p>{{ t('Frag mehrere Menschen, ohne dieselbe Runde selbst immer wieder zu führen.') }}</p>
+<section class="cockpit-hero">
+  <div class="cockpit-copy">
+    <p class="eyebrow">{{ t('Dein Cockpit') }}</p>
+    <img class="hero-logo" src="/static/logo.svg" alt="Ringedingeding">
+    <h1>{{ t('Was sollen wir gemeinsam herausfinden?') }}</h1>
+    <p>{{ t('Frag mehrere Menschen, ohne dieselbe Runde selbst immer wieder zu führen.') }}</p>
+  </div>
+  <div class="signal-console" aria-hidden="true">
+    <span class="signal-orbit orbit-one"></span>
+    <span class="signal-orbit orbit-two"></span>
+    <span class="signal-orbit orbit-three"></span>
+    <span class="signal-core"></span>
+    <div class="signal-readout"><strong>2</strong><span>{{ t('Wege in eine neue Kette') }}</span></div>
+  </div>
 </section>
 
-<form method="post" action="/projects" class="card">
-  <fieldset class="mode-choice">
-    <legend>{{ t('Wähle den Auftrag') }}</legend>
-    <label class="mode-card schedule">
-      <input type="radio" name="mode" value="schedule" checked>
-      <span class="mode-icon">◷</span>
-      <strong>{{ t('Terminfinden') }}</strong>
-      <span>{{ t('„Wann kannst du?“ — Verfügbarkeiten zusammenführen und einen Termin entscheiden.') }}</span>
-    </label>
-    <label class="mode-card advisor">
-      <input type="radio" name="mode" value="roundtable">
-      <span class="mode-icon">✦</span>
-      <strong>{{ t('Ask Your Advisor') }}</strong>
-      <span>{{ t('„Was meinst du?“ — Tendenzen, Gegenstimmen und Begründungen sichtbar machen.') }}</span>
-    </label>
-  </fieldset>
-  <label>
-    {{ t("Worum geht's?") }}
-    <input type="text" name="occasion" required autofocus
-           placeholder="{{ t('Familienessen oder neue Vereinsidee') }}">
-  </label>
-  <label>
-    {{ t('In wessen Auftrag wird angerufen?') }}
-    <input type="text" name="organizer" required placeholder="Lukas">
-  </label>
-  <label>
-    {{ t('Zielgruppe') }}
-    <select name="group_id">
-      <option value="">{{ t('Später Personen auswählen') }}</option>
-      {% for group in groups %}<option value="{{ group.id }}">{{ group.name }} ({{ group.members|length }})</option>{% endfor %}
-    </select>
-    <span class="hint">{{ t('Friends, Family oder Tennisclub sind nur Beispiele.') }} <a href="/groups">{{ t('Eigene Gruppe anlegen') }}</a></span>
-  </label>
-  <label>
-    {{ t('Sprache der Anrufe') }}
-    <select name="language"><option value="de" {% if ui_language == 'de' %}selected{% endif %}>Deutsch</option><option value="en" {% if ui_language == 'en' %}selected{% endif %}>English</option></select>
-  </label>
-  <fieldset>
-    <legend>{{ t('Terminart (nur beim Terminfinden)') }}</legend>
-    <label class="inline">
-      <input type="radio" name="date_kind" value="day_slots" checked>
-      {{ t('Tagestermin — einzelne Zeiträume an ausgewählten Tagen') }}
-    </label>
-    <label class="inline">
-      <input type="radio" name="date_kind" value="whole_day">
-      {{ t('Ganzer Tag — Tage ohne Uhrzeit') }}
-    </label>
-    <p class="muted small">
-      {{ t('Weitere Terminarten bleiben im Datenmodell offen; diese Oberfläche bietet derzeit Tagestermine und ganze Tage.') }}
-    </p>
-  </fieldset>
+<section class="launch-section" aria-labelledby="launch-title">
+  <div class="cockpit-heading">
+    <div>
+      <p class="eyebrow">{{ t('Neue Anrufkette') }}</p>
+      <h2 id="launch-title">{{ t('Wähle, was deine nächste Runde klären soll.') }}</h2>
+    </div>
+    <span class="cockpit-status"><i></i>{{ t('Trockenlauf bereit') }}</span>
+  </div>
+  <div class="launch-grid">
+    <a class="launch-card schedule" href="/?mode=schedule#new-chain">
+      <span class="launch-number">01</span>
+      <span class="launch-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48"><rect x="7" y="10" width="34" height="31" rx="7"/><path d="M15 6v9M33 6v9M7 19h34M15 27h7M27 27h6M15 34h6"/></svg>
+      </span>
+      <span class="launch-copy">
+        <strong>{{ t('Terminfinden') }}</strong>
+        <span>{{ t('„Wann kannst du?“ — Verfügbarkeiten zusammenführen und einen Termin entscheiden.') }}</span>
+      </span>
+      <span class="launch-action">{{ t('Termin-Kette starten') }} <b aria-hidden="true">→</b></span>
+    </a>
+    <a class="launch-card advisor" href="/?mode=roundtable#new-chain">
+      <span class="launch-number">02</span>
+      <span class="launch-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48"><circle cx="16" cy="19" r="7"/><circle cx="33" cy="17" r="5"/><path d="M5 39c1-8 5-12 11-12s10 4 11 12M27 27c7 0 11 4 12 11M24 8l2-3M37 8l3-2"/></svg>
+      </span>
+      <span class="launch-copy">
+        <strong>{{ t('Ask Your Advisor') }}</strong>
+        <span>{{ t('„Was meinst du?“ — Tendenzen, Gegenstimmen und Begründungen sichtbar machen.') }}</span>
+      </span>
+      <span class="launch-action">{{ t('Advisor-Kette starten') }} <b aria-hidden="true">→</b></span>
+    </a>
+  </div>
+</section>
 
-  {# OPTIONAL — bleibt zugeklappt, damit niemand meint, es gehöre dazu. #}
-  <details class="optional">
-    <summary>{{ t('Eilt es?') }} <span class="muted small">— {{ t('optional') }}</span></summary>
+<section class="cockpit-areas" aria-labelledby="areas-title">
+  <div class="cockpit-heading compact">
+    <div>
+      <p class="eyebrow">{{ t('Bereiche') }}</p>
+      <h2 id="areas-title">{{ t('Alles für deine Runden an einem Ort.') }}</h2>
+    </div>
+  </div>
+  <div class="area-grid">
+    <a class="area-tile calendar-tile" href="/calendar">
+      <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v5M17 3v5M3 10h18M7 14h3M14 14h3M7 18h3"/></svg></span>
+      <strong>{{ t('Kalender') }}</strong>
+      <span>{{ t('Termine projektübergreifend ansehen und filtern.') }}</span>
+      <b aria-hidden="true">↗</b>
+    </a>
+    <a class="area-tile contacts-tile" href="/contacts">
+      <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c.7-6 3-9 7-9s6.3 3 7 9M17 8h5M17 12h4"/></svg></span>
+      <strong>{{ t('Kontakte') }}</strong>
+      <span>{{ t('Menschen, Rufnummern und Bilder verwalten.') }}</span>
+      <em>{{ contact_count }}</em><b aria-hidden="true">↗</b>
+    </a>
+    <a class="area-tile groups-tile" href="/groups">
+      <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="3"/><path d="M2 20c.5-5 2.5-8 6-8s5.5 3 6 8M13 14c1-1 2.3-2 4-2 3 0 5 2.7 5 7"/></svg></span>
+      <strong>{{ t('Gruppen') }}</strong>
+      <span>{{ t('Wiederverwendbare Zielgruppen zusammenstellen.') }}</span>
+      <em>{{ groups|length }}</em><b aria-hidden="true">↗</b>
+    </a>
+    <a class="area-tile chains-tile" href="#chains">
+      <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 8h8M8 16h8M5 5h14v6H5zM5 13h14v6H5z"/></svg></span>
+      <strong>{{ t('Laufende Ketten') }}</strong>
+      <span>{{ t('Entwürfe, laufende Runden und abgeschlossene Ketten öffnen.') }}</span>
+      <em>{{ projects|length }}</em><b aria-hidden="true">↓</b>
+    </a>
+    <a class="area-tile export-tile" href="/calendar#export">
+      <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v5h5M12 11v7M9 15l3 3 3-3"/></svg></span>
+      <strong>{{ t('Ergebnisse & Export') }}</strong>
+      <span>{{ t('Gefilterte Termine als ICS oder Excel mitnehmen.') }}</span>
+      <b aria-hidden="true">↗</b>
+    </a>
+  </div>
+</section>
+
+<section class="new-chain" id="new-chain" aria-labelledby="new-chain-title">
+  <header class="new-chain-head">
+    <div>
+      <p class="eyebrow">{{ t('Startklar') }}</p>
+      <h2 id="new-chain-title">{{ t('Neue Anrufkette anlegen') }}</h2>
+    </div>
+    <p>{{ t('Lege Anlass, Auftraggeber und Zielgruppe fest.') }}</p>
+  </header>
+
+  <form method="post" action="/projects" class="card chain-form">
+    <fieldset class="mode-choice mode-switch">
+      <legend>{{ t('Auftrag wechseln') }}</legend>
+      <label class="mode-card schedule">
+        <input type="radio" name="mode" value="schedule" {% if selected_mode != 'roundtable' %}checked{% endif %}>
+        <span class="mode-icon">◷</span>
+        <strong>{{ t('Terminfinden') }}</strong>
+        <span>{{ t('„Wann kannst du?“ — Verfügbarkeiten zusammenführen und einen Termin entscheiden.') }}</span>
+      </label>
+      <label class="mode-card advisor">
+        <input type="radio" name="mode" value="roundtable" {% if selected_mode == 'roundtable' %}checked{% endif %}>
+        <span class="mode-icon">✦</span>
+        <strong>{{ t('Ask Your Advisor') }}</strong>
+        <span>{{ t('„Was meinst du?“ — Tendenzen, Gegenstimmen und Begründungen sichtbar machen.') }}</span>
+      </label>
+    </fieldset>
     <label>
-      {{ t('In deinen Worten') }}
-      <input type="text" name="urgency" placeholder="{{ t('wirklich dringend') }}">
+      {{ t("Worum geht's?") }}
+      <input type="text" name="occasion" required
+             placeholder="{{ t('Familienessen oder neue Vereinsidee') }}">
     </label>
-    <p class="muted small">
-      {{ t('Ändert nur den Ton des Anrufs, nicht den Ablauf — es wird trotzdem niemand gedrängt und ein Nein bleibt ein gültiges Ergebnis.') }}
-    </p>
-  </details>
+    <label>
+      {{ t('In wessen Auftrag wird angerufen?') }}
+      <input type="text" name="organizer" required placeholder="Lukas">
+    </label>
+    <label>
+      {{ t('Zielgruppe') }}
+      <select name="group_id">
+        <option value="">{{ t('Später Personen auswählen') }}</option>
+        {% for group in groups %}<option value="{{ group.id }}">{{ group.name }} ({{ group.members|length }})</option>{% endfor %}
+      </select>
+      <span class="hint">{{ t('Friends, Family oder Tennisclub sind nur Beispiele.') }} <a href="/groups">{{ t('Eigene Gruppe anlegen') }}</a></span>
+    </label>
+    <label>
+      {{ t('Sprache der Anrufe') }}
+      <select name="language"><option value="de" {% if ui_language == 'de' %}selected{% endif %}>Deutsch</option><option value="en" {% if ui_language == 'en' %}selected{% endif %}>English</option></select>
+    </label>
+    <fieldset>
+      <legend>{{ t('Terminart (nur beim Terminfinden)') }}</legend>
+      <label class="inline">
+        <input type="radio" name="date_kind" value="day_slots" checked>
+        {{ t('Tagestermin — einzelne Zeiträume an ausgewählten Tagen') }}
+      </label>
+      <label class="inline">
+        <input type="radio" name="date_kind" value="whole_day">
+        {{ t('Ganzer Tag — Tage ohne Uhrzeit') }}
+      </label>
+      <p class="muted small">
+        {{ t('Weitere Terminarten bleiben im Datenmodell offen; diese Oberfläche bietet derzeit Tagestermine und ganze Tage.') }}
+      </p>
+    </fieldset>
 
-  <button type="submit" class="primary">{{ t('Projekt anlegen') }}</button>
-</form>
+    <details class="optional">
+      <summary>{{ t('Eilt es?') }} <span class="muted small">— {{ t('optional') }}</span></summary>
+      <label>
+        {{ t('In deinen Worten') }}
+        <input type="text" name="urgency" placeholder="{{ t('wirklich dringend') }}">
+      </label>
+      <p class="muted small">
+        {{ t('Ändert nur den Ton des Anrufs, nicht den Ablauf — es wird trotzdem niemand gedrängt und ein Nein bleibt ein gültiges Ergebnis.') }}
+      </p>
+    </details>
 
-{% if projects %}
-<div class="section-title"><h2>{{ t('Deine Projekte') }}</h2><a href="/calendar">{{ t('Alle Termine im Kalender') }} →</a></div>
-<ul class="list">
-  {% for item in projects %}
-  <li>
-    <a href="/projects/{{ item.id }}"><strong>{{ item.occasion }}</strong></a>
-    <span class="mode-badge {{ item.mode }}">{{ t('Termin') if item.mode == 'schedule' else t('Advisor') }}</span>
-    <span class="badge">{{ t({'draft':'Entwurf','asking':'Anrufe','decided':'terminiert','invited':'eingeladen'}.get(item.state, item.state)) }}</span>
-    {% if item.fixture_name %}<span class="badge script">{{ t('Beispieldaten') }}</span>{% endif %}
-    <form method="post" action="/projects/{{ item.id }}/delete" class="inline-form"
-          onsubmit="return confirm('{{ t('Projekt wirklich löschen?') }}')">
-      <button type="submit" class="link danger">{{ t('löschen') }}</button>
-    </form>
-  </li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-<h2>{{ t('Ohne Konto ausprobieren') }}</h2>
-<div class="card muted-card">
-  <p>
-    {{ t('Ein Beispielprojekt entsteht aus einer mitgelieferten Datei: Kontakte, Terminvorschläge und hinterlegte Antworten. Nichts davon geht ins Netz, es wird nicht telefoniert und es wird kein Konto gebraucht.') }}
-  </p>
-  <form method="post" action="/demo" class="row">
-    <select name="fixture">
-      {% for name in fixtures %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-    </select>
-    <button type="submit">{{ t('Beispielprojekt anlegen') }}</button>
+    <button type="submit" class="primary">{{ t('Projekt anlegen') }}</button>
   </form>
-</div>
+</section>
+
+<section id="chains" class="chains-section" aria-labelledby="chains-title">
+  <div class="section-title"><h2 id="chains-title">{{ t('Deine Projekte') }}</h2><a href="/calendar">{{ t('Alle Termine im Kalender') }} →</a></div>
+  {% if projects %}
+  <ul class="list project-list">
+    {% for item in projects %}
+    <li>
+      <a href="/projects/{{ item.id }}"><strong>{{ item.occasion }}</strong></a>
+      <span class="mode-badge {{ item.mode }}">{{ t('Termin') if item.mode == 'schedule' else t('Advisor') }}</span>
+      <span class="badge">{{ t({'draft':'Entwurf','asking':'Anrufe','decided':'terminiert','invited':'eingeladen'}.get(item.state, item.state)) }}</span>
+      {% if item.fixture_name %}<span class="badge script">{{ t('Beispieldaten') }}</span>{% endif %}
+      <form method="post" action="/projects/{{ item.id }}/delete" class="inline-form"
+            onsubmit="return confirm('{{ t('Projekt wirklich löschen?') }}')">
+        <button type="submit" class="link danger">{{ t('löschen') }}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty-state">{{ t('Noch keine Kette angelegt. Starte oben mit Terminfinden oder Ask Your Advisor.') }}</div>
+  {% endif %}
+</section>
+
+<section class="offline-demo">
+  <h2>{{ t('Ohne Konto ausprobieren') }}</h2>
+  <div class="card muted-card">
+    <p>
+      {{ t('Ein Beispielprojekt entsteht aus einer mitgelieferten Datei: Kontakte, Terminvorschläge und hinterlegte Antworten. Nichts davon geht ins Netz, es wird nicht telefoniert und es wird kein Konto gebraucht.') }}
+    </p>
+    <form method="post" action="/demo" class="row">
+      <select name="fixture">
+        {% for name in fixtures %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+      </select>
+      <button type="submit">{{ t('Beispielprojekt anlegen') }}</button>
+    </form>
+  </div>
+</section>
 
 <p class="muted small">
   {{ contact_count }} {{ t('Kontakt(e) im Buch.') }} <a href="/contacts">{{ t('Kontakte verwalten') }}</a> —

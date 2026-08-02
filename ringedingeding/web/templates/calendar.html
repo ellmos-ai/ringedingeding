@@ -12,7 +12,7 @@
   <button class="primary">{{ t('Ansicht aktualisieren') }}</button>
 </form>
 
-<div class="export-actions">
+<div class="export-actions" id="export">
   <a class="button" href="/calendar.ics?{{ export_query }}">{{ t('Als ICS exportieren') }}</a>
   <a class="button" href="/calendar.xlsx?{{ export_query }}">{{ t('Als Excel exportieren') }}</a>
 </div>
