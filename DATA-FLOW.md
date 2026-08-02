@@ -33,3 +33,34 @@ In the table, “leaves the computer” means leaving the machine that runs the 
 - Browser, reverse-proxy, operating-system and infrastructure logs are deployment facts and must be added to the final data inventory and privacy notice.
 
 See `HOST-READINESS.md` for the multi-user gap and `PRIVACY-TEMPLATE.md` for an operator-owned notice template.
+
+## Server modes (added 2026-08-02)
+
+The table above describes `local`, which is what an unconfigured installation is. `RINGEDINGEDING_SERVER_MODE` selects one of four modes (`ringedingeding/server_mode.py:25-76`); an unknown value is refused by name (`:78-90`), and the resolved mode is held for the process, so no request can switch it (`:98-113`).
+
+| Mode | Where the database is | Whose key pays | Accounts |
+| --- | --- | --- | --- |
+| `local` (default) | SQLite file on the host, as before | environment, `.env` or `config.local.json` | none |
+| `huckepack-gift` | the visitor's browser | the host's | none |
+| `huckepack-only-host` | the visitor's browser | the visitor's, per request | none |
+| `pay-membership` | — | — | would be required; **not built**, every page answers 503 (`ringedingeding/huckepack_web.py:47-50, 145-155`) |
+
+### What changes in a huckepack mode
+
+| Data | Collection and use | Storage | Retention implemented in code | Who can see it | Leaves the computer? | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| Projects, contacts, participants, answers, transcripts — the whole database | Unchanged in purpose; the same schema and the same SQL | **Not on the host.** The durable copy is a SQLite file in the visitor's browser (IndexedDB); the host holds a copy in memory for the length of a browser session. Not even the database directory is created | Memory only: dropped after two hours without use, on session delete, and on process exit | The one browser session that supplied the session token | The database bytes travel between browser and host on load and after each change; they are never written to the host's disk | `ringedingeding/huckepack_storage.py:58-72, 74-163, 191-202`; `ringedingeding/store.py:107-120`; test `test_a_huckepack_mode_creates_neither_file_nor_directory` |
+| Session token | Addresses the in-memory database of one browser | Browser `localStorage`, sent as `X-Huckepack-Session` | Until the visitor deletes the data | Browser and host process | Sent with every request | `ringedingeding/huckepack_web.py:27-40` |
+| Session token and visitor key **inside a running round** | A round runs in a background thread and outlives the request that started it | Passed as arguments into the job and re-bound there; nothing is stored | Thread lifetime | The job thread | No | `ringedingeding/web/jobs.py:126-170`; `ringedingeding/web/app.py:585-600`; test `test_a_round_carries_session_and_key_into_its_thread` |
+| Visitor's CALL-E key (`huckepack-only-host` only) | Authenticates that visitor's own live calls | **Browser `localStorage`**, displayed masked to the last four characters | Until the visitor presses "forget"; on the host only for the duration of one request or one round | The visitor's browser; the host process while the round runs; CALL-E | Sent as the `X-Calle-Key` request header, then on to CALL-E | `ringedingeding/huckepack_key.py:29-105`; `ringedingeding/service.py:604-616`; `ringedingeding/transports/calle.py:126-140` |
+| Key on the **settings page** | — | **Refused.** `POST /settings` answers 409 in only-host instead of writing `config.local.json` | — | — | No | `ringedingeding/web/app.py:243-258`; test `test_the_settings_page_refuses_to_store_a_key_in_only_host` |
+| Export / import file | The visitor's own backup and their way to another device | A `.sqlite` file wherever the visitor puts it | The visitor decides | Whoever can read that file — **it is the unmasked database, including raw phone numbers** | Leaves only on the visitor's own instruction | `ringedingeding/web/static/huckepack.js` (`exportData`, `importData`) |
+| Receipt file | Optional file for a finished result | The visitor's file system — a folder chosen once, otherwise the download folder | The visitor's own file | Whoever can read that folder | No transfer | `ringedingeding/web/static/huckepack.js` (`saveReceipt`, `writeFile`) |
+
+### Boundaries that remain
+
+- **The row about live calls stays valid word for word.** Participant name, raw number and task still go to CALL-E, and real people are still called. The mode changes where records are kept, not what is transmitted.
+- **The exported file carries raw phone numbers.** The database holds them because you cannot dial a mask; an export therefore is an address book. That belongs in the privacy notice, and in what the interface tells the visitor.
+- **A cleared browser is a total loss.** No copy exists at the host. Export is a condition of the pattern, not a convenience.
+- **The unauthenticated route set is unchanged** — but in a huckepack mode there is no shared database behind it: a visitor without the session token reaches an empty one. That removes the cross-visitor exposure `HOST-READINESS.md` describes; it does not add authentication.
+- **`local` is unchanged.** One additional script tag in `base.html`, which in `local` mode does nothing but offer the receipt download.

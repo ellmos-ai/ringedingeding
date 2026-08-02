@@ -84,6 +84,54 @@ Complaint authority: `[REPLACE: competent supervisory authority, address and URL
 
 We will update this notice when purposes, data, providers, retention or architecture change. Previous versions: `[REPLACE: location]`.
 
+## Annex A — Server modes (huckepack)
+
+> **Still a template.** Pick the one block that matches `RINGEDINGEDING_SERVER_MODE` on the deployed installation, delete the others, and keep replacing every marker. Choosing a mode changes what has to be written here; it does not remove the need to write it.
+
+**Which mode is deployed:** `[REPLACE: local | huckepack-gift | huckepack-only-host]` — verifiable at `[REPLACE: deployment URL]/huckepack/mode`.
+
+### A.1 If the mode is `local`
+
+Sections 1–11 above apply unchanged. The database is a file on the host; the operator is the controller for everything in it, including the address book.
+
+### A.2 If the mode is `huckepack-gift` or `huckepack-only-host`
+
+**Replace section 6 (Storage and deletion) with:**
+
+> This installation keeps no database of your projects. Contacts, groups, participants, answers and transcripts are stored by your browser on your device. While you are using the service, a copy is held in this server's working memory so that the same queries can run, and for as long as a round of calls is running; it is discarded at the latest `[REPLACE: confirm SESSION_TTL_SECONDS in ringedingeding/huckepack_storage.py]` after your last request, when you press "delete data", and whenever the server process restarts. No file is written on the server — not even the directory is created.
+>
+> Because of that, deleting your browser data deletes everything, and we cannot restore it. Use "back up data" to keep a copy. **That file is your address book**: it contains the telephone numbers in full, because a number cannot be dialled from a mask. Store it accordingly.
+>
+> `[REPLACE: server, proxy and infrastructure logs exist regardless of where the database is and must be described here after verification]`
+
+**Replace section 7 (Browser storage) with:**
+
+| Name | Purpose | Lifetime |
+| --- | --- | --- |
+| `rd_lang` cookie | Interface language | One year |
+| `huckepack.session` (local storage) | Identifies your working copy on the server while you use it | Until you delete your data |
+| `huckepack` database (IndexedDB) | **Your data**: projects, contacts, participants, answers, transcripts, plus the receipt folder you chose | Until you delete it |
+| `huckepack.calle-key` (local storage) | *Only in `huckepack-only-host`:* your own CALL-E key | Until you press "forget" |
+
+Under `[REPLACE: applicable national implementation of Article 5(3) ePrivacy Directive — in Germany § 25 TDDDG]`, storage on the user's device needs consent unless it is strictly necessary for a service the user explicitly requested. `[REPLACE: assess each row; the working position that these entries carry the user's own data for the function the user asked for is an argument, not a finding.]`
+
+**Keep in full and read again:** sections 8 (source of contact data, information during calls), 9 (automated decisions) and 10 (rights). They concern the **people who are called** — whose numbers the organiser supplied and whose answers are recorded. Where those records are stored does not change their position, and this is the point most easily lost.
+
+**One thing does change for them, and not in their favour:** rights requests. If the operator holds no copy, the operator cannot look anything up, correct anything or delete anything. `[REPLACE: describe who a called person turns to, and how the organiser is reached. Do not write "not applicable" — a right that no one can exercise is a problem to solve, not a section to delete.]`
+
+### A.3 Only in `huckepack-only-host` — the visitor's own key
+
+> You enter your own CALL-E key. It is stored by your browser, shown only by its last four characters, and sent to this server with a run so the calls can be placed in your name. This server does not store it, does not write it to a log and does not keep it after the round. The settings page refuses to save a key in this mode. Calls are billed to your own account with `[REPLACE: CALL-E contracting entity]`.
+
+`[REPLACE: state who is controller for those calls under the deployed setup. Passing a key through does not by itself settle the role question — the operator still decides how the call is composed and what is asked.]`
+
+### A.4 What the modes do not change
+
+- Real people are called, and they answer.
+- Transcripts contain their words.
+- The organiser supplied their numbers, usually without those people being asked first — section 8 exists for that reason.
+- Server, reverse-proxy and infrastructure logs are a fact of the deployment, not of the mode.
+
 ## Pre-publication checklist
 
 - [ ] Every placeholder is replaced or removed.
@@ -94,3 +142,8 @@ We will update this notice when purposes, data, providers, retention or architec
 - [ ] Authentication and tenant authorization protect every page, action, photo and download.
 - [ ] Call-layer Articles 13/14 information and withdrawal/objection handling are tested.
 - [ ] A qualified lawyer has reviewed the completed deployment-specific notice and workflow.
+- [ ] The deployed `RINGEDINGEDING_SERVER_MODE` is stated, and only the matching block of Annex A remains.
+- [ ] In a huckepack mode: it has been checked on the running installation that no database file appears.
+- [ ] In `huckepack-only-host`: the key is nowhere in logs, in the database, in `config.local.json` or in a response.
+- [ ] It is written down how a called person exercises their rights when the operator holds no copy.
+- [ ] Device-storage consent has been assessed for each browser entry in Annex A.2.

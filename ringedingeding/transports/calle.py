@@ -107,6 +107,7 @@ class CalleTransport(CallTransport):
         *,
         live_confirmed: bool,
         api_key: str | None = None,
+        credential_override: str | None = None,
         base_url: str | None = None,
         env_file: str | None = None,
         config_file: str | None = None,
@@ -122,16 +123,24 @@ class CalleTransport(CallTransport):
                 "Refusing to build a live transport without explicit confirmation. "
                 "This is not a configuration problem — it is the safety gate."
             )
-        try:
-            settings = load_calle_settings(env_file=env_file, config_file=config_file)
-        except CalleCredentialError as error:
-            if not api_key:
-                raise LiveCallBlocked(str(error)) from None
+        if credential_override:
+            # Server mode huckepack-only-host: this key belongs to the visitor
+            # and outranks everything the host has configured. Consulting the
+            # resolver here would charge the host for someone else's call —
+            # quietly, which is the worst way for it to happen.
             settings = None
-        # ``api_key`` remains an internal dependency-injection hook for callers
-        # that already use it. User configuration always goes through the
-        # documented resolver, and therefore keeps its strict priority order.
-        self._api_key = settings.api_key if settings is not None else api_key or ""
+            self._api_key = credential_override
+        else:
+            try:
+                settings = load_calle_settings(env_file=env_file, config_file=config_file)
+            except CalleCredentialError as error:
+                if not api_key:
+                    raise LiveCallBlocked(str(error)) from None
+                settings = None
+            # ``api_key`` remains an internal dependency-injection hook for callers
+            # that already use it. User configuration always goes through the
+            # documented resolver, and therefore keeps its strict priority order.
+            self._api_key = settings.api_key if settings is not None else api_key or ""
         self.base_url = (
             base_url or (settings.base_url if settings is not None else DEFAULT_BASE_URL)
         ).rstrip("/")
