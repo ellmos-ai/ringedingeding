@@ -298,3 +298,19 @@ def test_the_browser_half_is_shipped_and_never_prints_the_key():
         assert needed in script
     assert "console." not in script
     assert "ringedingeding_" in script, "the export file should carry this app's name"
+
+
+def test_the_board_hands_a_receipt_to_the_browser_without_numbers(monkeypatch, tmp_path):
+    """The result of a round is a file worth keeping — names yes, numbers no."""
+    import re
+
+    use_mode(monkeypatch, "local")
+    with TestClient(create_app(tmp_path / "web.db")) as client:
+        created = client.post(
+            "/demo", data={"fixture": "family-dinner"}, follow_redirects=False
+        )
+        project_id = created.headers["location"].split("/")[2]
+        page = client.get(f"/projects/{project_id}/board").text
+    assert 'id="huckepack-receipt"' in page
+    assert '"kind": "round-receipt"' in page
+    assert not re.search(r"\+\d{6,}", page), "no dialable number, receipt included"
