@@ -1,7 +1,7 @@
 # Initial EU AI Act assessment: RingeDingeDing
 
-**Date:** 2 August 2026  
-**Scope:** AI-assisted calls to multiple private individuals to collect and aggregate dates or opinions  
+**Date:** 2 August 2026
+**Scope:** AI-assisted calls to multiple private individuals to collect and aggregate dates or opinions
 **Notice:** This is a technical and editorial initial assessment, not legal advice. The specific operator must obtain legal review of the purpose, recipients, data source, contracts, and applicable jurisdiction before live calls.
 
 ## Executive finding
