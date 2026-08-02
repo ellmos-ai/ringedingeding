@@ -244,6 +244,26 @@ ringedingeding project call --project <id> --mode rehearsal
 
 The second command calls Erik and nobody else.
 
+## Showing somebody what this does, in one command
+
+If the person wants to see the thing work before they trust it with their
+family's phone numbers:
+
+```
+ringedingeding proof
+```
+
+Seven people, three candidate times, about a second, no account and no network.
+It replays a scripted round and then checks its own result — that a
+disagreement was not counted as a majority, that silence about one time was not
+read as a "no", that "did not pick up", "line busy" and "declined" stayed three
+different things, and that the invitee with no phone number is still in the
+report. It ends by adding her number, placing exactly that one call, and
+showing that the earlier result was wrong.
+
+Run it when somebody asks *"and what happens if they don't all answer?"* —
+that is the question it was written for.
+
 ## The web interface
 
 Same flow, same data, for somebody who would rather click:
