@@ -195,8 +195,14 @@ def test_the_transport_spends_the_visitors_key_not_the_hosts(monkeypatch):
     assert transport._api_key == VISITOR_KEY
 
 
-def test_the_settings_page_refuses_to_store_a_key_in_only_host(monkeypatch, tmp_path):
-    use_mode(monkeypatch, "huckepack-only-host")
+@pytest.mark.parametrize("mode", ["huckepack-only-host", "huckepack-gift"])
+def test_the_settings_page_refuses_to_store_a_key_when_hosted(monkeypatch, tmp_path, mode):
+    """Audit finding of 2026-08-02: this route rewrites the host's credential.
+
+    Unauthenticated, hosted, that is a stranger replacing the key that pays for
+    everyone's calls — in gift mode just as much as in only-host.
+    """
+    use_mode(monkeypatch, mode)
     with TestClient(create_app(tmp_path / "web.db")) as client:
         response = client.post(
             "/settings",
@@ -314,3 +320,41 @@ def test_the_board_hands_a_receipt_to_the_browser_without_numbers(monkeypatch, t
     assert 'id="huckepack-receipt"' in page
     assert '"kind": "round-receipt"' in page
     assert not re.search(r"\+\d{6,}", page), "no dialable number, receipt included"
+
+
+def test_a_running_round_belongs_to_the_browser_that_started_it(monkeypatch, tmp_path):
+    """Audit finding: the job registry is process-wide, a project id is not a key."""
+    from ringedingeding.web.jobs import JobRegistry
+
+    use_mode(monkeypatch, "huckepack-gift")
+    registry = JobRegistry(tmp_path / "web.db")
+    reset = huckepack_storage.bind_session(TOKEN)
+    try:
+        registry._jobs["proj_1"] = _StoppedJob(session=TOKEN)
+        assert registry.get("proj_1") is not None
+    finally:
+        huckepack_storage.unbind_session(reset)
+
+    reset = huckepack_storage.bind_session(OTHER_TOKEN)
+    try:
+        assert registry.get("proj_1") is None, "a stranger must not see your round"
+        assert registry.cancel("proj_1") is False, "nor stop it"
+    finally:
+        huckepack_storage.unbind_session(reset)
+
+
+def test_local_mode_leaves_the_job_registry_alone(monkeypatch, tmp_path):
+    from ringedingeding.web.jobs import JobRegistry
+
+    use_mode(monkeypatch, "local")
+    registry = JobRegistry(tmp_path / "web.db")
+    registry._jobs["proj_1"] = _StoppedJob(session=None)
+    assert registry.get("proj_1") is not None
+
+
+class _StoppedJob:
+    """A job that never ran — enough for the registry's visibility rule."""
+
+    def __init__(self, session):
+        self.session = session
+        self.running = False

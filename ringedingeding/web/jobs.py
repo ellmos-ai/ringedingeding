@@ -39,6 +39,7 @@ from typing import Any
 
 from .. import huckepack_key, huckepack_storage
 from ..activity import ActivityLine
+from ..server_mode import current_mode
 from ..projects import ProjectStore
 from ..service import RunMode, fixture_for, make_transport, run_round
 from ..store import Store
@@ -66,11 +67,24 @@ class JobEvent:
 class Job:
     """One run of one round, executing in its own thread."""
 
-    def __init__(self, *, project_id: str, poll_id: str, mode: str, db_path: str) -> None:
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        poll_id: str,
+        mode: str,
+        db_path: str,
+        session: str | None = None,
+    ) -> None:
         self.project_id = project_id
         self.poll_id = poll_id
         self.mode = mode
         self.db_path = db_path
+        # Which browser session started this round. In a huckepack mode the
+        # registry hands a job out only to that session again: a project id is
+        # an identifier, not a permission, and the registry lives in one
+        # process that several visitors share.
+        self.session = session
         self.started_at = time.time()
         self.finished_at: float | None = None
         self.error: str | None = None
@@ -216,9 +230,23 @@ class JobRegistry:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
+    def visible(self, job: Job | None) -> bool:
+        """Whether the current request may see this job.
+
+        In host-storage modes nothing changes — one installation, one user. In
+        a huckepack mode the job belongs to the browser session that started
+        it, and to no other.
+        """
+        if job is None:
+            return False
+        if not current_mode().stores_in_browser:
+            return True
+        return job.session == huckepack_storage.current_session()
+
     def get(self, project_id: str) -> Job | None:
         with self._lock:
-            return self._jobs.get(project_id)
+            job = self._jobs.get(project_id)
+        return job if self.visible(job) else None
 
     def start(
         self,
@@ -238,7 +266,11 @@ class JobRegistry:
                     "fertig ist — sonst würden Menschen zweimal angerufen."
                 )
             job = Job(
-                project_id=project_id, poll_id=poll_id, mode=mode, db_path=self.db_path
+                project_id=project_id,
+                poll_id=poll_id,
+                mode=mode,
+                db_path=self.db_path,
+                session=session,
             )
             self._jobs[project_id] = job
         job.start(confirmation=confirmation, session=session, calle_key=calle_key)
@@ -246,7 +278,7 @@ class JobRegistry:
 
     def cancel(self, project_id: str) -> bool:
         """Stop starting new calls. Calls in progress are left to finish."""
-        job = self.get(project_id)
+        job = self.get(project_id)  # visibility-filtered on purpose
         if job is None or not job.running:
             return False
         job.cancel.set()
