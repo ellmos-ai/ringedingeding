@@ -45,3 +45,6 @@ Thumbs.db
 # Planung (bleibt lokal)
 SCRATCH*
 NOTES.local.*
+
+# Lokale Koordination zwischen Agenten (nicht Teil des Projekts)
+LOCK*.txt

@@ -36,11 +36,41 @@ That last line is the point of the whole program. An intersection over four of
 six people is a different fact from an intersection over six of six, and it has
 to look different.
 
-## What makes this different from other CALL-E integrations
+## Why not just use the CALL-E app?
 
-Every other integration in the ecosystem calls **one** person. This one asks
-**several people the same question and merges the answers** — which is what the
-CALL-E batch API and its per-recipient result schema were built for.
+Use it — for a single call the CALL-E chat is faster than anything you could
+build, and this project does not try to replace it. Its four categories
+(*Personal Message · Ask a Business · Book or Reschedule · Follow Up*) are all
+one-to-one patterns, and so are the other integrations in the ecosystem: they
+call **one** person.
+
+This exists for the case the chat cannot cover: **many calls from one brief,
+answers that are schema-validated instead of prose, and a single merged result
+instead of six transcripts to read.** Asking six relatives about a weekend in
+the chat means typing six times, reading six transcripts, working out the
+intersection yourself — and remembering, on your own, that the two people who
+never picked up did not agree to anything.
+
+That last part is the reason for the whole program, and it is the one a person
+doing it by hand gets wrong.
+
+**One command shows it, with no account and no network:**
+
+```bash
+python -m ringedingeding proof
+```
+
+Seven people, three candidate times, about a second. It builds the round in a
+temporary database, replays scripted answers, and then checks its own result
+against the four ways a merge can quietly lie — disagreement counted as
+majority, silence read as "no", three kinds of absence folded into one failure,
+and the person whose number is missing dropped from the report. Exit code 0
+means all eight checks passed.
+
+Its ending is the argument in miniature: one invitee has no phone number, so she
+is not called, and the result reads *"works for all 3 who answered"*. Add her
+number, run the same round again — exactly one call is placed, and that result
+turns out to have been wrong.
 
 ## Three ways in, one flow
 
@@ -85,16 +115,23 @@ ringedingeding web
 
 ## Try it without an account
 
-`demo` runs three complete polls against scripted answers. No account, no
-network, no telephone:
+Two ways, both offline. **`proof`** is the short one — one round, seven people,
+eight checks, about a second, described above:
+
+```bash
+ringedingeding proof
+```
+
+**`demo`** is the broad one. It runs every bundled fixture end to end against
+scripted answers — a scheduling question, a decision between two options with an
+abstention and a refusal, an open question, and the `proof` scenario — and
+writes a Markdown report for each into `out/`:
 
 ```bash
 ringedingeding demo
 ```
 
-It plays through a scheduling question, a decision between two options with an
-abstention and a refusal, and an open question — and writes a Markdown report
-for each into `out/`.
+Neither one opens a socket or reads a credential.
 
 ## Finding a date with a group
 
@@ -252,6 +289,7 @@ ringedingeding report --poll poll_ab12cd34ef --markdown result.md
 
 | command    | what it does                                        |
 |------------|-----------------------------------------------------|
+| `proof`    | the core sample: one round, and eight checks on it   |
 | `demo`     | run every bundled fixture end to end (dry run)      |
 | `fixtures` | list the bundled fixtures                           |
 | `create`   | create a poll                                       |
@@ -449,6 +487,7 @@ ringedingeding/
   cli.py            commands, the confirmation gate, exit codes
   cli_projects.py   the date-finding flow on the command line
   service.py        THE flow — the one layer all three ways in share
+  proof.py          the core sample, and the checks it runs on itself
   projects.py       contacts, candidate dates, criteria, decision
   models.py         polls, participants, call statuses, buckets
   schemas.py        result schemas and the spoken instructions

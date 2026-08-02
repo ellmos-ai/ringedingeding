@@ -42,11 +42,18 @@ def _request(poll, participant):
 # --------------------------------------------------------------------------
 
 
-def test_three_fixtures_are_bundled():
-    assert set(bundled_fixtures()) == {"family-dinner", "grandma-gift", "team-retro"}
+def test_the_bundled_set_is_the_one_the_documentation_names():
+    assert set(bundled_fixtures()) == {
+        "family-dinner",
+        "grandma-gift",
+        "team-retro",
+        "weekend-hike",
+    }
 
 
-@pytest.mark.parametrize("name", ["family-dinner", "grandma-gift", "team-retro"])
+@pytest.mark.parametrize(
+    "name", ["family-dinner", "grandma-gift", "team-retro", "weekend-hike"]
+)
 def test_bundled_fixtures_load(name):
     fixture = load_fixture(resolve_fixture(name))
     assert fixture.participants

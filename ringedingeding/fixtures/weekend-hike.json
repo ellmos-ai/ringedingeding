@@ -1,0 +1,92 @@
+{
+  "name": "weekend-hike",
+  "description": "Seven people, three candidate times. Shows the four cases a merge can get wrong: disagreement, half a commitment, three different kinds of not-reached, and one person the address book cannot call at all.",
+  "_numbers": "Placeholders from the reserved +1 555 555 01xx range. The live path additionally refuses every number that appears in a bundled fixture.",
+  "_proof": "This is the scenario behind 'ringedingeding proof'. Vera is scripted with a number here because a fixture describes CALLS; whether the address book knows her number is a project-layer fact. The core sample deliberately enters her WITHOUT one and adds it afterwards, which is how the catch-up is demonstrated.",
+  "poll": {
+    "question": "It is about the hike this weekend. Which of these times could you make?",
+    "kind": "slot",
+    "organizer": "Lukas",
+    "language": "en",
+    "region": "US",
+    "locale": "en-US",
+    "slots": ["Sat 09-13", "Sat 14-18", "Sun 09-13"]
+  },
+  "participants": [
+    { "ref": "nora", "name": "Nora", "phone": "+15555550201" },
+    { "ref": "paul", "name": "Paul", "phone": "+15555550202" },
+    { "ref": "rike", "name": "Rike", "phone": "+15555550203" },
+    { "ref": "sven", "name": "Sven", "phone": "+15555550204" },
+    { "ref": "tara", "name": "Tara", "phone": "+15555550205" },
+    { "ref": "uwe", "name": "Uwe", "phone": "+15555550206" },
+    { "ref": "vera", "name": "Vera", "phone": "+15555550207" }
+  ],
+  "outcomes": {
+    "nora": {
+      "call_status": "COMPLETED",
+      "summary": "Nora can make both Saturday windows, Sunday does not work.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sat 09-13", "Sat 14-18"],
+        "cannot": ["Sun 09-13"],
+        "note": ""
+      },
+      "transcript": "[00:04] BOT: This is an automated call on behalf of Lukas.\n[00:11] USER: Sure, go ahead.\n[00:19] USER: Saturday is fine either way. Sunday I am away."
+    },
+    "paul": {
+      "call_status": "COMPLETED",
+      "summary": "Paul can make Saturday morning and Sunday, not Saturday afternoon.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sat 09-13", "Sun 09-13"],
+        "cannot": ["Sat 14-18"],
+        "note": ""
+      },
+      "transcript": "[00:05] BOT: This is an automated call on behalf of Lukas.\n[00:16] USER: Saturday afternoon is out, I work. Morning yes, Sunday yes."
+    },
+    "rike": {
+      "call_status": "COMPLETED",
+      "summary": "Rike named Saturday morning and said nothing about the other two.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sat 09-13"],
+        "cannot": [],
+        "note": "Has to check the rest with her partner."
+      },
+      "transcript": "[00:06] BOT: This is an automated call on behalf of Lukas.\n[00:14] USER: Saturday morning works. The rest I have to check with my partner first."
+    },
+    "sven": {
+      "call_status": "COMPLETED",
+      "summary": "Sven picked up and said he did not want to answer this on the phone.",
+      "structured_result": {
+        "reachable": true,
+        "refused": true,
+        "note": ""
+      },
+      "transcript": "[00:04] BOT: This is an automated call on behalf of Lukas.\n[00:09] USER: I would rather not do this with a machine, sorry.\n[00:12] BOT: Understood. Thank you, goodbye."
+    },
+    "tara": {
+      "call_status": "NO_ANSWER",
+      "summary": "Nobody picked up."
+    },
+    "uwe": {
+      "call_status": "BUSY",
+      "summary": "The line was busy."
+    },
+    "vera": {
+      "call_status": "COMPLETED",
+      "summary": "Vera can only make Sunday.",
+      "structured_result": {
+        "reachable": true,
+        "refused": false,
+        "available_slots": ["Sun 09-13"],
+        "cannot": ["Sat 09-13", "Sat 14-18"],
+        "note": ""
+      },
+      "transcript": "[00:05] BOT: This is an automated call on behalf of Lukas.\n[00:15] USER: Saturday I am at a wedding, the whole day. Sunday morning would work."
+    }
+  }
+}
