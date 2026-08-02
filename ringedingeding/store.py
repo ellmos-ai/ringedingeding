@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from .huckepack_storage import open_connection
 from .models import (
     Answer,
     CallStatus,
@@ -26,6 +27,7 @@ from .models import (
     PollKind,
     new_id,
 )
+from .server_mode import current_mode
 
 __all__ = ["Store", "utc_now", "DEFAULT_DB_PATH"]
 
@@ -106,9 +108,14 @@ class Store:
 
     def __init__(self, path: str | Path = DEFAULT_DB_PATH) -> None:
         self.path = Path(path)
-        if self.path.parent and str(self.path.parent) not in ("", "."):
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(str(self.path))
+        # Where this database actually lives is the server mode's decision: the
+        # file below, or the copy the browser sent for this session. In the
+        # browser modes not even the directory is created — see
+        # ``huckepack_storage``.
+        if current_mode().stores_on_host:
+            if self.path.parent and str(self.path.parent) not in ("", "."):
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.connection = open_connection(str(self.path))
         self.connection.row_factory = sqlite3.Row
         self.connection.executescript(_SCHEMA)
         self._add_missing_columns()

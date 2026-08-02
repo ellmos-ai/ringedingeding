@@ -38,6 +38,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response, Streamin
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from .. import huckepack_key, huckepack_storage, huckepack_web
 from .. import __version__
 from ..calendar_export import calendar_entries, render_ics, render_xlsx
 from ..calle_credentials import (
@@ -138,6 +139,9 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
     )
     app.state.db_path = db
     app.state.jobs = JobRegistry(db)
+
+    # Server modes: descriptor, browser snapshot, per-request session and key.
+    huckepack_web.install(app)
 
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.globals.update(
@@ -241,6 +245,18 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
 
     @app.post("/settings")
     def settings_save(api_key: str = Form(...)) -> Response:
+        if not huckepack_key.host_may_store_a_key():
+            # In huckepack-only-host the key belongs in the visitor's browser.
+            # Writing it here would hand the next visitor's calls to this one's
+            # account — the exact confusion the mode exists to prevent.
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This installation runs in huckepack-only-host: your key stays "
+                    "in your browser and is never stored on the server. Enter it in "
+                    "the bar at the top of the page."
+                ),
+            )
         try:
             save_project_api_key(api_key)
         except (CalleCredentialError, OSError, ValueError) as error:
@@ -568,6 +584,10 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 poll_id=poll.id,
                 mode=mode,
                 confirmation=confirmation,
+                # The round outlives this request; both values have to travel
+                # with it, because a thread inherits no request context.
+                session=huckepack_storage.current_session(),
+                calle_key=huckepack_key.current_request_key(),
             )
             return RedirectResponse(
                 f"/projects/{project_id}/live?round={round_kind}", status_code=303

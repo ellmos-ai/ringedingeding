@@ -600,9 +600,18 @@ def make_transport(
             f"Live calling needs the words {LIVE_CONFIRMATION_PHRASE!r}, typed out. "
             "Nothing was dialed."
         )
+    from .huckepack_key import credential_override
     from .transports.calle import CalleBatchTransport
 
-    return CalleBatchTransport(live_confirmed=True, cancel=cancel, on_activity=on_activity)
+    # Whose key pays is decided here, in the one door to a real telephone:
+    # ``None`` keeps the documented resolver, a value is the visitor's own key
+    # in huckepack-only-host.
+    return CalleBatchTransport(
+        live_confirmed=True,
+        credential_override=credential_override(),
+        cancel=cancel,
+        on_activity=on_activity,
+    )
 
 
 def refuse_placeholder_numbers(store: Store, poll: Poll) -> None:

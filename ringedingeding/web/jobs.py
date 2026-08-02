@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .. import huckepack_key, huckepack_storage
 from ..activity import ActivityLine
 from ..projects import ProjectStore
 from ..service import RunMode, fixture_for, make_transport, run_round
@@ -121,10 +122,27 @@ class Job:
 
     # -- execution -----------------------------------------------------------
 
-    def start(self, *, confirmation: str = "") -> None:
+    def start(
+        self,
+        *,
+        confirmation: str = "",
+        session: str | None = None,
+        calle_key: str | None = None,
+    ) -> None:
+        """Begin the round in a thread of its own.
+
+        ``session`` and ``calle_key`` are handed over explicitly instead of
+        being read from the request context: a thread does not inherit a
+        ``ContextVar``, so in a huckepack mode the job would otherwise open an
+        empty database and, in only-host, find no key at the first number.
+        """
         thread = threading.Thread(
             target=self._run,
-            kwargs={"confirmation": confirmation},
+            kwargs={
+                "confirmation": confirmation,
+                "session": session,
+                "calle_key": calle_key,
+            },
             name=f"ringedingeding-{self.project_id}",
             daemon=True,
         )
@@ -136,8 +154,16 @@ class Job:
         if self._thread is not None:
             self._thread.join(timeout)
 
-    def _run(self, *, confirmation: str) -> None:
+    def _run(
+        self,
+        *,
+        confirmation: str,
+        session: str | None = None,
+        calle_key: str | None = None,
+    ) -> None:
         store: Store | None = None
+        session_reset = huckepack_storage.bind_session(session)
+        key_reset = huckepack_key.bind_request_key(calle_key)
         try:
             store = Store(self.db_path)
             projects = ProjectStore(store)
@@ -170,6 +196,8 @@ class Job:
             self.finished_at = time.time()
             if store is not None:
                 store.close()
+            huckepack_key.unbind_request_key(key_reset)
+            huckepack_storage.unbind_session(session_reset)
 
     def _on_event(self, event: str, **fields: Any) -> None:
         self._append(JobEvent(kind=event, fields=dict(fields)))
@@ -192,7 +220,16 @@ class JobRegistry:
         with self._lock:
             return self._jobs.get(project_id)
 
-    def start(self, *, project_id: str, poll_id: str, mode: str, confirmation: str = "") -> Job:
+    def start(
+        self,
+        *,
+        project_id: str,
+        poll_id: str,
+        mode: str,
+        confirmation: str = "",
+        session: str | None = None,
+        calle_key: str | None = None,
+    ) -> Job:
         with self._lock:
             existing = self._jobs.get(project_id)
             if existing is not None and existing.running:
@@ -204,7 +241,7 @@ class JobRegistry:
                 project_id=project_id, poll_id=poll_id, mode=mode, db_path=self.db_path
             )
             self._jobs[project_id] = job
-        job.start(confirmation=confirmation)
+        job.start(confirmation=confirmation, session=session, calle_key=calle_key)
         return job
 
     def cancel(self, project_id: str) -> bool:
