@@ -1,7 +1,7 @@
 # Ersteinschätzung zum EU AI Act: RingeDingeDing
 
-**Stand:** 2. August 2026  
-**Gegenstand:** KI-gestützte Anrufe bei mehreren Privatpersonen zur Sammlung und Zusammenführung von Terminen oder Meinungen  
+**Stand:** 2. August 2026
+**Gegenstand:** KI-gestützte Anrufe bei mehreren Privatpersonen zur Sammlung und Zusammenführung von Terminen oder Meinungen
 **Hinweis:** Diese technische und redaktionelle Ersteinschätzung ist keine Rechtsberatung. Der konkrete Betreiber muss Zweck, Empfängerkreis, Datenquelle, Verträge und Rechtsordnung vor Live-Anrufen rechtlich prüfen lassen.
 
 ## Kurzurteil
