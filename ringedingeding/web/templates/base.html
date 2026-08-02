@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Ringedingeding{% endblock %}</title>
+  <link rel="icon" href="/static/logo-square.svg">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/"><span class="brand-ring">R</span>Ringedingeding</a>
+  {# The mark: one ring, three people around it. Same shape as logo.svg and
+     banner.png, generated from _calle-videos/_assets/logos/logos.py. Inline so
+     the header never flashes an empty box while an icon file loads. #}
+  <a class="brand" href="/"><svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><circle cx="50" cy="50" r="26.5" fill="none" stroke="#D19B23" stroke-width="9"/><circle cx="50" cy="50" r="8" fill="#D19B23"/><circle cx="50" cy="7.5" r="8.4" fill="#D19B23"/><circle cx="86.81" cy="71.25" r="8.4" fill="#D19B23"/><circle cx="13.19" cy="71.25" r="8.4" fill="#D19B23"/></svg>Ringedingeding</a>
   <span class="tagline">{{ t('alle fragen, eine Antwort') }}</span>
   <nav>
     <a href="/">{{ t('Projekte') }}</a>

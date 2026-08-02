@@ -52,7 +52,7 @@ code { background: var(--soft); padding: 1px 5px; border-radius: 4px; font-size:
   max-width: 880px; margin: 0 auto; padding: 20px;
 }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 720; font-size: 1.05rem; text-decoration: none; color: var(--ink); }
-.brand-ring { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; color: #fff; font-size: .78rem; background: linear-gradient(135deg, var(--accent), var(--advisor)); box-shadow: 0 5px 16px #5b36d640; }
+.brand-mark { display: block; width: 30px; height: 30px; flex: none; }
 .tagline { color: var(--muted); font-size: 0.85rem; }
 .top nav { margin-left: auto; display: flex; gap: 14px; font-size: 0.9rem; align-items: center; }
 .top .language { border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; text-decoration: none; font-size: .75rem; }
