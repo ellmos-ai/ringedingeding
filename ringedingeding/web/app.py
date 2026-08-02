@@ -38,6 +38,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response, Streamin
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from datetime import datetime
+
 from .. import huckepack_key, huckepack_storage, huckepack_web
 from .. import __version__
 from ..calendar_export import calendar_entries, render_ics, render_xlsx
@@ -741,10 +743,42 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 invitees=context.projects.invitees(project_id),
                 invitation=invitation,
                 job=app.state.jobs.get(project_id),
+                huckepack_receipt=_board_receipt(project, view),
                 step="board",
             )
         finally:
             context.close()
+
+    def _board_receipt(project, view) -> str:
+        """The result of a round, as a file the organiser can keep.
+
+        Built from the board that is already on screen, with names but without
+        numbers: a receipt is a record of what was agreed, not a copy of the
+        address book.
+        """
+        decided = view.decided_slot
+        return huckepack_web.receipt_script_tag(
+            {
+                "kind": "round-receipt",
+                "app": "ringedingeding",
+                "order_id": project.id,
+                "business": project.occasion,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "summary": (
+                    f"{decided.slot.label}: {len(decided.can)} " + "können"
+                    if decided
+                    else "Noch nicht terminiert."
+                ),
+                "transcript": "\n".join(
+                    f"{slot.slot.label}: "
+                    + ", ".join(person.name for person in slot.can)
+                    for slot in view.slots
+                ),
+                "third_party_notice": (
+                    "Die Namen stammen von den angerufenen Personen selbst."
+                ),
+            }
+        )
 
     @app.get("/projects/{project_id}/board/slot/{slot_id}", response_class=HTMLResponse)
     def slot_detail(request: Request, project_id: str, slot_id: str) -> Response:
