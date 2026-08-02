@@ -1,54 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Einladung verschicken</h1>
+<h1>{{ t('Einladung verschicken') }}</h1>
 
 {% if not decided %}
   <p class="muted">
-    Es ist noch kein Termin festgelegt.
-    <a href="/projects/{{ project.id }}/board">Zum Ergebnis →</a>
+    {{ t('Es ist noch kein Termin festgelegt.') }}
+    <a href="/projects/{{ project.id }}/board">{{ t('Zum Ergebnis') }} →</a>
   </p>
 {% else %}
 
 <p class="decided-line">
-  Festgelegt: <strong>{{ decided.slot.label }}</strong> —
-  {{ decided.count }} von {{ board.total_count }} können.
+  {{ t('Festgelegt:') }} <strong>{{ decided.slot.label }}</strong> —
+  {{ decided.count }} {{ t('von') }} {{ board.total_count }} {{ t('können') }}.
 </p>
 
-<h2>Was gesagt wird</h2>
+<h2>{{ t('Was gesagt wird') }}</h2>
 <form method="post" action="/projects/{{ project.id }}/invite" class="card">
   <label>
-    Text der Einladung
+    {{ t('Text der Einladung') }}
     <textarea name="text" rows="4" required>{{ text }}</textarea>
   </label>
   <p class="muted small">
-    Vorausgefüllt aus dem Projekt und anpassbar. Der Satz wird wörtlich
-    gesprochen; der Pflichthinweis auf den automatischen Anruf steht davor.
-    Begrüßung und Schlussformel aus dem Projekt gelten auch hier.
+    {{ t('Vorausgefüllt aus dem Projekt und anpassbar. Der Satz wird wörtlich gesprochen; der Pflichthinweis auf den automatischen Anruf steht davor. Begrüßung und Schlussformel aus dem Projekt gelten auch hier.') }}
   </p>
-  <button type="submit" class="primary">Einladung übernehmen</button>
+  <button type="submit" class="primary">{{ t('Einladung übernehmen') }}</button>
 </form>
 
-<h2>Wie sollen die anderen informiert werden?</h2>
+<h2>{{ t('Wie sollen die anderen informiert werden?') }}</h2>
 <div class="card">
   <ul class="channels">
-    <li><strong>Telefon</strong> — gebaut, siehe unten.</li>
-    <li class="greyed">Nur E-Mail — zweiter Kanal, Stufe 2.</li>
-    <li class="greyed">Telefon, sonst E-Mail — Stufe 2.</li>
-    <li>Ich informiere selbst — dann hier einfach nichts starten.</li>
+    <li><strong>{{ t('Telefon') }}</strong> — {{ t('gebaut, siehe unten.') }}</li>
+    <li class="greyed">{{ t('Nur E-Mail — späterer zweiter Kanal.') }}</li>
+    <li class="greyed">{{ t('Telefon, sonst E-Mail — spätere Ausbaustufe.') }}</li>
+    <li>{{ t('Ich informiere selbst — dann hier einfach nichts starten.') }}</li>
   </ul>
 </div>
 
 {% if invitation and invitation_preview %}
-<h2>Anrufen</h2>
+<h2>{{ t('Anrufen') }}</h2>
 <div class="card">
   <p>
-    {{ invitation_preview.call_count }} Person(en) würden informiert
-    {%- if invitation_preview.skipped %}, {{ invitation_preview.skipped|length }} wurde(n) schon erreicht{% endif %}.
+    {{ invitation_preview.call_count }} {{ t('Person(en) würden informiert') }}
+    {%- if invitation_preview.skipped %}, {{ invitation_preview.skipped|length }} {{ t('wurde(n) schon erreicht') }}{% endif %}.
   </p>
   {% if invitation_preview.task_text %}
   <details>
-    <summary>Auftragstext, wörtlich</summary>
+    <summary>{{ t('Auftragstext, wörtlich') }}</summary>
     <pre class="task">{{ invitation_preview.task_text }}</pre>
   </details>
   {% endif %}
@@ -56,46 +54,45 @@
   <form method="post" action="/projects/{{ project.id }}/run" class="row">
     <input type="hidden" name="mode" value="rehearsal">
     <input type="hidden" name="round_kind" value="invitation">
-    <button type="submit">Probelauf</button>
+    <button type="submit">{{ t('Probelauf') }}</button>
   </form>
 
   {% if has_fixture %}
   <form method="post" action="/projects/{{ project.id }}/run" class="row">
     <input type="hidden" name="mode" value="script">
     <input type="hidden" name="round_kind" value="invitation">
-    <button type="submit">Hinterlegte Antworten abspielen</button>
+    <button type="submit">{{ t('Hinterlegte Antworten abspielen') }}</button>
   </form>
   {% endif %}
 </div>
 
 <div class="card live-card">
-  <h3>Echt anrufen</h3>
+  <h3>{{ t('Echt anrufen') }}</h3>
   <p>
-    {{ invitation_preview.call_count }} Anrufe, etwa
+    {{ invitation_preview.call_count }} {{ t('Anrufe, etwa') }}
     ${{ '%.2f'|format(invitation_preview.cost_usd) }}.
   </p>
   {% if not api_key %}
   <p class="warn-line">
-    Kein <code>CALLE_API_KEY</code> in der Umgebung — hier werden keine
-    Zugangsdaten entgegengenommen.
+    {{ t('Kein') }} <code>CALLE_API_KEY</code> {{ t('in der Umgebung — hier werden keine Zugangsdaten entgegengenommen.') }}
   </p>
   {% endif %}
   <form method="post" action="/projects/{{ project.id }}/run" class="row">
     <input type="hidden" name="mode" value="live">
     <input type="hidden" name="round_kind" value="invitation">
     <label class="grow">
-      Tippe <code>{{ live_phrase }}</code>:
+      {{ t('Tippe') }} <code>{{ live_phrase }}</code>:
       <input type="text" name="confirmation" autocomplete="off">
     </label>
     <button type="submit" class="danger" {% if not api_key %}disabled{% endif %}>
-      Einladung telefonisch verschicken
+      {{ t('Einladung telefonisch verschicken') }}
     </button>
   </form>
 </div>
 
 <p>
   <a class="next" href="/projects/{{ project.id }}/live?round=invitation">
-    Wer wurde erreicht? →
+    {{ t('Wer wurde erreicht?') }} →
   </a>
 </p>
 {% endif %}

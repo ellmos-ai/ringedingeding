@@ -1,33 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Kontakte — Ringedingeding{% endblock %}
+{% block title %}{{ t('Kontakte') }} — Ringedingeding{% endblock %}
 {% block content %}
 
-<h1>Kontaktbuch</h1>
+<h1>{{ t('Kontaktbuch') }}</h1>
 <p class="muted">
-  Das Werkzeug ergibt nur mit den eigenen Kontakten Sinn. Rufnummern werden hier
-  nie vollständig angezeigt — auch nicht im Bearbeiten-Feld.
+  {{ t('Das Werkzeug ergibt nur mit den eigenen Kontakten Sinn. Rufnummern werden hier nie vollständig angezeigt — auch nicht im Bearbeiten-Feld.') }}
 </p>
 
-<h2>Neuer Kontakt</h2>
+<h2>{{ t('Neuer Kontakt') }}</h2>
 <form method="post" action="/contacts" enctype="multipart/form-data" class="card">
   <input type="hidden" name="project" value="{{ back_to }}">
-  <label>Name <input type="text" name="name" required placeholder="Anna Beispiel"></label>
+  <label>{{ t('Name') }} <input type="text" name="name" required placeholder="Anna Beispiel"></label>
   <label>
-    Telefonnummer in E.164 — mit <code>+</code> und Ländervorwahl, ohne die 0
+    {{ t('Telefonnummer in E.164 — mit') }} <code>+</code> {{ t('und Ländervorwahl, ohne die 0') }}
     <input type="tel" name="phone" placeholder="+49…">
   </label>
-  <label>E-Mail (für Stufe 2) <input type="email" name="email" placeholder="anna@example.org"></label>
-  <label>Notiz <input type="text" name="note"></label>
-  <label>Bild <input type="file" name="photo" accept="image/*"></label>
+  <label>{{ t('E-Mail') }} <input type="email" name="email" placeholder="anna@example.org"></label>
+  <label>{{ t('Notiz') }} <input type="text" name="note"></label>
+  <label>{{ t('Bild') }} <input type="file" name="photo" accept="image/*"></label>
   <p class="muted small">
-    Ohne Telefonnummer wird der Kontakt angelegt, aber nicht angerufen — er
-    erscheint ausgegraut und im Ergebnis in der Liste „nicht kontaktierbar".
+    {{ t('Ohne Telefonnummer wird der Kontakt angelegt, aber nicht angerufen — er erscheint ausgegraut und im Ergebnis in der Liste „nicht kontaktierbar“.') }}
   </p>
-  <button type="submit" class="primary">Anlegen</button>
+  <button type="submit" class="primary">{{ t('Anlegen') }}</button>
 </form>
 
 {% if contacts %}
-<h2>{{ contacts|length }} Kontakt(e)</h2>
+<h2>{{ contacts|length }} {{ t('Kontakt(e)') }}</h2>
 {% for contact in contacts %}
 <form method="post" action="/contacts/{{ contact.id }}" enctype="multipart/form-data"
       class="card contact-row {% if not contact.callable %}greyed{% endif %}">
@@ -41,35 +39,35 @@
     <div>
       <input type="text" name="name" value="{{ contact.name }}" required>
       <p class="muted small">
-        Telefon: {{ contact.phone_masked }}
+        {{ t('Telefon:') }} {{ contact.phone_masked }}
         {% if contact.email %} · E-Mail: {{ contact.channels|selectattr('kind','equalto','email')|map(attribute='masked')|first }}{% endif %}
         {% if not contact.callable %}
-          <span class="badge warn">keine Telefonnummer</span>
+          <span class="badge warn">{{ t('keine Telefonnummer') }}</span>
         {% endif %}
       </p>
     </div>
   </div>
   <div class="row">
-    <label class="grow">Neue Nummer <input type="tel" name="phone" placeholder="leer lassen = unverändert"></label>
-    <label class="grow">Neue E-Mail <input type="email" name="email" placeholder="leer lassen = unverändert"></label>
+    <label class="grow">{{ t('Neue Nummer') }} <input type="tel" name="phone" placeholder="{{ t('leer lassen = unverändert') }}"></label>
+    <label class="grow">{{ t('Neue E-Mail') }} <input type="email" name="email" placeholder="{{ t('leer lassen = unverändert') }}"></label>
   </div>
   <div class="row">
-    <label class="grow">Notiz <input type="text" name="note" value="{{ contact.note }}"></label>
-    <label class="grow">Bild ersetzen <input type="file" name="photo" accept="image/*"></label>
+    <label class="grow">{{ t('Notiz') }} <input type="text" name="note" value="{{ contact.note }}"></label>
+    <label class="grow">{{ t('Bild ersetzen') }} <input type="file" name="photo" accept="image/*"></label>
   </div>
   <div class="row spread">
-    <button type="submit">Speichern</button>
+    <button type="submit">{{ t('Speichern') }}</button>
   </div>
 </form>
 <form method="post" action="/contacts/{{ contact.id }}/delete" class="inline-form"
-      onsubmit="return confirm('Kontakt wirklich löschen?')">
+      onsubmit="return confirm('{{ t('Kontakt wirklich löschen?') }}')">
   <input type="hidden" name="project" value="{{ back_to }}">
-  <button type="submit" class="link danger">löschen</button>
+  <button type="submit" class="link danger">{{ t('löschen') }}</button>
 </form>
 {% endfor %}
 {% endif %}
 
 {% if back_to %}
-<p><a class="next" href="/projects/{{ back_to }}/people">Zurück zum Projekt →</a></p>
+<p><a class="next" href="/projects/{{ back_to }}/people">{{ t('Zurück zum Projekt') }} →</a></p>
 {% endif %}
 {% endblock %}

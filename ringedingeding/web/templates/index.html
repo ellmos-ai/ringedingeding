@@ -1,84 +1,112 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Wozu möchtest du einladen?</h1>
+<section class="hero">
+  <p class="eyebrow">{{ t('Dein persönlicher Telefon-Assistent') }}</p>
+  <h1>{{ t('Was sollen wir gemeinsam herausfinden?') }}</h1>
+  <p>{{ t('Frag mehrere Menschen, ohne dieselbe Runde selbst immer wieder zu führen.') }}</p>
+</section>
 
 <form method="post" action="/projects" class="card">
+  <fieldset class="mode-choice">
+    <legend>{{ t('Wähle den Auftrag') }}</legend>
+    <label class="mode-card schedule">
+      <input type="radio" name="mode" value="schedule" checked>
+      <span class="mode-icon">◷</span>
+      <strong>{{ t('Terminfinden') }}</strong>
+      <span>{{ t('„Wann kannst du?“ — Verfügbarkeiten zusammenführen und einen Termin entscheiden.') }}</span>
+    </label>
+    <label class="mode-card advisor">
+      <input type="radio" name="mode" value="roundtable">
+      <span class="mode-icon">✦</span>
+      <strong>{{ t('Ask Your Advisor') }}</strong>
+      <span>{{ t('„Was meinst du?“ — Tendenzen, Gegenstimmen und Begründungen sichtbar machen.') }}</span>
+    </label>
+  </fieldset>
   <label>
-    Um was geht's?
+    {{ t("Worum geht's?") }}
     <input type="text" name="occasion" required autofocus
-           placeholder="Familienessen am Wochenende">
+           placeholder="{{ t('Familienessen oder neue Vereinsidee') }}">
   </label>
   <label>
-    In wessen Auftrag wird angerufen?
+    {{ t('In wessen Auftrag wird angerufen?') }}
     <input type="text" name="organizer" required placeholder="Lukas">
   </label>
+  <label>
+    {{ t('Zielgruppe') }}
+    <select name="group_id">
+      <option value="">{{ t('Später Personen auswählen') }}</option>
+      {% for group in groups %}<option value="{{ group.id }}">{{ group.name }} ({{ group.members|length }})</option>{% endfor %}
+    </select>
+    <span class="hint">{{ t('Friends, Family oder Tennisclub sind nur Beispiele.') }} <a href="/groups">{{ t('Eigene Gruppe anlegen') }}</a></span>
+  </label>
+  <label>
+    {{ t('Sprache der Anrufe') }}
+    <select name="language"><option value="de" {% if ui_language == 'de' %}selected{% endif %}>Deutsch</option><option value="en" {% if ui_language == 'en' %}selected{% endif %}>English</option></select>
+  </label>
   <fieldset>
-    <legend>Terminart</legend>
+    <legend>{{ t('Terminart (nur beim Terminfinden)') }}</legend>
     <label class="inline">
       <input type="radio" name="date_kind" value="day_slots" checked>
-      Tagestermin — einzelne Zeiträume an ausgewählten Tagen
+      {{ t('Tagestermin — einzelne Zeiträume an ausgewählten Tagen') }}
     </label>
     <label class="inline">
       <input type="radio" name="date_kind" value="whole_day">
-      Ganzer Tag — Tage ohne Uhrzeit
+      {{ t('Ganzer Tag — Tage ohne Uhrzeit') }}
     </label>
     <p class="muted small">
-      Woche, Monat, mehrere Tage am Stück und regelmäßige Wochentermine sind
-      Teil des Konzepts und folgen in Stufe 2.
+      {{ t('Weitere Terminarten bleiben im Datenmodell offen; diese Oberfläche bietet derzeit Tagestermine und ganze Tage.') }}
     </p>
   </fieldset>
 
   {# OPTIONAL — bleibt zugeklappt, damit niemand meint, es gehöre dazu. #}
   <details class="optional">
-    <summary>Eilt es? <span class="muted small">— optional</span></summary>
+    <summary>{{ t('Eilt es?') }} <span class="muted small">— {{ t('optional') }}</span></summary>
     <label>
-      In deinen Worten
-      <input type="text" name="urgency" placeholder="wirklich dringend">
+      {{ t('In deinen Worten') }}
+      <input type="text" name="urgency" placeholder="{{ t('wirklich dringend') }}">
     </label>
     <p class="muted small">
-      Ändert nur den Ton des Anrufs, nicht den Ablauf — es wird trotzdem
-      niemand gedrängt und ein Nein bleibt ein gültiges Ergebnis.
+      {{ t('Ändert nur den Ton des Anrufs, nicht den Ablauf — es wird trotzdem niemand gedrängt und ein Nein bleibt ein gültiges Ergebnis.') }}
     </p>
   </details>
 
-  <button type="submit" class="primary">Projekt anlegen</button>
+  <button type="submit" class="primary">{{ t('Projekt anlegen') }}</button>
 </form>
 
 {% if projects %}
-<h2>Deine Projekte</h2>
+<div class="section-title"><h2>{{ t('Deine Projekte') }}</h2><a href="/calendar">{{ t('Alle Termine im Kalender') }} →</a></div>
 <ul class="list">
   {% for item in projects %}
   <li>
     <a href="/projects/{{ item.id }}"><strong>{{ item.occasion }}</strong></a>
-    <span class="badge">{{ {'draft':'Entwurf','asking':'Anrufe','decided':'terminiert','invited':'eingeladen'}.get(item.state, item.state) }}</span>
-    {% if item.fixture_name %}<span class="badge script">Beispieldaten</span>{% endif %}
+    <span class="mode-badge {{ item.mode }}">{{ t('Termin') if item.mode == 'schedule' else t('Advisor') }}</span>
+    <span class="badge">{{ t({'draft':'Entwurf','asking':'Anrufe','decided':'terminiert','invited':'eingeladen'}.get(item.state, item.state)) }}</span>
+    {% if item.fixture_name %}<span class="badge script">{{ t('Beispieldaten') }}</span>{% endif %}
     <form method="post" action="/projects/{{ item.id }}/delete" class="inline-form"
-          onsubmit="return confirm('Projekt wirklich löschen?')">
-      <button type="submit" class="link danger">löschen</button>
+          onsubmit="return confirm('{{ t('Projekt wirklich löschen?') }}')">
+      <button type="submit" class="link danger">{{ t('löschen') }}</button>
     </form>
   </li>
   {% endfor %}
 </ul>
 {% endif %}
 
-<h2>Ohne Konto ausprobieren</h2>
+<h2>{{ t('Ohne Konto ausprobieren') }}</h2>
 <div class="card muted-card">
   <p>
-    Ein Beispielprojekt entsteht aus einer mitgelieferten Datei: Kontakte,
-    Terminvorschläge und die hinterlegten Antworten. Nichts davon geht ins Netz,
-    es wird nicht telefoniert und es wird kein Konto gebraucht.
+    {{ t('Ein Beispielprojekt entsteht aus einer mitgelieferten Datei: Kontakte, Terminvorschläge und hinterlegte Antworten. Nichts davon geht ins Netz, es wird nicht telefoniert und es wird kein Konto gebraucht.') }}
   </p>
   <form method="post" action="/demo" class="row">
     <select name="fixture">
       {% for name in fixtures %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
     </select>
-    <button type="submit">Beispielprojekt anlegen</button>
+    <button type="submit">{{ t('Beispielprojekt anlegen') }}</button>
   </form>
 </div>
 
 <p class="muted small">
-  {{ contact_count }} Kontakt(e) im Buch. <a href="/contacts">Kontakte verwalten</a> —
-  ohne Telefonnummer kann jemand nicht angerufen werden.
+  {{ contact_count }} {{ t('Kontakt(e) im Buch.') }} <a href="/contacts">{{ t('Kontakte verwalten') }}</a> —
+  {{ t('ohne Telefonnummer kann jemand nicht angerufen werden.') }}
 </p>
 {% endblock %}

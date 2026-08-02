@@ -43,6 +43,7 @@ packages = ["ringedingeding", "ringedingeding.transports", "ringedingeding.web"]
 [tool.setuptools.package-data]
 ringedingeding = [
   "fixtures/*.json",
+  "locales/*.json",
   "web/templates/*.html",
   "web/static/*.css",
   "web/static/*.js",

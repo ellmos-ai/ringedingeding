@@ -33,6 +33,7 @@ from .projects import (
     Invitee,
     Project,
     ProjectMode,
+    ProjectQuestion,
     ProjectState,
     ProjectStore,
     RoundKind,
@@ -63,12 +64,17 @@ __all__ = [
     "set_wording",
     "wording",
     "availability_round",
+    "set_advisor_question",
+    "advisor_question",
+    "roundtable_round",
     "invitation_round",
     "default_invitation_text",
     "preview",
     "make_transport",
     "run_round",
     "board",
+    "AdvisorBoard",
+    "advisor_board",
     "set_criteria",
     "decide",
     "question_for",
@@ -117,6 +123,7 @@ def create_project(
     region: str = "DE",
     locale: str = "de-DE",
     urgency: str = "",
+    group_id: str | None = None,
     fixture_name: str | None = None,
 ) -> Project:
     """Create a project. The occasion is checked for refused content first.
@@ -125,7 +132,7 @@ def create_project(
     never gets as far as being attached to somebody's phone number.
     """
     assert_question_allowed(occasion)
-    return projects.create_project(
+    project = projects.create_project(
         occasion=occasion,
         organizer=organizer,
         mode=mode,
@@ -134,8 +141,13 @@ def create_project(
         region=region,
         locale=locale,
         urgency=urgency,
+        group_id=group_id,
         fixture_name=fixture_name,
     )
+    if group_id:
+        group = projects.group(group_id)
+        projects.set_invitees(project.id, [contact.id for contact in group.members])
+    return project
 
 
 def question_for(project: Project) -> str:
@@ -228,7 +240,7 @@ def set_invitees(
 ) -> list[Invitee]:
     """Set the guest list and bring every existing round in line with it."""
     invitees = projects.set_invitees(project.id, contact_ids)
-    for kind in (RoundKind.AVAILABILITY, RoundKind.INVITATION):
+    for kind in (RoundKind.AVAILABILITY, RoundKind.ROUNDTABLE, RoundKind.INVITATION):
         for poll_id in projects.round_ids(project.id, kind):
             sync_participants(store, store.get_poll(poll_id), invitees)
     return invitees
@@ -262,7 +274,7 @@ def resync_contact(store: Store, projects: ProjectStore, contact_id: str) -> lis
         invitees = projects.invitees(project.id)
         if not any(invitee.contact_id == contact_id for invitee in invitees):
             continue
-        for kind in (RoundKind.AVAILABILITY, RoundKind.INVITATION):
+        for kind in (RoundKind.AVAILABILITY, RoundKind.ROUNDTABLE, RoundKind.INVITATION):
             for poll_id in projects.round_ids(project.id, kind):
                 sync_participants(store, store.get_poll(poll_id), invitees)
         touched.append(project)
@@ -367,6 +379,70 @@ def availability_round(
         slots=[slot.label for slot in slots],
         project_id=project.id,
         round_kind=RoundKind.AVAILABILITY,
+    )
+    sync_participants(store, poll, projects.invitees(project.id))
+    return poll
+
+
+def set_advisor_question(
+    projects: ProjectStore,
+    project: Project,
+    question: str,
+    *,
+    options: Sequence[str] = (),
+) -> ProjectQuestion:
+    """Store the Advisor prompt and keep an unrun preview round in sync."""
+    if project.mode != ProjectMode.ROUNDTABLE:
+        raise ValueError("advisor questions belong to an Ask your Advisor project")
+    clean_question = question.strip()
+    if not clean_question:
+        raise ValueError("the advisor question must not be empty")
+    assert_question_allowed(clean_question)
+    clean_options = tuple(
+        dict.fromkeys(str(value).strip() for value in options if str(value).strip())
+    )
+    kind = PollKind.CHOICE if len(clean_options) >= 2 else PollKind.OPEN
+    saved = projects.set_questions(
+        [clean_question],
+        kind=kind.value,
+        options=clean_options,
+        scope="project",
+        scope_id=project.id,
+    )[0]
+    for poll_id in projects.round_ids(project.id, RoundKind.ROUNDTABLE):
+        projects.store.set_poll_definition(
+            poll_id, question=saved.text, kind=kind, options=saved.options
+        )
+    return saved
+
+
+def advisor_question(projects: ProjectStore, project: Project) -> ProjectQuestion | None:
+    questions = projects.questions(scope="project", scope_id=project.id)
+    return questions[0] if questions else None
+
+
+def roundtable_round(
+    store: Store, projects: ProjectStore, project: Project, *, create: bool = True
+) -> Poll | None:
+    """The one opinion round of an Ask your Advisor project."""
+    existing = projects.round_ids(project.id, RoundKind.ROUNDTABLE)
+    if existing:
+        return store.get_poll(existing[0])
+    if not create:
+        return None
+    configured = advisor_question(projects, project)
+    if configured is None:
+        raise ValueError("set the advisor question before preparing the round")
+    poll = store.create_poll(
+        question=configured.text,
+        kind=configured.kind,
+        organizer=project.organizer,
+        language=project.language,
+        region=project.region,
+        locale=project.locale,
+        options=configured.options,
+        project_id=project.id,
+        round_kind=RoundKind.ROUNDTABLE,
     )
     sync_participants(store, poll, projects.invitees(project.id))
     return poll
@@ -682,6 +758,30 @@ class Board:
         return self.coverage.total + len(self.uncallable)
 
 
+@dataclass(frozen=True)
+class AdvisorBoard:
+    """Opinion result: tendency and dissent without discarding the raw answers."""
+
+    project: Project
+    poll: Poll | None
+    merge: MergeResult | None = None
+    coverage: Coverage = field(default_factory=Coverage)
+    uncallable: tuple[Contact, ...] = ()
+    simulated: bool = False
+
+    @property
+    def answered_count(self) -> int:
+        return self.coverage.answered_count
+
+    @property
+    def total_count(self) -> int:
+        return self.coverage.total + len(self.uncallable)
+
+    @property
+    def unreached(self) -> tuple[ParticipantResult, ...]:
+        return self.coverage.unreached + self.coverage.pending
+
+
 def _labels(value: Any) -> list[str]:
     """Read a schema array field defensively — it came from outside."""
     if isinstance(value, str):
@@ -791,6 +891,26 @@ def board(store: Store, projects: ProjectStore, project: Project) -> Board:
         criteria=criteria,
         decision=decision,
         merge=merged,
+        simulated=bool(poll.simulated),
+    )
+
+
+def advisor_board(
+    store: Store, projects: ProjectStore, project: Project
+) -> AdvisorBoard:
+    invitees = projects.invitees(project.id)
+    not_callable = tuple(uncallable(invitees))
+    poll_ids = projects.round_ids(project.id, RoundKind.ROUNDTABLE)
+    if not poll_ids:
+        return AdvisorBoard(project=project, poll=None, uncallable=not_callable)
+    poll = store.get_poll(poll_ids[0])
+    merged = merge_poll(poll, store.participants(poll.id), store.answers(poll.id))
+    return AdvisorBoard(
+        project=project,
+        poll=poll,
+        merge=merged,
+        coverage=merged.coverage,
+        uncallable=not_callable,
         simulated=bool(poll.simulated),
     )
 

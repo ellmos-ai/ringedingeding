@@ -5,5 +5,5 @@
 <div class="card error-card">
   <pre class="detail">{{ detail }}</pre>
 </div>
-<p><a href="{{ back if back is defined and back else '/' }}">zurück</a></p>
+<p><a href="{{ back if back is defined and back else '/' }}">{{ t('zurück') }}</a></p>
 {% endblock %}

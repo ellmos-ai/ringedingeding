@@ -1,33 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Der Kalender dieses Projekts</h1>
+<h1>{{ t('Der Kalender dieses Projekts') }}</h1>
 
 {% if board.simulated %}
 <div class="banner rehearsal">
-  Erfundene Antworten aus einem Probelauf — es wurde nicht telefoniert.
+  {{ t('Erfundene Antworten aus einem Probelauf — es wurde nicht telefoniert.') }}
   <form method="post" action="/projects/{{ project.id }}/reset" class="inline-form">
-    <button class="link" type="submit">verwerfen</button>
+    <button class="link" type="submit">{{ t('verwerfen') }}</button>
   </form>
 </div>
 {% endif %}
 
 {% if not board.poll %}
-  <p class="muted">Es wurde noch keine Runde gestartet.
-    <a href="/projects/{{ project.id }}/preview">Zum Auftragstext →</a></p>
+  <p class="muted">{{ t('Es wurde noch keine Runde gestartet.') }}
+    <a href="/projects/{{ project.id }}/preview">{{ t('Zum Auftragstext') }} →</a></p>
 {% else %}
 
 <p class="basis">
-  <strong>{{ board.answered_count }} von {{ board.total_count }}</strong> haben geantwortet.
+  <strong>{{ board.answered_count }} {{ t('von') }} {{ board.total_count }}</strong> {{ t('haben geantwortet.') }}
   {% if board.unreached %}
-    Nicht erreicht:
+    {{ t('Nicht erreicht:') }}
     {% for person in board.unreached %}{{ person.name }} ({{ status_word(person.status) }}){% if not loop.last %}, {% endif %}{% endfor %}.
   {% endif %}
   {% if board.coverage.refused %}
-    Wollte(n) nicht antworten:
+    {{ t('Wollte(n) nicht antworten:') }}
     {% for person in board.coverage.refused %}{{ person.name }}{% if not loop.last %}, {% endif %}{% endfor %}.
   {% endif %}
-  <span class="muted">Nicht Erreichte zählen nie als „ist egal".</span>
+  <span class="muted">{{ t('Nicht Erreichte zählen nie als „ist egal“.') }}</span>
 </p>
 
 <div class="calendar">
@@ -42,38 +42,36 @@
               hx-get="/projects/{{ project.id }}/board/slot/{{ view.slot.id }}"
               hx-target="#slot-detail" hx-swap="innerHTML">
         <span class="count">{{ view.count }}</span>
-        <span class="slot-time">{{ view.slot.time_range or 'ganzer Tag' }}</span>
+        <span class="slot-time">{{ view.slot.time_range or t('ganzer Tag') }}</span>
         {% if view.criteria_total %}
-          <span class="score {% if view.perfect %}full{% endif %}">{{ view.score_label }} Kriterien</span>
+          <span class="score {% if view.perfect %}full{% endif %}">{{ view.score_label }} {{ t('Kriterien') }}</span>
         {% endif %}
       </button>
     {% endfor %}
   </div>
   {% endfor %}
 </div>
-<p class="muted small">Die Zahl ist, wie viele können. Ein Klick zeigt, wer.</p>
+<p class="muted small">{{ t('Die Zahl ist, wie viele können. Ein Klick zeigt, wer.') }}</p>
 
 <div id="slot-detail" class="detail-slot"></div>
 
 {% if board.uncallable %}
-<h2>Nicht kontaktierbar</h2>
+<h2>{{ t('Nicht kontaktierbar') }}</h2>
 <div class="card muted-card">
   <p>
-    Folgende Kontakte haben keine Telefonnummer und keine E-Mail-Adresse und
-    konnten nicht kontaktiert werden.
+    {{ t('Folgende Kontakte haben keine Telefonnummer und keine E-Mail-Adresse und konnten nicht kontaktiert werden.') }}
   </p>
   <ul class="list">
     {% for contact in board.uncallable %}
     <li class="greyed">
       <span class="avatar initials" style="background: {{ avatar_colour(contact.id) }}">{{ contact.initials }}</span>
       {{ contact.name }}
-      <a href="/contacts?project={{ project.id }}">Kontaktdaten nachtragen</a>
+      <a href="/contacts?project={{ project.id }}">{{ t('Kontaktdaten nachtragen') }}</a>
     </li>
     {% endfor %}
   </ul>
   <p class="muted small">
-    Sobald eine Nummer eingetragen ist, wird der Anruf beim nächsten Start
-    nachgeholt — die anderen werden dabei nicht noch einmal angerufen.
+    {{ t('Sobald eine Nummer eingetragen ist, wird der Anruf beim nächsten Start nachgeholt — die anderen werden dabei nicht noch einmal angerufen.') }}
   </p>
 </div>
 {% endif %}
@@ -81,12 +79,12 @@
 {# OPTIONAL nach ABLAUF.md — verändert nur die Bewertung, nie die Auswahl.
    Zugeklappt, solange nichts gesetzt ist. #}
 <details class="optional" {% if board.criteria and not board.criteria.is_empty %}open{% endif %}>
-  <summary>Was ist dir wichtig? <span class="muted small">— optional</span></summary>
+  <summary>{{ t('Was ist dir wichtig?') }} <span class="muted small">— {{ t('optional') }}</span></summary>
 <form method="post" action="/projects/{{ project.id }}/criteria" class="card">
   <label>
-    Lieblingstermin
+    {{ t('Lieblingstermin') }}
     <select name="favourite">
-      <option value="">— keiner —</option>
+      <option value="">— {{ t('keiner') }} —</option>
       {% for view in board.slots %}
         <option value="{{ view.slot.id }}"
           {% if board.criteria and board.criteria.favourite_slot_id == view.slot.id %}selected{% endif %}>
@@ -97,7 +95,7 @@
   </label>
 
   <fieldset>
-    <legend>Wer soll unbedingt dabei sein?</legend>
+    <legend>{{ t('Wer soll unbedingt dabei sein?') }}</legend>
     {% for invitee in invitees %}
       {% if invitee.contact %}
       <label class="inline">
@@ -110,41 +108,41 @@
   </fieldset>
 
   <label>
-    Wie viele reichen dir?
+    {{ t('Wie viele reichen dir?') }}
     <input type="number" name="min_count" min="1" max="{{ board.total_count }}"
            value="{{ board.criteria.min_count if board.criteria and board.criteria.min_count else '' }}">
   </label>
 
-  <button type="submit">Kriterien übernehmen</button>
+  <button type="submit">{{ t('Kriterien übernehmen') }}</button>
 </form>
 </details>
 
 {% if board.best and board.criteria and not board.criteria.is_empty %}
 <p class="suggestion">
-  Am besten passt <strong>{{ board.best.slot.label }}</strong> —
-  {{ board.best.score_label }} Kriterien, {{ board.best.count }} Personen können.
+  {{ t('Am besten passt') }} <strong>{{ board.best.slot.label }}</strong> —
+  {{ board.best.score_label }} {{ t('Kriterien') }}, {{ board.best.count }} {{ t('Personen können.') }}
 </p>
 {% endif %}
 
-<h2>Termin festlegen</h2>
+<h2>{{ t('Termin festlegen') }}</h2>
 {% if board.decision %}
   <p class="decided-line">
-    Festgelegt: <strong>{{ board.decided_slot.slot.label if board.decided_slot else board.decision.slot_id }}</strong>
+    {{ t('Festgelegt:') }} <strong>{{ board.decided_slot.slot.label if board.decided_slot else board.decision.slot_id }}</strong>
   </p>
   <form method="post" action="/projects/{{ project.id }}/undecide" class="inline-form">
-    <button type="submit" class="link">Entscheidung zurücknehmen</button>
+    <button type="submit" class="link">{{ t('Entscheidung zurücknehmen') }}</button>
   </form>
-  <p><a class="next" href="/projects/{{ project.id }}/invite">Weiter zur Einladung →</a></p>
+  <p><a class="next" href="/projects/{{ project.id }}/invite">{{ t('Weiter zur Einladung') }} →</a></p>
 {% else %}
 <form method="post" action="/projects/{{ project.id }}/decide" class="row card">
   <select name="slot_id" required>
     {% for view in board.slots %}
       <option value="{{ view.slot.id }}">
-        {{ view.slot.label }} — {{ view.count }} können{% if view.criteria_total %}, {{ view.score_label }} Kriterien{% endif %}
+        {{ view.slot.label }} — {{ view.count }} {{ t('können') }}{% if view.criteria_total %}, {{ view.score_label }} {{ t('Kriterien') }}{% endif %}
       </option>
     {% endfor %}
   </select>
-  <button type="submit" class="primary">Terminieren</button>
+  <button type="submit" class="primary">{{ t('Terminieren') }}</button>
 </form>
 {% endif %}
 

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="eyebrow">{{ t('Ansicht und Exportauswahl') }}</p>
+<h1>{{ t('Kalender') }}</h1>
+<p class="lead">{{ t('Nur angehakte Projekte werden unten gezeigt — und genau diese Ansicht landet in ICS und Excel.') }}</p>
+
+<form method="get" action="/calendar" class="card filter-bar">
+  <input type="hidden" name="filtered" value="1">
+  <fieldset><legend>{{ t('Projekte ein- oder ausblenden') }}</legend>
+  <div class="check-grid">{% for project in projects %}<label class="inline"><input type="checkbox" name="project" value="{{ project.id }}" {% if project.id in selected_ids %}checked{% endif %}><span class="project-dot" style="--dot: {{ avatar_colour(project.id) }}"></span>{{ project.occasion }}</label>{% endfor %}</div>
+  </fieldset>
+  <button class="primary">{{ t('Ansicht aktualisieren') }}</button>
+</form>
+
+<div class="export-actions">
+  <a class="button" href="/calendar.ics?{{ export_query }}">{{ t('Als ICS exportieren') }}</a>
+  <a class="button" href="/calendar.xlsx?{{ export_query }}">{{ t('Als Excel exportieren') }}</a>
+</div>
+
+<div class="calendar-list">
+{% for entry in entries %}
+  <article class="calendar-entry {% if entry.decided %}decided{% endif %}">
+    <time datetime="{{ entry.day_date }}">{{ entry.day_date }}</time>
+    <div><strong>{{ entry.project_title }}</strong><span>{{ entry.label }}</span></div>
+    {% if entry.decided %}<span class="badge success">{{ t('entschieden') }}</span>{% else %}<span class="badge">{{ t('Vorschlag') }}</span>{% endif %}
+  </article>
+{% else %}
+  <div class="empty-state">{{ t('In der aktuellen Auswahl sind keine Termine.') }}</div>
+{% endfor %}
+</div>
+<p class="hint">{{ t('Google Calendar und Microsoft Calendar können die exportierte ICS-Datei importieren. Eine direkte Kontoverknüpfung ist bewusst noch nicht eingebaut.') }}</p>
+{% endblock %}

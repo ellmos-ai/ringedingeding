@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="eyebrow">{{ t('Ask Your Advisor') }}</p>
+<h1>{{ t('Was möchtest du wissen?') }}</h1>
+<p class="lead">{{ t('Die Menschen antworten einzeln. Ringedingeding zeigt danach die Tendenz, abweichende Stimmen und die Gründe dahinter.') }}</p>
+
+<form method="post" action="/projects/{{ project.id }}/advisor" class="card advisor-accent">
+  <label>
+    {{ t('Deine Frage') }}
+    <textarea name="question" rows="3" required autofocus placeholder="{{ t('Sollen wir das Sommerfest dieses Jahr größer planen?') }}">{{ question.text if question else '' }}</textarea>
+  </label>
+  <fieldset>
+    <legend>{{ t('Antwortoptionen') }} <span class="muted small">— {{ t('optional') }}</span></legend>
+    <p class="hint">{{ t('Leer lassen für freie Ratschläge. Mindestens zwei Optionen machen daraus eine Abstimmung; Gründe und Bedenken werden trotzdem erfragt.') }}</p>
+    {% for index in range(4) %}
+      <input type="text" name="option" value="{{ question.options[index] if question and index < question.options|length else '' }}" placeholder="{{ t('Option') }} {{ index + 1 }}">
+    {% endfor %}
+  </fieldset>
+  <button type="submit" class="primary">{{ t('Frage übernehmen') }}</button>
+</form>
+{% endblock %}

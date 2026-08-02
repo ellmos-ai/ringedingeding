@@ -1,7 +1,5 @@
-/* Ringedingeding — white, quiet, nothing to learn.
-   One stylesheet, no framework, no build step. Colours carry meaning in exactly
-   three places: green "can", red "cannot", grey "unknown or not reached".
-   Everything else stays out of the way. */
+/* Ringedingeding — calm and legible, now with a recognisable voice.
+   One local stylesheet, no framework and no network-loaded decoration. */
 
 :root {
   --ink: #1b1b1b;
@@ -12,8 +10,11 @@
   --can: #2f7d4f;
   --cannot: #b3352c;
   --warn: #9a6b12;
-  --accent: #2b5d8a;
-  --radius: 10px;
+  --accent: #5b36d6;
+  --advisor: #c03d82;
+  --schedule: #167d89;
+  --glow: #f0ebff;
+  --radius: 14px;
 }
 
 * { box-sizing: border-box; }
@@ -23,6 +24,9 @@ body {
   background: var(--bg);
   color: var(--ink);
   font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-image: radial-gradient(circle at 92% 4%, #f6efff 0, transparent 28rem),
+                    radial-gradient(circle at 5% 25%, #ebfbf8 0, transparent 24rem);
+  background-attachment: fixed;
 }
 
 main { max-width: 880px; margin: 0 auto; padding: 0 20px 64px; }
@@ -47,9 +51,11 @@ code { background: var(--soft); padding: 1px 5px; border-radius: 4px; font-size:
   display: flex; align-items: baseline; gap: 14px;
   max-width: 880px; margin: 0 auto; padding: 20px;
 }
-.brand { font-weight: 650; font-size: 1.05rem; text-decoration: none; color: var(--ink); }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 720; font-size: 1.05rem; text-decoration: none; color: var(--ink); }
+.brand-ring { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; color: #fff; font-size: .78rem; background: linear-gradient(135deg, var(--accent), var(--advisor)); box-shadow: 0 5px 16px #5b36d640; }
 .tagline { color: var(--muted); font-size: 0.85rem; }
-.top nav { margin-left: auto; display: flex; gap: 16px; font-size: 0.9rem; }
+.top nav { margin-left: auto; display: flex; gap: 14px; font-size: 0.9rem; align-items: center; }
+.top .language { border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; text-decoration: none; font-size: .75rem; }
 
 .project-bar {
   max-width: 880px; margin: 0 auto; padding: 10px 20px;
@@ -74,6 +80,17 @@ code { background: var(--soft); padding: 1px 5px; border-radius: 4px; font-size:
   border: 1px solid var(--line); border-radius: var(--radius);
   padding: 18px; margin: 14px 0; background: var(--bg);
 }
+.card { box-shadow: 0 12px 34px rgba(40, 25, 70, .045); }
+.hero { padding: 34px 0 12px; max-width: 740px; }
+.hero h1 { font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.05; letter-spacing: -.045em; margin-top: 8px; }
+.hero p:last-child, .lead { color: var(--muted); font-size: 1.08rem; max-width: 690px; }
+.eyebrow { margin: 0; color: var(--accent); font-size: .76rem; text-transform: uppercase; letter-spacing: .13em; font-weight: 750; }
+.section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.section-title h2 { margin-bottom: 10px; }
+.hint { display: block; color: var(--muted); font-size: .82rem; margin-top: 5px; }
+.empty-state { padding: 34px 20px; border: 1px dashed #c9c2d8; border-radius: var(--radius); color: var(--muted); text-align: center; background: #ffffffaa; }
+.button { display: inline-block; font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); text-decoration: none; }
+.button:hover { background: var(--soft); }
 .muted-card { background: var(--soft); }
 .error-card { border-color: var(--cannot); }
 .live-card { border-color: var(--cannot); border-width: 2px; background: #fffafa; }
@@ -121,6 +138,50 @@ button.link.danger { background: none; color: var(--cannot); }
 }
 .badge.warn { color: var(--warn); border-color: #e6d9b8; background: #fdf6e6; }
 .badge.script { color: var(--accent); }
+.badge.success { color: var(--can); background: #f1faf5; border-color: #b9dfc8; }
+.mode-badge { font-size: .7rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+.mode-badge.schedule { color: var(--schedule); background: #e8f7f7; }
+.mode-badge.roundtable { color: var(--advisor); background: #fff0f7; }
+
+/* A mode radio is a decision card: clicking the whole card chooses the product. */
+.mode-choice { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; border: 0; padding: 0; }
+.mode-choice legend { margin-bottom: 8px; }
+.mode-card { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 3px 11px; padding: 17px; margin: 0; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); cursor: pointer; background: #fff; }
+.mode-card input { position: absolute; opacity: 0; }
+.mode-card .mode-icon { grid-row: span 2; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; font-size: 1.25rem; }
+.mode-card span:last-child { color: var(--muted); font-size: .82rem; }
+.mode-card.schedule .mode-icon { background: #e8f7f7; color: var(--schedule); }
+.mode-card.advisor .mode-icon { background: #fff0f7; color: var(--advisor); }
+.mode-card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px #5b36d61a; }
+.mode-card:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.advisor-accent { border-top: 4px solid var(--advisor); }
+.group-accent { border-top: 4px solid var(--schedule); }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 5px 15px; }
+
+/* Global calendar: display rows are also the export selection. */
+.filter-bar { border-top: 4px solid var(--accent); }
+.export-actions { display: flex; gap: 10px; justify-content: flex-end; margin: 16px 0; }
+.calendar-list { display: grid; gap: 8px; }
+.calendar-entry { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.calendar-entry time { font-variant-numeric: tabular-nums; color: var(--muted); }
+.calendar-entry div { display: flex; flex-direction: column; }
+.calendar-entry div span { color: var(--muted); font-size: .82rem; }
+.calendar-entry.decided { border-color: #a7d4b8; box-shadow: inset 4px 0 var(--can); }
+.project-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dot); }
+
+/* Advisor results distinguish trend from dissent instead of pretending consensus. */
+.advisor-summary { padding: 24px; border-radius: 20px; color: #fff; background: linear-gradient(130deg, #4b2eb6, #b5337a); box-shadow: 0 18px 40px #5b36d628; }
+.advisor-summary .eyebrow, .advisor-summary p { color: #f1eaff; }
+.advisor-summary h2 { margin: 6px 0; font-size: 1.55rem; }
+.tally-grid, .answer-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 12px; margin: 16px 0; }
+.tally, .answer-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; display: flex; flex-direction: column; }
+.tally strong { font-size: 2rem; color: var(--accent); }
+.tally small { color: var(--muted); margin-top: 6px; }
+.quote-list { list-style: none; padding: 0; display: grid; gap: 8px; }
+.quote-list li { border-left: 3px solid var(--accent); padding: 9px 13px; background: #fff; border-radius: 0 10px 10px 0; }
+.quote-list li strong { display: block; font-size: .8rem; color: var(--muted); }
+.quote-list q { quotes: "“" "”"; }
+.quote-list.counter li { border-left-color: var(--advisor); background: #fff7fb; }
 
 .banner { padding: 10px 14px; border-radius: 8px; margin: 12px 0; font-size: 0.9rem; }
 .banner.rehearsal { background: #fdf6e6; border: 1px solid #e6d9b8; color: var(--warn); }
@@ -258,3 +319,12 @@ details.optional > summary {
 }
 details.optional > summary::marker { color: var(--muted); }
 details.optional > summary:hover { color: var(--accent); }
+
+@media (max-width: 700px) {
+  .tagline { display: none; }
+  .top { align-items: center; flex-wrap: wrap; }
+  .top nav { width: 100%; margin-left: 0; overflow-x: auto; }
+  .mode-choice { grid-template-columns: 1fr; }
+  .calendar-entry { grid-template-columns: 1fr auto; }
+  .calendar-entry time { grid-column: 1 / -1; }
+}
