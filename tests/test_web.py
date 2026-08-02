@@ -66,7 +66,10 @@ def test_home_is_a_cockpit_with_two_prominent_chain_entries(client):
     html = client.get("/").text
 
     assert 'class="cockpit-hero"' in html
-    assert 'class="hero-logo" src="/static/logo.svg"' in html
+    assert 'class="hero-logo" src="/static/brand/motiv.png"' in html
+    assert '<link rel="icon" type="image/png" href="/static/brand/motiv.png">' in html
+    assert client.get("/static/brand/motiv.png").status_code == 200
+    assert client.get("/static/brand/thumbnail.png").status_code == 200
     assert 'href="/?mode=schedule#new-chain"' in html
     assert 'href="/?mode=roundtable#new-chain"' in html
     assert "Termin-Kette starten" in html

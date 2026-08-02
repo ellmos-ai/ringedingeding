@@ -952,3 +952,73 @@ CreateProcessAsUserW failed: 5 (Zugriff verweigert)
 No file was staged by these commands, no commit was created and no push was
 attempted. The foreign `banner.png` and `README_de.md` files remained
 untouched.
+
+## 30. Approved receiver motif integration — measured 2026-08-02
+
+The user explicitly supplied and approved the files in
+`C:\_Local_DEV\_calle-videos\ringedingeding\brand` for this integration.
+This supersedes section 29's earlier treatment of `banner.png` as foreign work.
+
+Byte-for-byte SHA-256 comparisons after copying reported `matchesSource: true`
+for all three requested assets:
+
+* `motiv.png` — `8ce2498c2c1b98958c5d99336c41b940ec494399c72f794f029c68563181fec9`
+* `thumbnail.png` — `2685f11e53a0ca37194e1c89f8da37365a4395d846918eff2f25ece5bc6cf7bc`
+* `banner.png` — `fbc843cb488004c52f5fad0e9e885e0c95c7b0ccee118dbc83eff0bb8b2bd0dd`
+
+The cockpit was rendered locally in installed Chrome at 1440 x 950 and 390 x
+844. Both renders loaded the new motif in the existing hero while preserving
+the existing navigation, signal console, launch cards and responsive stacking.
+The same local PNG is referenced as the favicon. A single low-opacity crop of
+the coiled cable separates the hero from the launch area.
+
+The focused web suite executed first and passed all 31 tests. The final full
+offline run was then executed as:
+
+```text
+python -m pytest --basetemp=out/pytest-logo-report-codex-20260802
+```
+
+Literal result:
+
+```text
+321 passed, 2 warnings in 48.22s
+```
+
+The warnings were a Starlette/httpx deprecation notice and a denied optional
+Pytest cache write. No test failed. No telephone call, CALL-E request, push,
+publication or release was made.
+
+An offline wheel build with `--no-deps --no-build-isolation` also completed.
+Its archive contained both
+`ringedingeding/web/static/brand/motiv.png` and
+`ringedingeding/web/static/brand/thumbnail.png`.
+
+## 31. Logo integration local commit — blocked at staging
+
+The user explicitly required a local commit. After verification, `git add --`
+was invoked with an explicit list containing only the logo integration files.
+Git returned:
+
+```text
+fatal: Unable to create 'C:/_Local_DEV/repos/ringedingeding/.git/index.lock': Permission denied
+```
+
+The available user-privileged FileCommander command path was then attempted
+for the same explicit `git add` command, but its safety gate rejected the tool
+call. No commit command was executed because staging had not succeeded.
+
+Read-only verification afterwards found:
+
+```text
+.git/index.lock: does not exist
+git diff --cached --name-only: [no output]
+```
+
+During the work an external checkout moved HEAD from
+`aufraeumen-und-phase7` to `main`; the reflog records this at
+`2026-08-02 18:38:49 +0200`. Both branches pointed to `b1829cb`, so the
+working-file delta remained based on the same commit. This agent did not run a
+checkout and did not attempt to reverse the foreign branch change.
+
+Therefore the requested local commit was not created. No push was attempted.
