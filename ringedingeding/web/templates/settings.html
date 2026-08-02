@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>{{ t('CALL-E-Einstellungen') }}</h1>
+
+{% if saved %}
+<p class="success-line">{{ t('Der API-Schlüssel wurde in der lokalen Projekt-Config gespeichert.') }}</p>
+{% endif %}
+{% if error %}
+<p class="warn-line">{{ error }}</p>
+{% endif %}
+
+<div class="card">
+  <h2>{{ t('Aktiver Zugang') }}</h2>
+  {% if masked_key %}
+    <p><strong>{{ masked_key }}</strong> · {{ t('Quelle') }}: {{ source }}</p>
+    <p class="muted small">{{ t('Angezeigt werden ausschließlich die letzten vier Zeichen.') }}</p>
+  {% else %}
+    <p class="warn-line">{{ t('Noch kein API-Schlüssel eingerichtet.') }}</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>{{ t('Schlüssel lokal speichern') }}</h2>
+  <form method="post" action="/settings">
+    <label>
+      {{ t('Neuer API-Schlüssel') }}
+      <input type="password" name="api_key" autocomplete="new-password" required>
+    </label>
+    <p class="muted small">
+      {{ t('Der Wert wird in der ignorierten Projekt-Config gespeichert. Er erscheint weder im HTML noch in Protokollen oder Fehlermeldungen.') }}
+    </p>
+    <button type="submit" class="primary">{{ t('Sicher speichern') }}</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>{{ t('Priorität') }}</h2>
+  <ol>
+    <li><code>CALLE_API_KEY</code> {{ t('in der Umgebung') }}</li>
+    <li><code>CALLE_API_KEY</code> {{ t('in der Projektdatei') }} <code>{{ env_file }}</code> (<code>CALLE_ENV_FILE</code> {{ t('kann den Pfad ändern') }})</li>
+    <li><code>CALLE_API_KEY</code> {{ t('in der Projekt-Config') }} <code>{{ config_file }}</code> (<code>CALLE_CONFIG_FILE</code> {{ t('kann den Pfad ändern') }})</li>
+  </ol>
+  <p>{{ t('Die zuerst gefundene Quelle gewinnt. Trockenläufe funktionieren ohne Schlüssel.') }}</p>
+</div>
+
+<p class="warn-line">
+  {{ t('Echte Anrufe kosten Geld und starten nur nach der ausdrücklichen Live-Bestätigung.') }}
+</p>
+
+<p><a href="/">← {{ t('Zurück') }}</a></p>
+{% endblock %}

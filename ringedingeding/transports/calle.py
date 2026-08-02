@@ -54,7 +54,6 @@ No code in this module has been executed against the live API. See EVIDENCE.md.
 from __future__ import annotations
 
 import json
-import os
 import threading
 import time
 import urllib.error
@@ -62,6 +61,13 @@ import urllib.request
 from typing import Any, Callable, Iterator, Sequence
 
 from ..activity import ActivityLine, dedupe, extract_activity, extract_transcript
+from ..calle_credentials import (
+    API_KEY_ENV,
+    BASE_URL_ENV,
+    DEFAULT_BASE_URL,
+    CalleCredentialError,
+    load_calle_settings,
+)
 from ..models import CallStatus
 from ..phone import mask_text
 from ..safety import LiveCallBlocked
@@ -69,10 +75,6 @@ from ..timings import LEAD_SECONDS
 from .base import CallOutcome, CallRequest, CallTransport
 
 __all__ = ["CalleTransport", "CalleBatchTransport", "DEFAULT_BASE_URL", "API_KEY_ENV"]
-
-DEFAULT_BASE_URL = "https://api.heycall-e.com"
-API_KEY_ENV = "CALLE_API_KEY"
-BASE_URL_ENV = "CALLE_BASE_URL"
 
 _FIRST_POLL_DELAY = LEAD_SECONDS
 """Nothing observable happens in the first ~40 seconds; the telephone has not
@@ -106,6 +108,8 @@ class CalleTransport(CallTransport):
         live_confirmed: bool,
         api_key: str | None = None,
         base_url: str | None = None,
+        env_file: str | None = None,
+        config_file: str | None = None,
         request_timeout: float = 30.0,
         poll_timeout: float = _DEFAULT_TIMEOUT,
         first_poll_delay: float = _FIRST_POLL_DELAY,
@@ -118,14 +122,19 @@ class CalleTransport(CallTransport):
                 "Refusing to build a live transport without explicit confirmation. "
                 "This is not a configuration problem — it is the safety gate."
             )
-        key = api_key or os.environ.get(API_KEY_ENV, "")
-        if not key:
-            raise LiveCallBlocked(
-                f"No API key. Set {API_KEY_ENV} in the environment. "
-                "Keys are never read from files or command line arguments."
-            )
-        self._api_key = key
-        self.base_url = (base_url or os.environ.get(BASE_URL_ENV) or DEFAULT_BASE_URL).rstrip("/")
+        try:
+            settings = load_calle_settings(env_file=env_file, config_file=config_file)
+        except CalleCredentialError as error:
+            if not api_key:
+                raise LiveCallBlocked(str(error)) from None
+            settings = None
+        # ``api_key`` remains an internal dependency-injection hook for callers
+        # that already use it. User configuration always goes through the
+        # documented resolver, and therefore keeps its strict priority order.
+        self._api_key = settings.api_key if settings is not None else api_key or ""
+        self.base_url = (
+            base_url or (settings.base_url if settings is not None else DEFAULT_BASE_URL)
+        ).rstrip("/")
         self.request_timeout = request_timeout
         self.poll_timeout = poll_timeout
         self.first_poll_delay = first_poll_delay

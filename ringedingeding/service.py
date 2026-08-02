@@ -15,7 +15,6 @@ ask. Reading this file top to bottom is reading the interview.
 
 from __future__ import annotations
 
-import os
 import threading
 from dataclasses import dataclass, field
 from datetime import date
@@ -997,11 +996,10 @@ def fixture_for(project: Project) -> Fixture | None:
 
 
 def api_key_present() -> bool:
-    """Whether a live run could authenticate at all.
+    """Whether the unified resolver can authenticate a live run."""
+    from .calle_credentials import CalleCredentialError, load_calle_settings
 
-    Read here so the interface can *say* whether the key is there without ever
-    reading, showing or accepting its value.
-    """
-    from .transports.calle import API_KEY_ENV
-
-    return bool(os.environ.get(API_KEY_ENV, "").strip())
+    try:
+        return load_calle_settings(required=False) is not None
+    except CalleCredentialError:
+        return False

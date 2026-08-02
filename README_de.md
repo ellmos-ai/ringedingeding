@@ -120,6 +120,36 @@ cd ringedingeding
 pip install -e .
 ```
 
+## CALL-E-API-Zugang
+
+Trockenläufe (`proof`, Fixtures, `--mode script` und `--mode rehearsal`)
+funktionieren ohne API-Schlüssel. Ein Live-Lauf sucht `CALLE_API_KEY` genau in
+dieser Reihenfolge; der erste nicht leere Wert gewinnt:
+
+1. Umgebungsvariable `CALLE_API_KEY` des Prozesses;
+2. `CALLE_API_KEY` in `.env` im Projektverzeichnis (Pfad mit
+   `CALLE_ENV_FILE` änderbar);
+3. `CALLE_API_KEY` in der ignorierten Projektdatei `config.local.json` (Pfad
+   mit `CALLE_CONFIG_FILE` änderbar).
+
+Der Eintrag in `.env` lautet:
+
+```dotenv
+CALLE_API_KEY=...
+```
+
+Die lokale JSON-Config verwendet `{"CALLE_API_KEY": "..."}`. Unter
+`/settings` kann die Weboberfläche diesen Config-Wert speichern. Angezeigt wird
+nur eine maskierte Kennung mit den letzten vier Zeichen; der vollständige Wert
+erscheint weder im HTML noch in Logs oder Fehlermeldungen. Das vom Betreiber
+verwaltete Zugangsdaten-Verzeichnis ist `C:\_Local_DEV\CREDENTIALS\call-e\`
+(`call-e.md`, `call-e.env`); mit `CALLE_ENV_FILE` kann direkt auf die Env-Datei
+verwiesen werden.
+
+Echte Anrufe kosten Geld. Sie brauchen weiterhin den ausdrücklichen Live-Modus
+und die eingetippte Bestätigung; ein eingerichteter Schlüssel startet keinen
+Anruf.
+
 Oder direkt aus dem Quellbaum, ohne Installation:
 
 ```bash
@@ -208,8 +238,9 @@ Das sind keine Einstellungen, sondern die Bauweise des Programms.
 * **Kein versteckter Zeitplan.** Kein Daemon, keine Wiederholschleife, kein Hintergrundtimer.
   Ein Aufruf macht höchstens einen Versuch je Person und endet. Wer Wiederholung will, richtet
   sie in der Aufgabenplanung oder in cron ein, wo man sie sieht.
-* **Zugangsdaten kommen ausschließlich aus der Umgebung** (`CALLE_API_KEY`) — nie aus einer
-  Datei, einem Schalter, einem Commit oder einem Formularfeld der Weboberfläche.
+* **Zugangsdaten folgen dem dokumentierten Drei-Quellen-Resolver.** Sie gehören nie in
+  Commits, Kommandozeilenargumente, Logs oder Fehlermeldungen; die Einstellungsseite
+  schreibt ausschließlich in die ignorierte lokale Config.
 * **Erfundene Antworten sagen es.** Ein Probelauf markiert seine Runde in der Datenbank, und
   jede Anzeige und jeder Bericht dazu sagt, dass die Antworten ausgedacht sind.
 * **Eine Runde je Projekt gleichzeitig.** Die Weboberfläche verweigert einen zweiten Lauf,
