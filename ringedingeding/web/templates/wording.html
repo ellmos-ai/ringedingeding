@@ -1,19 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Wie soll begrüßt und verabschiedet werden?</h1>
+<h1>{{ t('Wie soll begrüßt und verabschiedet werden?') }}</h1>
 
 <p class="muted">
-  Was hier steht, wird <strong>wörtlich gesprochen</strong> — gemessen am echten
-  Dienst: Text in Anführungszeichen kommt Zeichen für Zeichen aus dem
-  Lautsprecher. Alles andere formuliert der Sprach-Agent selbst.
+  {{ t('Was hier steht, wird') }} <strong>{{ t('wörtlich gesprochen') }}</strong> — {{ t('gemessen am echten Dienst: Text in Anführungszeichen kommt Zeichen für Zeichen aus dem Lautsprecher. Alles andere formuliert der Sprach-Agent selbst.') }}
 </p>
 
 <div class="card muted-card">
   <p class="small">
-    Der Pflichtsatz „hier ist ein automatischer Assistent im Auftrag von
-    {{ project.organizer }}" steht immer davor und lässt sich nicht ersetzen.
-    Deine Begrüßung kommt danach.
+    {{ t('Der Pflichthinweis auf den automatischen Assistenten im Auftrag von') }} {{ project.organizer }} {{ t('steht immer davor und lässt sich nicht ersetzen. Deine Begrüßung kommt danach.') }}
   </p>
 </div>
 
@@ -22,38 +18,37 @@
    genau das soll er nicht. #}
 <details class="optional" {% if greeting or closing %}open{% endif %}>
   <summary>
-    Eigene Sätze hinzufügen <span class="muted small">— optional</span>
+    {{ t('Eigene Sätze hinzufügen') }} <span class="muted small">— {{ t('optional') }}</span>
   </summary>
 
   <form method="post" action="/projects/{{ project.id }}/wording" class="card">
     <fieldset>
-      <legend>Begrüßung</legend>
+      <legend>{{ t('Begrüßung') }}</legend>
       {% for index in range(3) %}
-        <input type="text" name="greeting" placeholder="Schön, dass ich dich erreiche."
+        <input type="text" name="greeting" placeholder="{{ t('Schön, dass ich dich erreiche.') }}"
                value="{{ greeting[index] if index < greeting|length else '' }}">
       {% endfor %}
     </fieldset>
 
     <fieldset>
-      <legend>Schlussformel</legend>
+      <legend>{{ t('Schlussformel') }}</legend>
       {% for index in range(3) %}
-        <input type="text" name="closing" placeholder="Danke dir, bis bald!"
+        <input type="text" name="closing" placeholder="{{ t('Danke dir, bis bald!') }}"
                value="{{ closing[index] if index < closing|length else '' }}">
       {% endfor %}
     </fieldset>
 
     <p class="muted small">
-      Leere Felder werden ignoriert. Eigene Regeln und gespeicherte Policies je
-      Projekt folgen in Stufe 2 (PromptBoard-Muster).
+      {{ t('Leere Felder werden ignoriert. Eigene Regeln und gespeicherte Policies je Projekt bleiben eine spätere Ausbaustufe.') }}
     </p>
-    <button type="submit">Sätze übernehmen</button>
+    <button type="submit">{{ t('Sätze übernehmen') }}</button>
   </form>
 </details>
 
 <p>
   <a class="next" href="/projects/{{ project.id }}/preview">
-    Weiter zum Auftragstext →
+    {{ t('Weiter zum Auftragstext') }} →
   </a>
-  <span class="muted small">Ohne eigene Sätze ist der Anruf trotzdem vollständig.</span>
+  <span class="muted small">{{ t('Ohne eigene Sätze ist der Anruf trotzdem vollständig.') }}</span>
 </p>
 {% endblock %}

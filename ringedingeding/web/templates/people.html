@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Wen möchtest du einladen?</h1>
+<h1>{{ t('Wen möchtest du fragen?') }}</h1>
 
 {% if not contacts %}
   <div class="card muted-card">
-    <p>Dein Kontaktbuch ist leer. Ohne Kontakte gibt es niemanden anzurufen.</p>
-    <p><a class="next" href="/contacts?project={{ project.id }}">Kontakte anlegen →</a></p>
+    <p>{{ t('Dein Kontaktbuch ist leer. Ohne Kontakte gibt es niemanden anzurufen.') }}</p>
+    <p><a class="next" href="/contacts?project={{ project.id }}">{{ t('Kontakte anlegen') }} →</a></p>
   </div>
 {% else %}
 
@@ -27,21 +27,20 @@
         {% if contact.callable %}
           <span class="muted small">{{ contact.phone_masked }}</span>
         {% else %}
-          <span class="badge warn" title="ohne Telefonnummer nicht anrufbar">keine Telefonnummer</span>
+          <span class="badge warn" title="{{ t('ohne Telefonnummer nicht anrufbar') }}">{{ t('keine Telefonnummer') }}</span>
         {% endif %}
       </label>
     </li>
     {% endfor %}
   </ul>
   <p class="muted small">
-    Wer keine Telefonnummer hat, ist ausgegraut und wird nicht berücksichtigt.
-    Die Nummer lässt sich jederzeit nachtragen — der Anruf wird dann nachgeholt.
+    {{ t('Wer keine Telefonnummer hat, ist ausgegraut und wird nicht berücksichtigt. Die Nummer lässt sich jederzeit nachtragen — der Anruf wird dann nachgeholt.') }}
   </p>
-  <button type="submit" class="primary">Übernehmen</button>
+  <button type="submit" class="primary">{{ t('Übernehmen') }}</button>
 </form>
 
-<p><a href="/contacts?project={{ project.id }}">Kontaktbuch öffnen</a></p>
+<p><a href="/contacts?project={{ project.id }}">{{ t('Kontaktbuch öffnen') }}</a></p>
 {% endif %}
 
-<p><a class="next" href="/projects/{{ project.id }}/wording">Weiter zu den Worten →</a></p>
+<p><a class="next" href="/projects/{{ project.id }}/wording">{{ t('Weiter zu den Worten') }} →</a></p>
 {% endblock %}

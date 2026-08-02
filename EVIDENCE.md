@@ -765,3 +765,134 @@ The one thing a reader should not have to infer:
 * **Everything in `FINDINGS.md` still comes from exactly one real call**, made
   by the operator outside this repository. Voicemail, busy and no-answer have
   never been seen against the live service; here they are scripted.
+
+---
+
+# 2026-08-02 — feedback expansion and agent rotation
+
+## 23. Baseline before the expansion
+
+Executed before changing the product paths, using a repository-local temporary
+directory because the system temporary directory was not writable:
+
+```text
+$ python -X utf8 -m pytest --basetemp C:/_Local_DEV/repos/ringedingeding/out/pytest-baseline-codex-20260802
+308 passed, 2 warnings in 45.82s
+EXIT=0
+```
+
+The warnings were Starlette's `TestClient` deprecation and Pytest's inability
+to write `.pytest_cache`. There was no code failure.
+
+## 24. What was exercised in the expansion
+
+The added regression file runs these paths without an account and without a
+network connection:
+
+* a freely named group is stored and copied into a new project;
+* an open Advisor result identifies a leading tendency and keeps a
+  countervoice with reasons and concerns;
+* a choice Advisor result keeps votes, reasons and concerns separately;
+* one filtered `CalendarEntry` tuple is rendered as both ICS and XLSX;
+* an explicitly empty project filter exports no event;
+* the actual `/calendar`, `/calendar.ics` and `/calendar.xlsx` routes return
+  exactly the checked project;
+* the English product selection is rendered through the translation catalog;
+* a complete Advisor web flow creates its question, prepares a rehearsal,
+  runs locally and renders the explicitly simulated result;
+* the translation maintenance command finds no missing literal key;
+* design accents remain local CSS and contain no remote asset URL.
+
+An initial full run did execute and reported one failing new assertion: a
+single rehearsal participant can deterministically be unreachable, so the
+test had incorrectly required a visible reasons section even when there was no
+answer. The product already reported the coverage gap correctly. The assertion
+was narrowed to the actual web-flow contract; direct aggregation tests continue
+to require the reasons. This was a test repair, not a fabricated answer.
+
+## 25. Final test suite — executed, passing
+
+```text
+$ python -X utf8 -m pytest --basetemp out/pytest-evidence-codex-20260802-d
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 67%]
+........................................................................ [ 90%]
+..............................                                           [100%]
+318 passed, 2 warnings in 49.56s
+EXIT=0
+```
+
+This is ten more tests than the 308-test baseline. The warnings were again:
+
+1. `StarletteDeprecationWarning`: FastAPI's test client currently uses the
+   deprecated `httpx` integration and recommends `httpx2`.
+2. `PytestCacheWarning`: `.pytest_cache` is not writable. Test temporary data
+   was successfully written below `out/`.
+
+Translation-catalog check, executed separately:
+
+```text
+$ python -X utf8 manage_translations.py missing
+[no output]
+EXIT=0
+```
+
+The catalog parsed as JSON and contained 300 entries at that point.
+
+Package-data check, executed locally without build isolation or dependency
+downloads:
+
+```text
+$ python -X utf8 -m pip wheel . --no-deps --no-build-isolation -w out/wheel-codex-20260802
+Successfully built ringedingeding
+EXIT=0
+```
+
+The resulting wheel was opened as a ZIP and contained these checked paths:
+
+```text
+ringedingeding/locales/translations.json
+ringedingeding/web/templates/advisor.html
+ringedingeding/web/templates/calendar.html
+```
+
+## 26. Not executed in this expansion
+
+* **No telephone call.** No live flag was used and no CALL-E credential was
+  read or inferred.
+* No CALL-E network request and no measurement of the new Advisor result
+  schemas against the real service.
+* No direct Google Calendar or Microsoft Calendar OAuth connection. Their ICS
+  import path exists; account linking remains open.
+* No push, publication, pull request, upload or release.
+* No visual device approval. The HTML routes and responsive CSS are tested,
+  but that is not evidence of a browser/device sign-off.
+* No attempt to standardise ports, start commands or implementation style with
+  any sister project.
+
+## 27. Local commit attempt — blocked before staging
+
+The user requested a local commit. The attempt was executed once:
+
+```text
+$ git add -A
+fatal: Unable to create 'C:/_Local_DEV/repos/ringedingeding/.git/index.lock': Permission denied
+EXIT=128
+```
+
+Read-only verification immediately afterwards found:
+
+```text
+.git/index.lock: does not exist
+git diff --cached --name-only: [no output]
+```
+
+So no file was staged, no commit was created and no push was attempted. The
+environment exposes `.git` read-only; retrying without a changed permission
+state would not be evidence of progress.
+
+`git status --short` also showed new untracked `banner.png` and `README_de.md`
+files which were not present in the initial clean status and were not created
+by this implementation. They were left untouched as foreign work and are not
+claimed in this evidence.

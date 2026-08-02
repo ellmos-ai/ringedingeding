@@ -1,38 +1,39 @@
-
 ## Nutzer-Feedback 2026-08-02 (nach Sichtung von App und Video)
 
 Urteil: "Schon ziemlich gut alles" / "starkes Ergebnis". Es fehlt Funktionsumfang,
-nicht Qualitaet.
+nicht Qualität.
 
 ### 1. Zweiteilung des Produkts
-Ringedingeding hat ZWEI Anwendungsfaelle, bisher ist nur einer gebaut:
-- [ ] **Terminfinden** (vorhanden) -- Termine bei mehreren Beteiligten einsammeln
-- [ ] **Ask your Advisor** (fehlt) -- Ratschlaege, Themen und Ideen einholen.
+Ringedingeding hat ZWEI Anwendungsfälle:
+- [x] **Terminfinden** -- Termine bei mehreren Beteiligten einsammeln
+- [x] **Ask your Advisor** -- Ratschläge, Themen und Ideen einholen.
       Nicht "wann kannst du", sondern "was meinst du".
 
 ### 2. "Ask your ..." -- Gruppenwahl
-- [ ] Auswahl der Zielgruppe beim Anlegen: Friends, Family, Tennisclub, Lauftreff
-- [ ] **Beliebige Gruppen** anlegbar -- die vier oben sind Beispiele, keine feste Liste
+- [x] Auswahl der Zielgruppe beim Anlegen: Friends, Family, Tennisclub, Lauftreff
+- [x] **Beliebige Gruppen** anlegbar -- die vier oben sind Beispiele, keine feste Liste
 
 ### 3. Kalender mit Projektfilter
-- [ ] Kalenderansicht ueber alle Vorgaenge
-- [ ] Projekte per Checkbox ein- und ausblendbar (die gefilterte Ansicht ist das,
+- [x] Kalenderansicht über alle Vorgänge
+- [x] Projekte per Checkbox ein- und ausblendbar (die gefilterte Ansicht ist das,
       was exportiert wird)
 
 ### 4. Export der gefilterten Ansicht
-- [ ] Excel
-- [ ] Kalenderdateiformat (ics)
+- [x] Excel
+- [x] Kalenderdateiformat (ics)
 - [ ] evtl. Anbindung Google Calendar und Microsoft
+      (ICS-Import ist möglich; direkte OAuth-Anbindung bewusst offen)
 
-### 5. Zweisprachigkeit (gilt fuer ALLE drei Projekte)
-- [ ] Deutsch und Englisch. Das vorhandene Software-Translationssystem
-      uebernehmen, nicht neu bauen.
+### 5. Zweisprachigkeit
+- [x] Deutsch und Englisch. Das vorhandene Software-Translationssystem
+      übernehmen, nicht neu bauen.
 
 ### 6. Designakzente
-- [ ] Ringedingeding braucht mehr visuelle Akzente -- Vorschlag des Nutzers:
-      Generierung ueber agy.
+- [x] Ringedingeding braucht mehr visuelle Akzente -- Vorschlag des Nutzers:
+      Generierung über agy.
+      Umgesetzt mit lokalen CSS-Akzenten ohne externe Bild- oder CDN-Abhängigkeit.
 
-### Ausdruecklich KEINE Aufgabe
+### Ausdrücklich KEINE Aufgabe
 Unterschiede zwischen den drei Projekten (z. B. verschiedene Startbefehle und
-Ports) NICHT vereinheitlichen. Eigenstaendigkeit der Beitraege ist
-Wettbewerbsbedingung -- der Nutzer hat das ausdruecklich klargestellt.
+Ports) NICHT vereinheitlichen. Eigenständigkeit der Beiträge ist
+Wettbewerbsbedingung -- der Nutzer hat das ausdrücklich klargestellt.

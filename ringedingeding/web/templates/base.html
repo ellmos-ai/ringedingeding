@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="{{ html_language|default('de') }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,28 +10,34 @@
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/">Ringedingeding</a>
-  <span class="tagline">alle fragen, eine Antwort</span>
+  <a class="brand" href="/"><span class="brand-ring">R</span>Ringedingeding</a>
+  <span class="tagline">{{ t('alle fragen, eine Antwort') }}</span>
   <nav>
-    <a href="/">Projekte</a>
-    <a href="/contacts">Kontakte</a>
+    <a href="/">{{ t('Projekte') }}</a>
+    <a href="/calendar">{{ t('Kalender') }}</a>
+    <a href="/groups">{{ t('Gruppen') }}</a>
+    <a href="/contacts">{{ t('Kontakte') }}</a>
+    {% set return_to = request.url.path %}
+    {% if ui_language|default('de') == 'de' %}
+      <a class="language" href="/language/en?next={{ return_to|urlencode }}" lang="en">EN</a>
+    {% else %}
+      <a class="language" href="/language/de?next={{ return_to|urlencode }}" lang="de">DE</a>
+    {% endif %}
   </nav>
 </header>
 
 {% if project is defined and project %}
 <div class="project-bar">
   <strong>{{ project.occasion }}</strong>
-  <span class="muted">im Auftrag von {{ project.organizer }}</span>
+  <span class="muted">{{ t('im Auftrag von') }} {{ project.organizer }}</span>
+  <span class="mode-badge {{ project.mode }}">{{ t('Terminfinden') if project.mode == 'schedule' else t('Ask Your Advisor') }}</span>
 </div>
 <nav class="steps">
-  {% set steps = [
-      ('dates',   'Termine'),
-      ('people',  'Personen'),
-      ('wording', 'Worte'),
-      ('preview', 'Auftrag'),
-      ('live',    'Anrufe'),
-      ('board',   'Ergebnis'),
-      ('invite',  'Einladung')] %}
+  {% if project.mode == 'roundtable' %}
+    {% set steps = [('advisor', t('Frage')), ('people', t('Personen')), ('wording', t('Worte')), ('preview', t('Auftrag')), ('live', t('Anrufe')), ('board', t('Ergebnis'))] %}
+  {% else %}
+    {% set steps = [('dates', t('Termine')), ('people', t('Personen')), ('wording', t('Worte')), ('preview', t('Auftrag')), ('live', t('Anrufe')), ('board', t('Ergebnis')), ('invite', t('Einladung'))] %}
+  {% endif %}
   {% for key, label in steps %}
     <a href="/projects/{{ project.id }}/{{ key }}"
        class="step {% if step is defined and step == key %}here{% endif %}">{{ label }}</a>
@@ -45,9 +51,8 @@
 
 <footer>
   <p class="muted small">
-    Trockenlauf ist der Normalfall — es wird nur telefoniert, wenn du es
-    ausdrücklich auslöst. Rufnummern werden nie vollständig angezeigt.
-    Version {{ version }}.
+    {{ t('Trockenlauf ist der Normalfall — es wird nur telefoniert, wenn du es ausdrücklich auslöst. Rufnummern werden nie vollständig angezeigt.') }}
+    {{ t('Version') }} {{ version }}.
   </p>
 </footer>
 </body>

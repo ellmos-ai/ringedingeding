@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="eyebrow">{{ t('Ask Your Advisor') }}</p>
+<h1>{{ t('Was die Runde meint') }}</h1>
+{% if board.simulated %}<div class="banner rehearsal">{{ t('Erfundene Antworten — es wurde nicht telefoniert.') }}</div>{% endif %}
+{% if not board.poll or not board.merge %}
+  <div class="empty-state">{{ t('Noch keine Antworten. Prüfe zuerst den Auftrag und starte einen Trockenlauf.') }}</div>
+{% else %}
+  <section class="advisor-summary">
+    <p class="eyebrow">{{ t('Tendenz') }}</p>
+    <h2>{{ advisor_summary }}</h2>
+    <p>{{ board.answered_count }} {{ t('von') }} {{ board.total_count }} {{ t('Personen haben geantwortet') }}</p>
+  </section>
+  {% if board.merge.kind.value == 'choice' %}
+    <div class="tally-grid">{% for item in board.merge.tally|sort(attribute='count', reverse=true) %}<article class="tally"><strong>{{ item.count }}</strong><span>{{ item.option }}</span><small>{{ item.voters|join(', ') }}</small></article>{% endfor %}</div>
+    {% if board.merge.reasons %}<h2>{{ t('Begründungen') }}</h2><ul class="quote-list">{% for name, reason in board.merge.reasons %}<li><strong>{{ name }}</strong><q>{{ reason }}</q></li>{% endfor %}</ul>{% endif %}
+    {% if board.merge.concerns %}<h2>{{ t('Bedenken und Gegenargumente') }}</h2><ul class="quote-list counter">{% for name, concern in board.merge.concerns %}<li><strong>{{ name }}</strong><q>{{ concern }}</q></li>{% endfor %}</ul>{% endif %}
+  {% else %}
+    <div class="tally-grid">{% for item in board.merge.tendencies %}<article class="tally"><strong>{{ item.count }}</strong><span>{{ t(item.stance) }}</span><small>{{ item.people|join(', ') }}</small></article>{% endfor %}</div>
+    {% if board.merge.countervoices %}<h2>{{ t('Gegenstimmen') }}</h2><ul class="quote-list counter">{% for answer in board.merge.countervoices %}<li><strong>{{ answer.name }}</strong><q>{{ answer.answer }}</q></li>{% endfor %}</ul>{% endif %}
+    <h2>{{ t('Alle Antworten und Gründe') }}</h2>
+    <div class="answer-grid">{% for answer in board.merge.entries %}<article class="answer-card"><span class="badge">{{ t(answer.stance) }}</span><h3>{{ answer.name }}</h3><p>{{ answer.answer }}</p>{% if answer.reasons %}<p class="small"><strong>{{ t('Warum:') }}</strong> {{ answer.reasons|join('; ') }}</p>{% endif %}{% if answer.concerns %}<p class="small"><strong>{{ t('Bedenken:') }}</strong> {{ answer.concerns|join('; ') }}</p>{% endif %}</article>{% endfor %}</div>
+  {% endif %}
+  {% if board.unreached or board.uncallable %}<details class="optional"><summary>{{ t('Nicht erreichte Personen') }}</summary><ul>{% for item in board.unreached %}<li>{{ item.label }} — {{ item.status_label }}</li>{% endfor %}{% for contact in board.uncallable %}<li>{{ contact.name }} — {{ t('keine Telefonnummer') }}</li>{% endfor %}</ul></details>{% endif %}
+{% endif %}
+<p><a class="next" href="/projects/{{ project.id }}/preview">{{ t('Zurück zum Auftrag') }} →</a></p>
+{% endblock %}

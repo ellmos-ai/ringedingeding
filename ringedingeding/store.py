@@ -243,6 +243,40 @@ class Store:
         )
         self.connection.commit()
 
+    def set_poll_definition(
+        self,
+        poll_id: str,
+        *,
+        question: str,
+        kind: PollKind | str,
+        options: Sequence[str] = (),
+    ) -> Poll:
+        """Update an unrun advisor round without replacing its identity.
+
+        A preview may create the round before the wording is final. Keeping the
+        poll id preserves participants and links; answers, once present, are a
+        fact and make changing the question unsafe.
+        """
+        if self.answers(poll_id):
+            raise ValueError("a question with recorded answers cannot be changed")
+        parsed = kind if isinstance(kind, PollKind) else PollKind.parse(kind)
+        clean_options = tuple(
+            dict.fromkeys(str(value).strip() for value in options if str(value).strip())
+        )
+        if parsed is PollKind.CHOICE and len(clean_options) < 2:
+            raise ValueError("a 'choice' poll needs at least two distinct options")
+        self.connection.execute(
+            "UPDATE poll SET question = ?, kind = ?, options_json = ? WHERE id = ?",
+            (
+                question.strip(),
+                parsed.value,
+                json.dumps(list(clean_options), ensure_ascii=False),
+                poll_id,
+            ),
+        )
+        self.connection.commit()
+        return self.get_poll(poll_id)
+
     def set_poll_simulated(self, poll_id: str, simulated: bool) -> None:
         """Mark (or unmark) a poll whose answers were invented locally."""
         self.connection.execute(

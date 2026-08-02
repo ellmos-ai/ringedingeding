@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Anrufe — Ringedingeding{% endblock %}
+{% block title %}{{ t('Anrufe') }} — Ringedingeding{% endblock %}
 {% block head %}
 {# Without JavaScript the page still keeps up: it reloads itself while a round
    is running. The stream below is faster, not necessary. #}
@@ -7,12 +7,10 @@
 {% endblock %}
 {% block content %}
 
-<h1>Die Anrufe</h1>
+<h1>{{ t('Die Anrufe') }}</h1>
 
 <p class="muted">
-  Das Abfragen läuft im Server, nicht im Browser. Du kannst dieses Fenster
-  schließen und später wieder öffnen — die Runde läuft weiter und der Stand
-  steht in der Datenbank.
+  {{ t('Das Abfragen läuft im Server, nicht im Browser. Du kannst dieses Fenster schließen und später wieder öffnen — die Runde läuft weiter und der Stand steht in der Datenbank.') }}
 </p>
 
 <div id="live-panel"
@@ -24,17 +22,16 @@
 <div class="row spread">
   {% if job and job.running %}
   <form method="post" action="/projects/{{ project.id }}/stop">
-    <button type="submit" class="link danger">Keine weiteren Anrufe starten</button>
+    <button type="submit" class="link danger">{{ t('Keine weiteren Anrufe starten') }}</button>
   </form>
   <span class="muted small">
-    Laufende Gespräche werden zu Ende geführt — jemandem mitten im Satz
-    aufzulegen wäre schlimmer als zu warten.
+    {{ t('Laufende Gespräche werden zu Ende geführt — jemandem mitten im Satz aufzulegen wäre schlimmer als zu warten.') }}
   </span>
   {% endif %}
 </div>
 
 <p>
-  <a class="next" href="/projects/{{ project.id }}/board">Zum Ergebnis →</a>
+  <a class="next" href="/projects/{{ project.id }}/board">{{ t('Zum Ergebnis') }} →</a>
 </p>
 
 <script src="/static/app.js" defer></script>

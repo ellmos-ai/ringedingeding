@@ -99,6 +99,7 @@ class RehearsalTransport(CallTransport):
     def _structured(self, request: CallRequest) -> dict[str, Any]:
         poll = request.poll
         ref = request.participant.ref
+        german = str(poll.language).lower().startswith("de")
         base: dict[str, Any] = {"reachable": True, "refused": False}
 
         if poll.kind is PollKind.SLOT:
@@ -119,9 +120,59 @@ class RehearsalTransport(CallTransport):
         if poll.kind is PollKind.CHOICE and poll.options:
             index = int(self._fraction(poll.id, ref, "choice") * len(poll.options))
             base["choice"] = poll.options[min(index, len(poll.options) - 1)]
+            base["reason"] = (
+                "Das scheint die praktischste Möglichkeit zu sein."
+                if german
+                else "It seems the most practical option."
+            )
+            if self._fraction(poll.id, ref, "choice-concern") > 0.62:
+                base["concerns"] = [
+                    "Die Kosten sollten planbar bleiben."
+                    if german
+                    else "The cost should stay predictable."
+                ]
             return base
 
-        base["answer"] = "Sounds good to me."
+        direction = self._fraction(poll.id, ref, "advisor-stance")
+        if direction < 0.5:
+            base["stance"] = "support"
+            base["answer"] = "Das klingt für mich gut." if german else "Sounds good to me."
+            base["reasons"] = [
+                "Es wäre nützlich und leicht auszuprobieren."
+                if german
+                else "It would be useful and easy to try."
+            ]
+            base["concerns"] = []
+        elif direction < 0.78:
+            base["stance"] = "against"
+            base["answer"] = "Das würde ich lieber nicht machen." if german else "I would rather not do that."
+            base["reasons"] = [
+                "Der Aufwand scheint größer als der Nutzen."
+                if german
+                else "The effort seems larger than the benefit."
+            ]
+            base["concerns"] = [
+                "Wir sollten den Plan einfacher halten."
+                if german
+                else "We should keep the plan simpler."
+            ]
+        else:
+            base["stance"] = "mixed"
+            base["answer"] = (
+                "Die Idee hat Potenzial, aber ich würde einen Teil ändern."
+                if german
+                else "The idea has potential, but I would change part of it."
+            )
+            base["reasons"] = [
+                "Die grundsätzliche Richtung ist vielversprechend."
+                if german
+                else "The basic direction is promising."
+            ]
+            base["concerns"] = [
+                "Die erste Version sollte kleiner sein."
+                if german
+                else "The first version should be smaller."
+            ]
         return base
 
     def _outcome(

@@ -1,12 +1,12 @@
 ---
 name: ringedingeding
-description: Find one date that works for a group by calling everybody on the phone, then merge the answers into one result — including who could not be reached. Use when somebody wants to agree a time with several people without a poll link, when a group has to be asked the same question by telephone, or when a scheduling round has to be caught up for people who did not answer. Runs as a dry run by default; real calls need an explicit typed confirmation.
+description: Ask several people the same thing by telephone and merge the answers honestly. Choose Find a Date for availability, or Ask Your Advisor for advice, tendencies, dissent and reasons. Reusable groups may have any name. Runs as a dry run by default; real calls need an explicit typed confirmation.
 ---
 
 # Ringedingeding — ask everyone, get one answer
 
-You are arranging a date for somebody by telephone. Several people, one
-question, one result. The tool does the calling; you do the interview.
+You are asking a group one thing by telephone. Several people, one question,
+one honest result. The tool does the calling; you do the interview.
 
 **The first thing to know:** nothing you run here dials a telephone unless the
 mode is `live`, and `live` needs a confirmation the person has to type. Every
@@ -67,13 +67,37 @@ where you must stop, and you must never skip it.
 Ask in this order. Each answer fills exactly one field, and you can stop after
 any of them — the state is on disk.
 
-### 1. "Um was geht's? Wozu möchtest du einladen?"  *(required)*
+### 0. Choose the product from the person's verb
+
+This is a decision, not a setting:
+
+| they mean | mode | merge |
+|---|---|---|
+| “When can you?” | `schedule` | availability intersection |
+| “What do you think?” | `roundtable` | tendency, countervoices and reasons |
+
+If they name an existing group, resolve it first. Groups are arbitrary reusable
+configuration, not a fixed list:
+
+```
+ringedingeding group list
+ringedingeding group add --name "Donnerstagsdenker" --member Anna --member Ben
+```
+
+### 1. "Um was geht's?"  *(required)*
 
 The occasion. One line, in their words: *Familienessen am Wochenende*,
 *Vereinssitzung*, *Grillen bei mir*.
 
 ```
-ringedingeding project new --occasion "Familienessen am Wochenende" --organizer "Lukas"
+ringedingeding project new --mode schedule --occasion "Familienessen am Wochenende" --organizer "Lukas"
+```
+
+For advice, ideas or opinions:
+
+```
+ringedingeding project new --mode roundtable --occasion "Neue Vereinsidee" \
+    --organizer "Lukas" --group "Donnerstagsdenker"
 ```
 
 If they said it is pressing, pass it on — but do not ask whether it is:
@@ -91,7 +115,7 @@ sentence of every call, so use the name the people being called will recognise.
 The command prints a project id. Everything after this takes `--project <id>`;
 a prefix is enough.
 
-### 2. "An welchen Tagen könnte es sein? Und zu welcher Uhrzeit?"  *(required)*
+### 2A. Scheduling: "An welchen Tagen könnte es sein?"  *(required)*
 
 Ask for the days first, then for **one standard set of times that applies to all
 of them**. Most people have one — "abends, so ab sechs". Only ask about
@@ -108,6 +132,23 @@ all, use `--whole-day` and leave `--time` off.
 
 The command prints the candidate dates numbered. Those numbers are what you use
 later for `--favourite` and `--slot`.
+
+### 2B. Advisor: "Was möchtest du von ihnen wissen?"  *(required)*
+
+The question is the click-level decision; optional answer choices configure its
+shape. No options means open advice. Two or more distinct options mean a vote,
+but the call still asks why and records concerns.
+
+```
+# open advice
+ringedingeding project question --project <id> \
+    --question "Sollen wir das Sommerfest größer planen?"
+
+# reasoned vote
+ringedingeding project question --project <id> \
+    --question "Welche Richtung sollen wir nehmen?" \
+    --option "größer" --option "kleiner"
+```
 
 ### 3. "Wen möchtest du einladen?"  *(required; the numbers are derivable)*
 
@@ -181,7 +222,7 @@ it for them; if you are running unattended, tell them so and stop.
 Each run only calls people who do not have an answer yet. Running it again
 after somebody's number is added catches that one call up and dials nobody else.
 
-### 7. "Wer kann wann?"
+### 7A. Scheduling: "Wer kann wann?"
 
 ```
 ringedingeding project board --project <id>
@@ -200,6 +241,16 @@ Read the four states back to the person and keep them apart:
 **Never report a result as if the people who were not reached had agreed.**
 "Four of six can make Saturday" is a different sentence from "everybody can make
 Saturday", and the second one is false.
+
+### 7B. Advisor: "Was meint die Runde?"
+
+```
+ringedingeding project board --project <id>
+```
+
+Read out the leading tendency and then the countervoices. Include reasons and
+concerns. Never present a majority as unanimity and never discard the raw
+answers. People who were not reached remain a coverage gap, not a neutral vote.
 
 ### 8. "Was ist dir wichtig?"  *(optional)*
 

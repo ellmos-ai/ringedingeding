@@ -222,6 +222,14 @@ def _choice_body(merge: ChoiceMerge) -> list[str]:
         out.append(
             table(["Name", "Condition"], [[name, mask_text(text)] for name, text in merge.conditions])
         )
+    if merge.reasons:
+        out.append("")
+        out.append("Reasons given for the choices:")
+        out.append(table(["Name", "Reason"], [[name, mask_text(text)] for name, text in merge.reasons]))
+    if merge.concerns:
+        out.append("")
+        out.append("Reservations and counterarguments:")
+        out.append(table(["Name", "Concern"], [[name, mask_text(text)] for name, text in merge.concerns]))
     if merge.unclear:
         out.append("")
         out.append(f"Reached but no usable answer recorded: {_names(merge.unclear)}")
@@ -230,8 +238,28 @@ def _choice_body(merge: ChoiceMerge) -> list[str]:
 
 def _open_body(merge: OpenMerge) -> list[str]:
     out = [f"RESULT   : {merge.headline}", ""]
-    rows = [[entry.name, mask_text(entry.answer), mask_text(entry.note)] for entry in merge.entries]
-    out.append(table(["Name", "Answer", "Note"], rows))
+    if merge.tendencies:
+        out.append(
+            table(
+                ["Tendency", "Count", "Who"],
+                [[entry.stance, str(entry.count), _names(entry.people)] for entry in merge.tendencies],
+            )
+        )
+        out.append("")
+    rows = [
+        [
+            entry.name,
+            entry.stance,
+            mask_text(entry.answer),
+            mask_text("; ".join(entry.reasons)),
+            mask_text("; ".join(entry.concerns)),
+            mask_text(entry.note),
+        ]
+        for entry in merge.entries
+    ]
+    out.append(table(["Name", "Tendency", "Answer", "Reasons", "Concerns", "Note"], rows))
+    if merge.countervoices:
+        out += ["", f"Countervoices: {_names(tuple(entry.name for entry in merge.countervoices))}"]
     return out
 
 
@@ -330,18 +358,54 @@ def render_markdown(merge: MergeResult) -> str:
                 _md_table(["Name", "Condition"], [[n, mask_text(t)] for n, t in merge.conditions]),
                 "",
             ]
+        if merge.reasons:
+            out += [
+                "### Reasons",
+                "",
+                _md_table(["Name", "Reason"], [[n, mask_text(t)] for n, t in merge.reasons]),
+                "",
+            ]
+        if merge.concerns:
+            out += [
+                "### Reservations and counterarguments",
+                "",
+                _md_table(["Name", "Concern"], [[n, mask_text(t)] for n, t in merge.concerns]),
+                "",
+            ]
         if merge.unclear:
             out += [f"**Reached but no usable answer:** {_names(merge.unclear)}", ""]
     else:
         out += [
+            "### Tendency",
+            "",
+            _md_table(
+                ["Tendency", "Count", "Who"],
+                [[e.stance, e.count, _names(e.people)] for e in merge.tendencies],
+            ),
+            "",
             "### Answers",
             "",
             _md_table(
-                ["Name", "Answer", "Note"],
-                [[e.name, mask_text(e.answer), mask_text(e.note)] for e in merge.entries],
+                ["Name", "Tendency", "Answer", "Reasons", "Concerns", "Note"],
+                [
+                    [
+                        e.name,
+                        e.stance,
+                        mask_text(e.answer),
+                        mask_text("; ".join(e.reasons)),
+                        mask_text("; ".join(e.concerns)),
+                        mask_text(e.note),
+                    ]
+                    for e in merge.entries
+                ],
             ),
             "",
         ]
+        if merge.countervoices:
+            out += [
+                f"**Countervoices:** {_names(tuple(entry.name for entry in merge.countervoices))}",
+                "",
+            ]
 
     out += [
         "## Who answered, and who did not",
