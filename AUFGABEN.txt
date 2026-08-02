@@ -1,0 +1,38 @@
+
+## Nutzer-Feedback 2026-08-02 (nach Sichtung von App und Video)
+
+Urteil: "Schon ziemlich gut alles" / "starkes Ergebnis". Es fehlt Funktionsumfang,
+nicht Qualitaet.
+
+### 1. Zweiteilung des Produkts
+Ringedingeding hat ZWEI Anwendungsfaelle, bisher ist nur einer gebaut:
+- [ ] **Terminfinden** (vorhanden) -- Termine bei mehreren Beteiligten einsammeln
+- [ ] **Ask your Advisor** (fehlt) -- Ratschlaege, Themen und Ideen einholen.
+      Nicht "wann kannst du", sondern "was meinst du".
+
+### 2. "Ask your ..." -- Gruppenwahl
+- [ ] Auswahl der Zielgruppe beim Anlegen: Friends, Family, Tennisclub, Lauftreff
+- [ ] **Beliebige Gruppen** anlegbar -- die vier oben sind Beispiele, keine feste Liste
+
+### 3. Kalender mit Projektfilter
+- [ ] Kalenderansicht ueber alle Vorgaenge
+- [ ] Projekte per Checkbox ein- und ausblendbar (die gefilterte Ansicht ist das,
+      was exportiert wird)
+
+### 4. Export der gefilterten Ansicht
+- [ ] Excel
+- [ ] Kalenderdateiformat (ics)
+- [ ] evtl. Anbindung Google Calendar und Microsoft
+
+### 5. Zweisprachigkeit (gilt fuer ALLE drei Projekte)
+- [ ] Deutsch und Englisch. Das vorhandene Software-Translationssystem
+      uebernehmen, nicht neu bauen.
+
+### 6. Designakzente
+- [ ] Ringedingeding braucht mehr visuelle Akzente -- Vorschlag des Nutzers:
+      Generierung ueber agy.
+
+### Ausdruecklich KEINE Aufgabe
+Unterschiede zwischen den drei Projekten (z. B. verschiedene Startbefehle und
+Ports) NICHT vereinheitlichen. Eigenstaendigkeit der Beitraege ist
+Wettbewerbsbedingung -- der Nutzer hat das ausdruecklich klargestellt.
