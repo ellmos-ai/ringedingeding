@@ -75,7 +75,7 @@ Actual purposes, means, contracts, and branding determine legal roles. Depending
 | `huckepack-only-host` | The visitor pays with their own key, but the host still supplies the UI and call relay. Transit data, key handling, legal roles, the contract chain, and security must be documented and controlled. |
 | `pay-membership` | Stub only. Accounts, billing, tenant/data isolation, secret management, rights, deletion, export, and incident procedures are required before release. |
 
-`DATA-FLOW.md:17-32, 37-66` documents phone numbers, responses, transcripts, and remaining transit/export limits in huckepack modes. `PRIVACY-TEMPLATE.md:20-75` deliberately requires a concrete legal basis, first-communication information, and verified service-provider facts; placeholders are not release evidence.
+`DATA-FLOW.md:17-32, 37-66` documents phone numbers, responses, transcripts, and remaining transit/export limits in piggyback modes. `PRIVACY-TEMPLATE.md:20-75` deliberately requires a concrete legal basis, first-communication information, and verified service-provider facts; placeholders are not release evidence.
 
 ### Release criteria before live hosting
 

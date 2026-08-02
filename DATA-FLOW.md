@@ -36,6 +36,12 @@ See `HOST-READINESS.md` for the multi-user gap and `PRIVACY-TEMPLATE.md` for an 
 
 ## Server modes (added 2026-08-02)
 
+> **On the name.** In English this hosting pattern is called *piggyback*:
+> the application rides on infrastructure it does not own. The literal mode
+> values are still spelled `huckepack-gift` and `huckepack-only-host` — that is
+> the German working title the code was built under, and it is what an operator
+> actually types. Prose says piggyback; configuration says huckepack.
+
 The table above describes `local`, which is what an unconfigured installation is. `RINGEDINGEDING_SERVER_MODE` selects one of four modes (`ringedingeding/server_mode.py:25-76`); an unknown value is refused by name (`:78-90`), and the resolved mode is held for the process, so no request can switch it (`:98-113`).
 
 | Mode | Where the database is | Whose key pays | Accounts |
@@ -45,7 +51,7 @@ The table above describes `local`, which is what an unconfigured installation is
 | `huckepack-only-host` | the visitor's browser | the visitor's, per request | none |
 | `pay-membership` | — | — | would be required; **not built**, every page answers 503 (`ringedingeding/huckepack_web.py:47-50, 145-155`) |
 
-### What changes in a huckepack mode
+### What changes in a piggyback mode
 
 | Data | Collection and use | Storage | Retention implemented in code | Who can see it | Leaves the computer? | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -62,5 +68,5 @@ The table above describes `local`, which is what an unconfigured installation is
 - **The row about live calls stays valid word for word.** Participant name, raw number and task still go to CALL-E, and real people are still called. The mode changes where records are kept, not what is transmitted.
 - **The exported file carries raw phone numbers.** The database holds them because you cannot dial a mask; an export therefore is an address book. That belongs in the privacy notice, and in what the interface tells the visitor.
 - **A cleared browser is a total loss.** No copy exists at the host. Export is a condition of the pattern, not a convenience.
-- **The unauthenticated route set is unchanged** — but in a huckepack mode there is no shared database behind it: a visitor without the session token reaches an empty one. That removes the cross-visitor exposure `HOST-READINESS.md` describes; it does not add authentication.
+- **The unauthenticated route set is unchanged** — but in a piggyback mode there is no shared database behind it: a visitor without the session token reaches an empty one. That removes the cross-visitor exposure `HOST-READINESS.md` describes; it does not add authentication.
 - **`local` is unchanged.** One additional script tag in `base.html`, which in `local` mode does nothing but offer the receipt download.
