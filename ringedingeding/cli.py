@@ -464,6 +464,25 @@ def cmd_report(args: argparse.Namespace, store: Store) -> int:
     return EXIT_OK
 
 
+def cmd_proof(args: argparse.Namespace, store: Store) -> int:
+    """The core sample: build a round, replay it, and check the result.
+
+    Opens no database of its own here — :func:`ringedingeding.proof.run_proof`
+    works in a temporary one, so running this never touches whatever is in
+    ``--db``. The store the parser handed us is closed first for the same
+    reason ``web`` closes it: nothing below this line uses it.
+    """
+    from .proof import run_proof
+
+    store.close()
+    result = run_proof(emit=_out)
+    if result.ok:
+        return EXIT_OK
+    for check in result.failed:
+        _err(f"FAILED: {check.name} — {check.detail}")
+    return EXIT_ERROR
+
+
 def cmd_demo(args: argparse.Namespace, store: Store) -> int:
     """Run every bundled fixture end to end. No account, no network."""
     fixtures = bundled_fixtures()
@@ -528,6 +547,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--db", default=str(DEFAULT_DB_PATH), help=f"SQLite file (default: {DEFAULT_DB_PATH})"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    proof = subparsers.add_parser(
+        "proof",
+        help="the core sample: one round, seven people, and eight checks on the result",
+        description="Build a seven-person scheduling round in a temporary database, "
+        "replay the scripted answers, and verify that disagreement, silence, the "
+        "different kinds of not-reached and the person without a phone number all "
+        "survive the merge. No account, no network, no telephone.",
+    )
+    proof.set_defaults(func=cmd_proof)
 
     demo = subparsers.add_parser("demo", help="run every bundled fixture end to end (dry run)")
     demo.add_argument("--out", default="out", help="directory for the Markdown reports")

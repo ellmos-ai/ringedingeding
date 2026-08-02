@@ -578,3 +578,190 @@ $ python -m pytest
   and names the best fit but leaves the slots in date order. Nothing is filtered
   out either way — which is the part that matters.
 * **The interface was again not opened in a browser by a human.**
+
+---
+
+# Third session — the core sample, 2026-08-02
+
+Still no telephone call, still no CALL-E account. This session added one
+command, `ringedingeding proof`, and the scenario behind it.
+
+## 19. Why a second demonstration command exists
+
+`demo` shows that the machinery **runs**. It does not show that the machinery is
+**honest**, and honesty is the whole claim of this project — the merge is
+supposed to refuse to invent agreement. That claim was, until now, only made in
+prose in the README and only checked indirectly, spread over
+`tests/test_merge.py`.
+
+`proof` provokes the four ways a merge can quietly lie, in one round, and then
+asserts afterwards that none of them happened:
+
+| provoked by | the lie it would be |
+|---|---|
+| Nora can Sat 14-18, Paul cannot | counting a disagreement as a majority |
+| Rike names one slot and stays silent on two | reading silence as "no" |
+| Tara `NO_ANSWER`, Uwe `BUSY`, Sven declined | folding three kinds of absence into one failure |
+| Vera is in the address book without a number | dropping her from the report entirely |
+
+The scenario is `ringedingeding/fixtures/weekend-hike.json`, a bundled fixture
+like the other three, and therefore also covered by the schema check in
+`tests/test_fixtures.py::test_every_bundled_answer_satisfies_its_own_schema` —
+every scripted answer in it is one a real call could have returned.
+
+## 20. `proof` — executed, with real output
+
+Three consecutive runs, measured from Python with `time.perf_counter` around
+`subprocess.run`:
+
+```
+exit codes: 0
+wall clock seconds: 1.05, 0.76, 0.84
+output lines: 96
+```
+
+The full output is 96 lines. The parts that carry the argument:
+
+```
+STEP 1  Seven people are invited. Six of them have a phone number.
+
+        Nora     +15*****01
+        [...]
+        Vera     —            no number in the address book
+
+STEP 4  The result, with the five states kept apart.
+
+        3 of 7 invited people answered.
+
+        1. Sat 09-13    3 can
+           can    : Nora, Paul, Rike
+        2. Sat 14-18    1 can
+           can    : Nora
+           cannot : Paul
+           silent : Rike   (said nothing about this one — not a no)
+        3. Sun 09-13    1 can
+           can    : Paul
+           cannot : Nora
+           silent : Rike   (said nothing about this one — not a no)
+
+        not reached : Tara (NO_ANSWER), Uwe (BUSY)
+        declined    : Sven   (picked up, chose not to answer)
+        no phone    : Vera   (never called — a number can be added)
+        None of the above is counted as agreement.
+
+        => Works for all 3 who answered: Sat 09-13
+
+STEP 5  Vera's number is added. The same round runs again.
+
+        outstanding calls: 1  (Vera)
+        already answered, not called again: Nora, Paul, Rike, Sven, Tara, Uwe
+
+        -> vera (+15*****07)
+        <- vera: COMPLETED
+
+        4 of 7 invited people answered.
+        => No slot works for all 4 who answered.
+
+STEP 6  What the run just proved about itself.
+
+        [ok  ] disagreement stays visible
+        [ok  ] silence is not a no
+        [ok  ] not-reached is not one state
+        [ok  ] the denominator is carried
+        [ok  ] nobody without a number disappears
+        [ok  ] no full phone number is printed
+        [ok  ] the catch-up calls exactly one person
+        [ok  ] the late answer changed the result
+
+        8 of 8 checks passed.
+```
+
+(Detail lines under each check omitted here for length; they are printed in
+full by the command.)
+
+**The last two steps are the ones worth reading.** Vera cannot make Sat 09-13.
+While she had no number she was not called, and the result said a slot "works
+for all 3 who answered". Adding her number and running the same round again
+places exactly one call — and the earlier result is overturned. A tool that had
+dropped her would have reported a working date that does not work.
+
+### It refuses to be a decoration
+
+Eight checks that always pass prove nothing. `tests/test_proof.py` therefore
+tampers with one scripted answer at a time and requires the run to fail:
+
+```
+$ python -m pytest tests/test_proof.py
+10 passed in 3.53s
+```
+
+Three of those ten are the sabotage cases (Paul made to agree, Rike's silence
+turned into a "no", Vera made to agree with everybody). Each one makes `proof`
+exit non-zero.
+
+An earlier version of the sabotage was **too weak and passed** — clearing
+Vera's `cannot` list left her silent about Saturday rather than agreeing with
+it, so the headline still changed and the check still fired. It is recorded
+here because it is the same class of mistake this file exists to catch: a test
+that fails to fail.
+
+### What it does not touch
+
+```
+$ python -m pytest tests/test_proof.py::test_the_command_does_not_touch_the_database_it_was_given
+1 passed
+```
+
+The command closes the database it was given, works in a
+`tempfile.TemporaryDirectory`, and the directory is gone when it returns. The
+test reads the given file's bytes before and after and requires them identical.
+
+The package still has no third-party dependency; `proof.py` adds `tempfile` and
+nothing else:
+
+```
+$ python -c "<ast scan of every import in the package, web/ excluded>"
+imported top-level modules: ['__future__', 'argparse', 'concurrent', 'dataclasses',
+ 'datetime', 'enum', 'hashlib', 'json', 'os', 'pathlib', 're', 'signal', 'sqlite3',
+ 'sys', 'tempfile', 'threading', 'time', 'typing', 'urllib', 'uuid']
+NOT in the standard library: none
+```
+
+## 21. Test suite after the core sample
+
+```
+$ python -m pytest
+308 passed in 69.40s
+```
+
+Up from 297. Eleven new tests: ten in `tests/test_proof.py`, and one changed
+assertion in `tests/test_fixtures.py` where the bundled set is enumerated (three
+fixtures became four).
+
+`demo` now runs the fourth fixture too, and was executed to confirm it:
+
+```
+$ python -m ringedingeding demo
+[...]
+# 4/4  weekend-hike
+[...]
+Dry run complete. No call was placed and no account was used.
+EXIT=0
+```
+
+## 22. Still not executed — the field test
+
+The one thing a reader should not have to infer:
+
+* **No telephone call has ever been placed from this repository.** Not in this
+  session either. The scenario above is scripted end to end.
+* **The field test with real, informed participants is outstanding.** It is a
+  user step, not a build step: it needs a CALL-E account with credit — the
+  operator's balance stood at **−0.05 USD** after the single measured call
+  documented in `FINDINGS.md`, and the 20 free calls of the competition
+  announcement were not credited.
+* When that run happens, this file gets a section with the same discipline as
+  the rest: what was run, what came back, and what did not work.
+* **Everything in `FINDINGS.md` still comes from exactly one real call**, made
+  by the operator outside this repository. Voicemail, busy and no-answer have
+  never been seen against the live service; here they are scripted.
