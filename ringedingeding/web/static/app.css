@@ -178,7 +178,11 @@ button.link.danger { background: none; color: var(--cannot); }
   background: var(--signal);
 }
 .cockpit-copy { position: relative; z-index: 1; max-width: 660px; }
-.hero-logo { display: block; width: min(100%, 470px); height: auto; margin: 22px 0 26px; }
+.hero-logo {
+  display: block; width: min(100%, 310px); max-height: 190px; object-fit: contain;
+  object-position: left center; margin: 12px 0 14px;
+  filter: drop-shadow(0 14px 18px rgba(21, 95, 174, .12));
+}
 .cockpit-copy h1 { margin: 0 0 12px; font-size: clamp(2rem, 4.2vw, 3.7rem); line-height: .98; max-width: 680px; }
 .cockpit-copy > p:last-child { margin: 0; max-width: 610px; color: var(--muted); font-size: 1.08rem; }
 .signal-console {
@@ -200,6 +204,12 @@ button.link.danger { background: none; color: var(--cannot); }
 .signal-readout { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: baseline; gap: 7px; width: max-content; color: #dbeafa; font: .66rem/1.2 "Cascadia Mono", Consolas, monospace; letter-spacing: .05em; text-transform: uppercase; }
 .signal-readout strong { color: var(--signal); font-size: 1.3rem; }
 @keyframes signal-pulse { 0%, 100% { opacity: .35; transform: translate(-50%, -50%) scale(.94); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.02); } }
+
+.brand-cable {
+  width: min(760px, 88vw); height: 24px; margin: -14px auto 10px;
+  background: url("/static/brand/motiv.png") center 84% / 720px auto no-repeat;
+  opacity: .11; pointer-events: none;
+}
 
 .launch-section, .cockpit-areas, .new-chain, .chains-section, .offline-demo { scroll-margin-top: 24px; }
 .launch-section { padding: 24px 0 18px; }

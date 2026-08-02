@@ -267,7 +267,7 @@ sagt, welcher Zahl zu trauen ist.
 pytest -q
 ```
 
-317 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-02).
+321 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-02).
 Der Trockenlauf ist kein Platzhalter, der „OK" zurückgibt: Er durchläuft Schema-Erzeugung,
 Nutzlastaufbau je Empfänger, Statusabbildung, Zusammenführung und Berichterstellung und
 prüft jede eingespielte Antwort gegen das Schema, das ein echter Anruf bekommen hätte. Ein

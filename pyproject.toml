@@ -48,6 +48,7 @@ ringedingeding = [
   "web/static/*.css",
   "web/static/*.js",
   "web/static/*.svg",
+  "web/static/brand/*.png",
 ]
 
 [tool.pytest.ini_options]
