@@ -142,10 +142,10 @@ Flickwerk.
 | **Was rot sein darf** | Nur `DECLINED` und echte Fehler. **Nicht** „hat nicht abgenommen". | Ein durchgestrichener Name bei einem Telefon, das nur geklingelt hat, behauptet Wissen, das niemand hat. Steht so in `ARCHITEKTUR.md` §8. |
 | **Schnitt** | Harte Schnitte, auf Satzenden. Keine Überblendungen. | 90 Sekunden. Jede Blende kostet eine halbe Sekunde und trägt nichts. |
 | **Bewegung** | Nur wo sie Information trägt: Zeilen, die einzeln erscheinen; die Ergebniszeile, die kippt. Kein dekoratives Schweben. | |
-| **Typografie** | Eine Monospace für alles, was Programmausgabe ist (weil es welche ist). Eine Serifenlose für die gesetzten Karten. Zwei Familien, mehr nicht. | |
+| **Typografie** | **JetBrains Mono** für alles, was Programmausgabe ist (weil es welche ist), **Inter** für die gesetzten Karten. Zwei Familien, mehr nicht — und beide sind die vom Renderer gebündelten. | Ein Schriftname außerhalb dieser Liste fällt still auf eine Ersatzschrift zurück; der Check meldet das als **Fehler** (`font_family_without_font_face`), im Preview sieht man nichts davon. |
 | **Kennzeichnung** | `CONCEPT DRAFT — NOT BOUND TO REAL DATA` durchgehend, als umgetextetes **vorhandenes** Badge. | Learning: neue Ebenen kollidieren mit Titel/Badges/Untertiteln — neun Layout-Stichproben im ersten Entwurf, alle drei Positionen verworfen. |
 | **Ton** | `edge-tts`, `en-US-ChristopherNeural`, `--rate=+0%`, Ratenanpassung je Abschnitt nach `make_vo.py`. **Jedes Audio-Element bekommt eine `id`.** | Ohne `id` findet der Renderer die Spur nicht und das Video wird **stumm** (`media_missing_id`). |
-| **Musik** | Ruhiges Bett, unter der Sprache geduckt. Wechsel der Stimmung an den Sinnabschnitten S1→S2 und S4c→S5. Zwei Fassungen (geduckt / ungeduckt) zur Wahl. | |
+| **Musik** | Ruhiges Bett (`ambient`), unter der Sprache **geduckt** — entschieden, siehe §8/D4. Die Sektionen sind die sechs Erzählabschnitte, die Stimmung wechselt mit ihnen; `damp` sitzt auf der Pointe, `outro` auf der Schlusszeile. | Die Musik wird nicht passend ausgewählt, sondern aus derselben Zeitachse erzeugt wie die Sprache (`compose_music.py`, `seed 1908`, deterministisch). |
 | **Untertitel** | Englisch, eingebrannt, unten. Der Bereich darunter bleibt **frei** von allem anderen. | Learning: eine untere Warnleiste hat im ersten Entwurf die Untertitel verdeckt. |
 | **Format** | 1920×1080. | |
 
