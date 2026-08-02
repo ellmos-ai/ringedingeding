@@ -25,7 +25,7 @@ Ringedingeding
 
 ## Elevator pitch
 
-*(DevPost limit: 200 characters. The text below is 139.)*
+*(DevPost limit: 200 characters. The text below is 140.)*
 
 ```
 Ask several people the same question by telephone and merge the replies into one result — including, by name, the people it could not reach.
