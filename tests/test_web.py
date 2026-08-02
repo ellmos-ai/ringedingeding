@@ -62,6 +62,38 @@ def slot_ids(html: str) -> list[str]:
 # -- the walk-through -------------------------------------------------------
 
 
+def test_home_is_a_cockpit_with_two_prominent_chain_entries(client):
+    html = client.get("/").text
+
+    assert 'class="cockpit-hero"' in html
+    assert 'class="hero-logo" src="/static/logo.svg"' in html
+    assert 'href="/?mode=schedule#new-chain"' in html
+    assert 'href="/?mode=roundtable#new-chain"' in html
+    assert "Termin-Kette starten" in html
+    assert "Advisor-Kette starten" in html
+
+
+def test_every_cockpit_tile_leads_to_an_existing_area(client):
+    html = client.get("/").text
+
+    assert html.count('class="area-tile ') == 5
+    for target in ("/calendar", "/contacts", "/groups", "#chains", "/calendar#export"):
+        assert f'href="{target}"' in html
+    for route in ("/calendar", "/contacts", "/groups"):
+        assert client.get(route).status_code == 200
+    assert 'id="chains"' in html
+    assert 'id="export"' in client.get("/calendar").text
+
+
+def test_a_prominent_entry_preselects_its_chain_type(client):
+    advisor = client.get("/?mode=roundtable").text
+    schedule = client.get("/?mode=schedule").text
+
+    assert re.search(r'name="mode" value="roundtable"\s+checked', advisor)
+    assert not re.search(r'name="mode" value="schedule"\s+checked', advisor)
+    assert re.search(r'name="mode" value="schedule"\s+checked', schedule)
+
+
 def test_the_whole_flow_works_offline_from_a_fixture(client):
     project_id = make_demo(client)
 

@@ -896,3 +896,59 @@ state would not be evidence of progress.
 files which were not present in the initial clean status and were not created
 by this implementation. They were left untouched as foreign work and are not
 claimed in this evidence.
+
+## 28. Cockpit dashboard expansion — measured 2026-08-02
+
+The home page was reorganised around the two existing call-chain modes and
+five links to existing application surfaces. No new call mode, service or
+destination page was introduced.
+
+Fresh read-only checks established:
+
+* the schedule and Advisor launch cards select their matching existing form
+  radio, while an unknown `mode` value falls back to schedule;
+* exactly five area tiles link to `/calendar`, `/contacts`, `/groups`,
+  `#chains` and `/calendar#export`;
+* all route targets are existing GET routes and both fragments exist;
+* the root and static `logo.svg` files have identical SHA-256 checksums;
+* the translation catalog parses as JSON with 322 entries, and all 288
+  `t(...)` literals found across 34 templates have non-empty English entries;
+* the final focus/text contrast measurements were 8.53:1 on white for the
+  blue focus indicator, 17.53:1 for white on navy, 8.02:1 for white on the
+  schedule card and 5.14:1 for muted text on the page background;
+* a write-free Jinja render covered schedule, Advisor and invalid-mode
+  fallback, and two isolated static regressions passed;
+* `pytest --collect-only` collected 321 tests from 18 files.
+
+The already-running local application returned HTTP 200 for the dashboard.
+Its rendered HTML contained the five tiles and showed exactly one selected
+mode for each of schedule, Advisor and invalid input. This was a local render
+check, not a fresh application restart or full-suite result.
+
+A fresh full Pytest execution did not reach any test body. It failed while
+creating `C:\Users\User\AppData\Local\Temp\pytest-of-User` with
+`PermissionError [WinError 5]`; an alternate base temp below `C:\tmp` failed
+with `EPERM` on directory creation. The last complete suite result remains the
+318 passing tests recorded in section 25. The new collected total is 321, but
+this section deliberately does not claim that all 321 passed.
+
+No telephone call, CALL-E request, push, publication or release was made.
+
+## 29. Cockpit local commit — blocked before Git started
+
+After all cockpit implementation, test and report files were written, the
+requested local commit was attempted with an explicit file list. Three
+commands were issued separately: `git status --short`, a `git add -- ...`
+limited to the cockpit files, and
+`git commit -m "Build bilingual dashboard cockpit"`.
+
+Each command failed before Git started because the Windows sandbox could not
+spawn PowerShell:
+
+```text
+CreateProcessAsUserW failed: 5 (Zugriff verweigert)
+```
+
+No file was staged by these commands, no commit was created and no push was
+attempted. The foreign `banner.png` and `README_de.md` files remained
+untouched.
