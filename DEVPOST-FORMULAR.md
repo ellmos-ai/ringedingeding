@@ -4,8 +4,8 @@
 > form. The text under it is finished and goes into that field unchanged.
 > It supersedes `DEVPOST.md`, which holds the same material in prose form.
 >
-> **Nothing here has been submitted.** Submitting, publishing the repository and
-> uploading the video are the user's steps.
+> **Nothing here has been submitted.** Submitting and uploading the video are the
+> user's steps.
 >
 > **No Markdown tables anywhere below.** The DevPost editor does not render them, so
 > everything comparative is written as a list on purpose.
@@ -163,6 +163,8 @@ these contradict the documentation:
   come out of a real call fails the dry run instead of quietly passing it.
 - The core sample checks itself, and the test suite tampers with the scenario one answer at
   a time to prove the checks can actually fail.
+- 365 tests passed in the current offline suite; the local evidence also records
+  the fixture-only proof command and its eight self-checks.
 - Interrupting mid-run was tested with a real signal, not simulated: three answers saved,
   three never started, exit code 130, and re-running picked up exactly where it stopped
   without dialling anybody twice.
@@ -212,45 +214,34 @@ pytest
 
 ## Try it out links
 
-<!-- ATTRAPPE: the repository is private. Replace with the real URL once the user
-     publishes it, or delete the line if the repository stays private. -->
-
-```
-https://www.youtube.de/coming-soon
-```
-
-Intended content once available:
-
-- Repository: the public GitHub URL of this repository.
-- Pull request to `CALLE-AI/awesome-phone-call-agents`: the PR URL. The entry, title and
-  description are already drafted in `PR-VORSCHAU.md`.
+- Repository: https://github.com/lukisch/ringedingeding
+- Pull request to `CALLE-AI/awesome-phone-call-agents`:
+  https://github.com/CALLE-AI/awesome-phone-call-agents/pull/77
+  Known status: merged. This form makes no conflict-status assertion.
 
 ---
 
 ## Video demo link
 
-<!-- ATTRAPPE: uploaded nowhere yet. The file exists and is finished: 88.8 s,
-     1920x1080, rendered 2026-08-02, at
-     C:\_Local_DEV\_calle-videos\ringedingeding\renders\.
-     What is missing is a public link, not the video. -->
+<!-- ATTRAPPE: user gate — uploaded nowhere yet. An 88.8 s render from 2026-08-02
+     exists under C:\_Local_DEV\_calle-videos\ringedingeding\renders\, but it shows
+     the interface before the cockpit redesign and is not upload-ready. Replace this
+     with the approved replacement video's public URL. -->
 
 ```
-https://www.youtube.de/coming-soon
+<the user inserts the public video URL directly in DevPost>
 ```
 
-Requirements to check at upload time: under three minutes (88.8 s, well inside), publicly
-visible, English narration with burned-in English subtitles, and it must show the project
+Requirements to check at upload time: under three minutes, publicly visible, English
+narration with burned-in English subtitles, and it must show the current project
 functioning.
 
 ---
 
 ## Repository link
 
-<!-- ATTRAPPE: the repository is private; the URL only exists after the user publishes
-     it. Replace with the real GitHub URL. -->
-
 ```
-https://www.youtube.de/coming-soon
+https://github.com/lukisch/ringedingeding
 ```
 
 ---
@@ -259,18 +250,17 @@ https://www.youtube.de/coming-soon
 
 *(Hackathon-specific required field: the PR to `CALLE-AI/awesome-phone-call-agents`.)*
 
-<!-- ATTRAPPE: not opened yet — user step. The drafted entry, title and description are
-     in PR-VORSCHAU.md. -->
+```
+https://github.com/CALLE-AI/awesome-phone-call-agents/pull/77
+```
 
-```
-https://www.youtube.de/coming-soon
-```
+Known status: merged. This form makes no conflict-status assertion.
 
 ---
 
 ## CALL-E account e-mail
 
-<!-- ATTRAPPE: the user supplies this at submission time. It is deliberately never
+<!-- ATTRAPPE: user gate — the user supplies this at submission time. It is deliberately never
      written into the repository. -->
 
 ```
@@ -306,17 +296,11 @@ The repository banner (1200x300) is `banner.png` in the repository root.
 
 ## Checklist of every ATTRAPPE in this file
 
-Replace all of these before submitting:
+The repository and pull-request URLs are filled in. The remaining user gates are:
 
-1. **Try it out links** — placeholder `https://www.youtube.de/coming-soon`; needs the
-   public repository URL and the pull-request URL.
-2. **Video demo link** — placeholder `https://www.youtube.de/coming-soon`; needs the real
-   YouTube URL after upload. The video file itself is finished.
-3. **Repository link** — placeholder `https://www.youtube.de/coming-soon`; needs the
-   public GitHub URL after the repository is made public.
-4. **Pull request URL** — placeholder `https://www.youtube.de/coming-soon`; needs the real
-   PR URL after it is opened.
-5. **CALL-E account e-mail** — the user types it into the form directly; it is not stored
+1. **Video demo link** — needs the cockpit-era replacement video and the real YouTube URL
+   after the user uploads it.
+2. **CALL-E account e-mail** — the user types it into the form directly; it is not stored
    here.
 
 ---
@@ -327,5 +311,4 @@ Replace all of these before submitting:
   because the DevPost editor will not render one.
 - Do not add a number that is not in this file. `EVIDENCE.md` is the record of what was
   measured; anything else is invention.
-- The five items in the checklist above are the only things blocking the form, and every
-  one of them is a decision or an action that belongs to the user.
+- The two remaining items in the checklist above are user gates.
