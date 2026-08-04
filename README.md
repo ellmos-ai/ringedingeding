@@ -110,7 +110,7 @@ Python 3.11 or newer. **No third-party dependencies** for the command line — t
 dry run has to work on a machine with nothing installed and no network.
 
 ```bash
-git clone <this repo>
+git clone https://github.com/lukisch/ringedingeding.git
 cd ringedingeding
 pip install -e .
 ```
@@ -551,6 +551,15 @@ as *cannot*.
 Answers outside the offered options, abstentions and conditions attached to a
 vote are all reported separately rather than being folded into the tally.
 
+## Limits
+
+* **No field trial with real, informed participants has taken place.**
+* Provider-side concurrency remains unverified (see above).
+* Advisor mode is built; the roundtables for further question types exist but
+  are empty.
+* Four date types remain unimplemented: a whole week, a month, several
+  consecutive days, and a recurring weekday.
+
 ## Tests
 
 ```bash
@@ -561,6 +570,9 @@ pytest
 The whole suite runs without an account, without a network and without dialling
 anything. Where the live path is exercised, it stops at a guard before any
 socket is opened.
+
+The latest recorded full run passed 365 tests on 2026-08-04 (one existing
+Starlette `TestClient` / `httpx` deprecation warning).
 
 ## Project layout
 
