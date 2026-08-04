@@ -115,7 +115,7 @@ Trockenlauf muss auf einer Maschine funktionieren, auf der nichts installiert is
 kein Netz hat.
 
 ```bash
-git clone <dieses repo>
+git clone https://github.com/lukisch/ringedingeding.git
 cd ringedingeding
 pip install -e .
 ```
@@ -298,7 +298,8 @@ sagt, welcher Zahl zu trauen ist.
 pytest -q
 ```
 
-321 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-02).
+365 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-04;
+eine bestehende Starlette-`TestClient`/`httpx`-Deprecation-Warnung).
 Der Trockenlauf ist kein Platzhalter, der „OK" zurückgibt: Er durchläuft Schema-Erzeugung,
 Nutzlastaufbau je Empfänger, Statusabbildung, Zusammenführung und Berichterstellung und
 prüft jede eingespielte Antwort gegen das Schema, das ein echter Anruf bekommen hätte. Ein
