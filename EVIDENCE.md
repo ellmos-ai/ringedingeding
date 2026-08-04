@@ -1022,3 +1022,20 @@ working-file delta remained based on the same commit. This agent did not run a
 checkout and did not attempt to reverse the foreign branch change.
 
 Therefore the requested local commit was not created. No push was attempted.
+
+---
+
+## 32. Current offline suite readback for DevPost — measured 2026-08-04
+
+The operator re-ran the complete suite before updating the active DevPost form:
+
+```text
+python -m pytest -q
+365 passed, 1 warning
+exit=0
+```
+
+The only warning is the pre-existing Starlette `TestClient` / `httpx` deprecation
+warning. No live call, network request, push, publication, upload or DevPost action was
+performed. The 88.8-second video from 2026-08-02 was not treated as current: it shows
+the interface before the cockpit redesign and requires replacement before upload.
