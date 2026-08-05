@@ -50,7 +50,7 @@ The endpoint in source code does not prove provider identity, actual processing 
 
 ## 6. Storage and deletion
 
-The current application stores contacts, channels, photos, projects, participant phone numbers, answers and transcripts in one SQLite database. It has no automatic expiry. Its current project deletion leaves phrase/question rows and the separate poll/participant/answer records, reset clears only simulated answers, and contact deletion does not remove participant copies. A host must repair and test these deletion paths before promising any period below.
+The current application stores contacts, channels, photos, projects, participant phone numbers, answers and transcripts in one SQLite database. It has no automatic expiry. Manual project deletion now removes project-scoped wording/questions and the complete linked poll/participant/answer tree; manual contact deletion removes participant copies carrying that contact's identifiers and the cascading answer/transcript records. Both paths are transactional and regression-tested for simulated and non-simulated data. Reset still clears only simulated answers. A host must define and implement the periods below before promising them, and must separately cover logs, backups and provider-held data.
 
 | Record | Period or deletion criterion |
 | --- | --- |

@@ -247,6 +247,12 @@ Das sind keine Einstellungen, sondern die Bauweise des Programms.
   solange der erste läuft, statt sich hinterher auf den Idempotenzschlüssel zu verlassen.
 * **Nichts wird doppelt gespeichert.** Ob jemand einen Termin kann, wird bei jeder Anzeige
   aus den Antworten neu berechnet; es gibt keine zweite Kopie, die auseinanderlaufen könnte.
+* **Löschen entfernt auch die zugehörigen lokalen Anrufdaten.** Beim Löschen eines Projekts
+  verschwinden zusätzlich dessen Formulierungen und Fragen sowie alle verbundenen Umfragen,
+  Teilnehmenden, Rohnummern, Antworten und Transkripte. Beim Löschen eines Kontakts werden
+  auch die zugehörigen Teilnehmerkopien und Interviewdaten entfernt. Beide Wege laufen in
+  einer Transaktion und sind für simulierte wie nicht simulierte Daten getestet. Eine
+  automatische Löschfrist gibt es weiterhin nicht; dafür bleibt der Betreiber verantwortlich.
 
 ### Wenn du abbrichst
 
@@ -298,7 +304,7 @@ sagt, welcher Zahl zu trauen ist.
 pytest -q
 ```
 
-365 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-04;
+371 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-05;
 eine bestehende Starlette-`TestClient`/`httpx`-Deprecation-Warnung).
 Der Trockenlauf ist kein Platzhalter, der „OK" zurückgibt: Er durchläuft Schema-Erzeugung,
 Nutzlastaufbau je Empfänger, Statusabbildung, Zusammenführung und Berichterstellung und

@@ -1044,5 +1044,33 @@
   "kann den Pfad ändern": {
     "de": "kann den Pfad ändern",
     "en": "can change the path"
+  },
+  "Sprache": {
+    "de": "Sprache",
+    "en": "Language"
+  },
+  "Terminfinden: Du sammelst Verfügbarkeiten und entscheidest anschließend einen Termin.": {
+    "de": "Terminfinden: Du sammelst Verfügbarkeiten und entscheidest anschließend einen Termin.",
+    "en": "Find a Date: collect everyone's availability, then choose a date."
+  },
+  "Ask Your Advisor: Du stellst eine konkrete Frage und vergleichst Tendenzen, Gegenstimmen und Begründungen.": {
+    "de": "Ask Your Advisor: Du stellst eine konkrete Frage und vergleichst Tendenzen, Gegenstimmen und Begründungen.",
+    "en": "Ask Your Advisor: pose one clear question and compare trends, dissent and reasoning."
+  },
+  "Bitte mindestens einen Tag auswählen.": {
+    "de": "Bitte mindestens einen Tag auswählen.",
+    "en": "Please select at least one day."
+  },
+  "Bitte mindestens einen Zeitraum angeben — oder „ganzer Tag“ wählen.": {
+    "de": "Bitte mindestens einen Zeitraum angeben — oder „ganzer Tag“ wählen.",
+    "en": "Please add at least one time window — or choose “all day”."
+  },
+  "Daraus ergibt sich kein einziger Termin-Vorschlag.": {
+    "de": "Daraus ergibt sich kein einziger Termin-Vorschlag.",
+    "en": "That does not create any candidate date."
+  },
+  "So bliebe kein einziger Terminvorschlag übrig.": {
+    "de": "So bliebe kein einziger Terminvorschlag übrig.",
+    "en": "That would leave no candidate date."
   }
 }

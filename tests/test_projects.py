@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from ringedingeding.models import Answer, CallStatus
 from ringedingeding.phone import InvalidPhoneNumber
 from ringedingeding.projects import (
     ChannelKind,
@@ -80,6 +81,87 @@ def test_photo_round_trip(projects):
     assert blob == b"\x89PNG-not-really"
     assert mime == "image/png"
     assert projects.contact(contact.id).has_photo is True
+
+
+@pytest.mark.parametrize("simulated", [False, True])
+def test_project_deletion_erases_private_call_data_and_scoped_text(projects, simulated):
+    project = projects.create_project(occasion="Private Runde", organizer="Lukas")
+    contact = projects.create_contact(name="Anna", phone="+15555550100")
+    projects.set_invitees(project.id, [contact.id])
+    projects.set_phrases("greeting", ["Vertrauliche Begrüßung"], scope_id=project.id)
+    projects.set_questions(["Vertrauliche Frage"], scope_id=project.id)
+    poll = projects.store.create_poll(
+        question="Private question",
+        kind="open",
+        organizer="Lukas",
+        project_id=project.id,
+        round_kind="availability",
+        simulated=simulated,
+    )
+    participant = projects.store.add_participant(
+        poll.id,
+        name="Anna",
+        phone="+15555550100",
+        contact_id=contact.id,
+    )
+    projects.store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            raw_text="private raw answer",
+            transcript="[00:01] USER: private transcript",
+        )
+    )
+
+    projects.delete_project(project.id)
+
+    for table in ("project", "project_invitee", "phrase", "project_question", "poll"):
+        column = "scope_id" if table in {"phrase", "project_question"} else (
+            "project_id" if table in {"project_invitee", "poll"} else "id"
+        )
+        assert projects.connection.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE {column} = ?", (project.id,)
+        ).fetchone()[0] == 0
+    assert projects.connection.execute(
+        "SELECT COUNT(*) FROM participant WHERE id = ?", (participant.id,)
+    ).fetchone()[0] == 0
+    assert projects.connection.execute(
+        "SELECT COUNT(*) FROM answer WHERE participant_id = ?", (participant.id,)
+    ).fetchone()[0] == 0
+    assert projects.contact(contact.id).phone == "+15555550100"
+
+
+def test_contact_deletion_erases_copied_number_name_and_interview(projects):
+    project = projects.create_project(occasion="Private Runde", organizer="Lukas")
+    contact = projects.create_contact(name="Anna", phone="+15555550100")
+    poll = projects.store.create_poll(
+        question="Private question",
+        kind="open",
+        organizer="Lukas",
+        project_id=project.id,
+        round_kind="roundtable",
+    )
+    participant = projects.store.add_participant(
+        poll.id,
+        name=contact.name,
+        phone=contact.phone or "",
+        contact_id=contact.id,
+    )
+    projects.store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            raw_text="private answer",
+            transcript="[00:01] USER: private interview",
+        )
+    )
+
+    projects.delete_contact(contact.id)
+
+    with pytest.raises(KeyError):
+        projects.contact(contact.id)
+    assert projects.store.participants(poll.id) == []
+    assert projects.store.answers(poll.id) == {}
 
 
 # -- slot labels ------------------------------------------------------------
