@@ -115,7 +115,7 @@ Trockenlauf muss auf einer Maschine funktionieren, auf der nichts installiert is
 kein Netz hat.
 
 ```bash
-git clone https://github.com/lukisch/ringedingeding.git
+git clone https://github.com/ellmos-ai/ringedingeding.git
 cd ringedingeding
 pip install -e .
 ```
