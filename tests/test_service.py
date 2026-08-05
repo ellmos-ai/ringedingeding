@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 
 from ringedingeding import service
-from ringedingeding.models import CallStatus
-from ringedingeding.projects import ProjectStore
+from ringedingeding.models import CallStatus, PollKind
+from ringedingeding.projects import ProjectMode, ProjectStore, RoundKind
 from ringedingeding.safety import LiveCallBlocked, SensitiveContent
 from ringedingeding.transports.rehearsal import RehearsalTransport
 
@@ -289,6 +289,33 @@ def test_example_numbers_are_never_dialed(store, projects):
     poll = service.availability_round(store, projects, project)
     with pytest.raises(LiveCallBlocked, match="example numbers"):
         service.refuse_placeholder_numbers(store, poll)
+
+
+@pytest.mark.parametrize("fixture_name", ["team-retro", "grandma-gift"])
+def test_open_and_choice_fixtures_seed_an_advisor_round(store, projects, fixture_name):
+    project = service.seed_from_fixture(store, projects, fixture_name)
+
+    assert project.mode == ProjectMode.ROUNDTABLE
+    question = service.advisor_question(projects, project)
+    assert question is not None
+    assert question.text
+
+    poll = service.roundtable_round(store, projects, project)
+    assert poll is not None
+    assert poll.kind in (PollKind.OPEN, PollKind.CHOICE)
+    assert poll.round_kind == RoundKind.ROUNDTABLE
+    assert service.availability_round(store, projects, project, create=False) is None
+
+
+def test_slot_fixture_keeps_its_schedule_round(store, projects):
+    project = service.seed_from_fixture(store, projects, "family-dinner")
+
+    assert project.mode == ProjectMode.SCHEDULE
+    assert service.advisor_question(projects, project) is None
+    poll = service.availability_round(store, projects, project)
+    assert poll is not None
+    assert poll.kind == PollKind.SLOT
+    assert poll.round_kind == RoundKind.AVAILABILITY
 
 
 # -- fixtures and the invitation --------------------------------------------
