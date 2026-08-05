@@ -106,21 +106,8 @@
 
   <form method="post" action="/projects" class="card chain-form"
         data-chain-form data-mode="{{ 'roundtable' if selected_mode == 'roundtable' else 'schedule' }}">
-    <fieldset class="mode-choice mode-switch">
-      <legend>{{ t('Auftrag wechseln') }}</legend>
-      <label class="mode-card schedule">
-        <input type="radio" name="mode" value="schedule" {% if selected_mode != 'roundtable' %}checked{% endif %}>
-        <span class="mode-icon">◷</span>
-        <strong>{{ t('Terminfinden') }}</strong>
-        <span>{{ t('„Wann kannst du?“ — Verfügbarkeiten zusammenführen und einen Termin entscheiden.') }}</span>
-      </label>
-      <label class="mode-card advisor">
-        <input type="radio" name="mode" value="roundtable" {% if selected_mode == 'roundtable' %}checked{% endif %}>
-        <span class="mode-icon">✦</span>
-        <strong>{{ t('Ask Your Advisor') }}</strong>
-        <span>{{ t('„Was meinst du?“ — Tendenzen, Gegenstimmen und Begründungen sichtbar machen.') }}</span>
-      </label>
-    </fieldset>
+    <input type="hidden" name="mode"
+           value="{{ 'roundtable' if selected_mode == 'roundtable' else 'schedule' }}">
     <section class="mode-summary" data-mode-panel="schedule"{% if selected_mode == 'roundtable' %} hidden{% endif %}>
       <strong>{{ t('Terminfinden') }}</strong>
       <span>{{ t('Terminfinden: Du sammelst Verfügbarkeiten und entscheidest anschließend einen Termin.') }}</span>
