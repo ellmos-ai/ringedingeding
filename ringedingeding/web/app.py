@@ -396,13 +396,16 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             form = await request.form()
             days = [value for value in form.getlist("day") if str(value).strip()]
             if not days:
-                raise ValueError("Bitte mindestens einen Tag auswählen.")
+                raise ValueError(_t(request, "Bitte mindestens einen Tag auswählen."))
 
             whole_day = form.get("date_kind") == DateKind.WHOLE_DAY
             default_times = _time_pairs(form.getlist("start"), form.getlist("end"))
             if not whole_day and not default_times:
                 raise ValueError(
-                    "Bitte mindestens einen Zeitraum angeben — oder „ganzer Tag“ wählen."
+                    _t(
+                        request,
+                        "Bitte mindestens einen Zeitraum angeben — oder „ganzer Tag“ wählen.",
+                    )
                 )
             overrides = _overrides(form, days)
 
@@ -414,7 +417,9 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 whole_day=whole_day,
             )
             if not specs:
-                raise ValueError("Daraus ergibt sich kein einziger Termin-Vorschlag.")
+                raise ValueError(
+                    _t(request, "Daraus ergibt sich kein einziger Termin-Vorschlag.")
+                )
             set_dates(context.store, context.projects, project, specs)
             return back(project_id, "people")
         except ValueError as error:
@@ -456,7 +461,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                         {"day_date": day, "start_time": start, "end_time": end, "all_day": False}
                     )
             if not specs:
-                raise ValueError("So bliebe kein einziger Terminvorschlag übrig.")
+                raise ValueError(_t(request, "So bliebe kein einziger Terminvorschlag übrig."))
             set_dates(context.store, context.projects, project, specs)
             return back(project_id, "dates")
         except ValueError as error:

@@ -20,11 +20,15 @@
     <a href="/groups">{{ t('Gruppen') }}</a>
     <a href="/contacts">{{ t('Kontakte') }}</a>
     {% set return_to = request.url.path %}
-    {% if ui_language|default('de') == 'de' %}
-      <a class="language" href="/language/en?next={{ return_to|urlencode }}" lang="en">EN</a>
-    {% else %}
-      <a class="language" href="/language/de?next={{ return_to|urlencode }}" lang="de">DE</a>
-    {% endif %}
+    {% set current_language = ui_language|default('de') %}
+    <span class="language-picker" role="group" aria-label="{{ t('Sprache') }}">
+      <a class="language{% if current_language == 'de' %} active{% endif %}"
+         href="/language/de?next={{ return_to|urlencode }}" lang="de"
+         {% if current_language == 'de' %}aria-current="true"{% endif %}>DE</a>
+      <a class="language{% if current_language == 'en' %} active{% endif %}"
+         href="/language/en?next={{ return_to|urlencode }}" lang="en"
+         {% if current_language == 'en' %}aria-current="true"{% endif %}>EN</a>
+    </span>
   </nav>
 </header>
 

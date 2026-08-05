@@ -11,10 +11,10 @@
       objektbezogene Autorisierung, nutzerbezogene Secret-Verwaltung,
       Löschfristen und eine deployment-spezifische Rechts-/Anbieterprüfung gebaut
       und getestet werden.
-- [ ] **Löschdefekt reparieren:** Projektlöschung muss auch verwaiste
+- [x] **Löschdefekt repariert (2026-08-05):** Projektlöschung entfernt
       `phrase`-/`project_question`-Zeilen und den zugehörigen
-      Poll-/Teilnehmer-/Antwortbaum einschließlich Rohnummern und Transkripten
-      entfernen. Kontaktlöschung muss duplizierte Teilnehmerdaten behandeln.
-      Regressionstests für Fixture- und Live-Ergebnisdaten ergänzen.
+      Poll-/Teilnehmer-/Antwortbaum einschließlich Rohnummern und Transkripten.
+      Kontaktlöschung entfernt duplizierte Teilnehmer- und Interviewdaten.
+      Regressionstests decken simulierte und nicht simulierte Ergebnisdaten ab.
 - [x] Bei der Prüfung keinen echten Anruf ausgelöst und keine echten Rufnummern
       dokumentiert.

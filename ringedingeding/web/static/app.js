@@ -1,3 +1,36 @@
+// The selected product changes the creation form immediately. The server also
+// renders the initial state, so following either cockpit link works without
+// JavaScript; this only keeps a manual radio-button change in sync.
+(function () {
+  "use strict";
+
+  var form = document.querySelector("[data-chain-form]");
+  if (!form) return;
+
+  var radios = form.querySelectorAll('input[name="mode"]');
+  var panels = form.querySelectorAll("[data-mode-panel]");
+  var scheduleOnly = form.querySelector("[data-schedule-only]");
+
+  function showMode(mode) {
+    var selected = mode === "roundtable" ? "roundtable" : "schedule";
+    form.dataset.mode = selected;
+    panels.forEach(function (panel) {
+      panel.hidden = panel.dataset.modePanel !== selected;
+    });
+    if (scheduleOnly) {
+      scheduleOnly.hidden = selected === "roundtable";
+      scheduleOnly.disabled = selected === "roundtable";
+    }
+  }
+
+  radios.forEach(function (radio) {
+    radio.addEventListener("change", function () {
+      if (radio.checked) showMode(radio.value);
+    });
+    if (radio.checked) showMode(radio.value);
+  });
+})();
+
 // The live view, and nothing else.
 //
 // This file exists so an open page keeps up with a round that is running. It is

@@ -693,8 +693,14 @@ class ProjectStore:
         return bytes(row["photo_blob"]), str(row["photo_mime"] or "image/png")
 
     def delete_contact(self, contact_id: str) -> None:
-        self.connection.execute("DELETE FROM contact WHERE id = ?", (contact_id,))
-        self.connection.commit()
+        # A participant row deliberately copies the name and raw number needed
+        # for the call. Erasing only the address-book row would therefore leave
+        # the person's identifiers, answers and transcript behind.
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM participant WHERE contact_id = ?", (contact_id,)
+            )
+            self.connection.execute("DELETE FROM contact WHERE id = ?", (contact_id,))
 
     def contact(self, contact_id: str) -> Contact:
         row = self.connection.execute(
@@ -971,8 +977,20 @@ class ProjectStore:
         self.connection.commit()
 
     def delete_project(self, project_id: str) -> None:
-        self.connection.execute("DELETE FROM project WHERE id = ?", (project_id,))
-        self.connection.commit()
+        # ``phrase`` and ``project_question`` predate project foreign keys, and
+        # the call tree lives in the separate poll schema. Delete all of them in
+        # one transaction so raw numbers, answers and transcripts cannot become
+        # invisible orphaned records.
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM phrase WHERE scope = 'project' AND scope_id = ?", (project_id,)
+            )
+            self.connection.execute(
+                "DELETE FROM project_question WHERE scope = 'project' AND scope_id = ?",
+                (project_id,),
+            )
+            self.connection.execute("DELETE FROM poll WHERE project_id = ?", (project_id,))
+            self.connection.execute("DELETE FROM project WHERE id = ?", (project_id,))
 
     # -- slots --------------------------------------------------------------
 

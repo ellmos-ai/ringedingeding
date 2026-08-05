@@ -97,6 +97,46 @@ def test_a_prominent_entry_preselects_its_chain_type(client):
     assert re.search(r'name="mode" value="schedule"\s+checked', schedule)
 
 
+def test_the_start_form_visibly_changes_with_the_selected_product(client):
+    advisor = client.get("/?mode=roundtable").text
+    schedule = client.get("/?mode=schedule").text
+
+    assert 'data-chain-form data-mode="roundtable"' in advisor
+    assert re.search(
+        r'<section class="mode-summary" data-mode-panel="roundtable">', advisor
+    )
+    assert re.search(
+        r'<section class="mode-summary" data-mode-panel="schedule" hidden>', advisor
+    )
+    assert re.search(r'<fieldset data-schedule-only hidden disabled>', advisor)
+
+    assert 'data-chain-form data-mode="schedule"' in schedule
+    assert re.search(
+        r'<section class="mode-summary" data-mode-panel="schedule">', schedule
+    )
+    assert re.search(r'<fieldset data-schedule-only>', schedule)
+    assert not re.search(r'<fieldset data-schedule-only hidden', schedule)
+
+
+def test_the_language_picker_marks_the_language_that_is_actually_shown(client):
+    german = client.get("/").text
+    assert re.search(
+        r'<a class="language active"\s+href="/language/de\?next=/"[^>]*'
+        r'aria-current="true">DE</a>',
+        german,
+    )
+    assert re.search(r'<a class="language"\s+href="/language/en\?next=/"', german)
+
+    english = client.get("/language/en?next=/").text
+    assert '<html lang="en">' in english
+    assert re.search(r'<a class="language"\s+href="/language/de\?next=/"', english)
+    assert re.search(
+        r'<a class="language active"\s+href="/language/en\?next=/"[^>]*'
+        r'aria-current="true">EN</a>',
+        english,
+    )
+
+
 def test_the_whole_flow_works_offline_from_a_fixture(client):
     project_id = make_demo(client)
 
@@ -173,6 +213,19 @@ def test_dates_without_a_day_are_refused_with_a_readable_message(client):
     )
     assert response.status_code == 422
     assert "mindestens einen Tag" in response.text
+
+
+def test_date_validation_error_uses_the_selected_interface_language(client):
+    project_id = make_demo(client)
+    client.get("/language/en?next=/")
+
+    response = client.post(
+        f"/projects/{project_id}/dates", data={"date_kind": "day_slots", "day": [""]}
+    )
+
+    assert response.status_code == 422
+    assert "Please select at least one day." in response.text
+    assert "Bitte mindestens einen Tag auswählen." not in response.text
 
 
 # -- the architectural promise ----------------------------------------------

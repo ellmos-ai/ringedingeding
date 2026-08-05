@@ -1039,3 +1039,56 @@ The only warning is the pre-existing Starlette `TestClient` / `httpx` deprecatio
 warning. No live call, network request, push, publication, upload or DevPost action was
 performed. The 88.8-second video from 2026-08-02 was not treated as current: it shows
 the interface before the cockpit redesign and requires replacement before upload.
+
+---
+
+## 33. User-tested cockpit corrections and deletion audit — measured 2026-08-05
+
+The user approved the visual design and reported four concrete cockpit defects: the
+creation form did not visibly distinguish scheduling from Advisor mode, Advisor still
+showed date-type controls, the English interface returned a German date-validation
+message, and the language control visually labelled the opposite page language. The
+implementation now renders a mode-specific summary and accent, hides and disables the
+date-type fieldset for Advisor, exposes DE and EN as a two-state selector with the current
+language marked, and translates all four date-form validation messages.
+
+The documented deletion defect was also repaired. Project deletion now transactionally
+removes project-scoped phrases/questions and the linked poll/participant/answer tree.
+Contact deletion removes participant copies carrying that contact's name and raw phone
+number, with cascading answers and transcripts. Parameterized regressions cover simulated
+and non-simulated project data; a separate regression covers copied contact/interview data.
+
+Executed locally, without an account, network or telephone side effect:
+
+```text
+python -m pytest -q
+exit=0 (371 tests; one pre-existing Starlette/httpx deprecation warning)
+
+node --test tests/huckepack_js.test.js
+11 passed, 0 failed
+
+python -m ringedingeding proof
+8 of 8 checks passed
+
+python manage_translations.py missing
+no output, exit=0
+
+python -m compileall -q ringedingeding tests
+exit=0
+```
+
+The local web server was restarted and `/?mode=roundtable` returned HTTP 200 with
+`data-mode="roundtable"`, the schedule-only fieldset both hidden and disabled, and the
+two-state language picker present.
+
+A new 1200 x 300 repository banner was generated from the approved blue telephone mascot,
+then visually inspected after the exact 4:1 crop. Final SHA-256:
+`b643530dad90b9e779bd37950eeada15f61af7c1743a6fa4fc18f603a356c9c6`.
+
+The upstream contribution was checked in the correct target repository,
+`CALLE-AI/awesome-phone-call-agents`: PR #77 was already merged at `483311f` by GitHub user
+`Ray-56`; it has no review entries or unresolved comments. The full-repository web,
+localization, banner and deletion changes do not alter the slim fixture-only aggregation
+core in that merged contribution, so no follow-up PR is required.
+
+No live call, video upload or DevPost action was made in this work.

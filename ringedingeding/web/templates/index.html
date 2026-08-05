@@ -104,7 +104,8 @@
     <p>{{ t('Lege Anlass, Auftraggeber und Zielgruppe fest.') }}</p>
   </header>
 
-  <form method="post" action="/projects" class="card chain-form">
+  <form method="post" action="/projects" class="card chain-form"
+        data-chain-form data-mode="{{ 'roundtable' if selected_mode == 'roundtable' else 'schedule' }}">
     <fieldset class="mode-choice mode-switch">
       <legend>{{ t('Auftrag wechseln') }}</legend>
       <label class="mode-card schedule">
@@ -120,6 +121,14 @@
         <span>{{ t('„Was meinst du?“ — Tendenzen, Gegenstimmen und Begründungen sichtbar machen.') }}</span>
       </label>
     </fieldset>
+    <section class="mode-summary" data-mode-panel="schedule"{% if selected_mode == 'roundtable' %} hidden{% endif %}>
+      <strong>{{ t('Terminfinden') }}</strong>
+      <span>{{ t('Terminfinden: Du sammelst Verfügbarkeiten und entscheidest anschließend einen Termin.') }}</span>
+    </section>
+    <section class="mode-summary" data-mode-panel="roundtable"{% if selected_mode != 'roundtable' %} hidden{% endif %}>
+      <strong>{{ t('Ask Your Advisor') }}</strong>
+      <span>{{ t('Ask Your Advisor: Du stellst eine konkrete Frage und vergleichst Tendenzen, Gegenstimmen und Begründungen.') }}</span>
+    </section>
     <label>
       {{ t("Worum geht's?") }}
       <input type="text" name="occasion" required
@@ -141,7 +150,7 @@
       {{ t('Sprache der Anrufe') }}
       <select name="language"><option value="de" {% if ui_language == 'de' %}selected{% endif %}>Deutsch</option><option value="en" {% if ui_language == 'en' %}selected{% endif %}>English</option></select>
     </label>
-    <fieldset>
+    <fieldset data-schedule-only{% if selected_mode == 'roundtable' %} hidden disabled{% endif %}>
       <legend>{{ t('Terminart (nur beim Terminfinden)') }}</legend>
       <label class="inline">
         <input type="radio" name="date_kind" value="day_slots" checked>

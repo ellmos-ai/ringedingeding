@@ -451,6 +451,13 @@ These are not settings. They are how the program is built.
   idempotency key to clean up afterwards.
 * **Nothing is stored twice.** Whether somebody can make a slot is computed from
   the answers every time it is shown; there is no second copy to drift.
+* **Delete means erase the associated local call data.** Deleting a project also
+  removes its project-scoped wording and questions plus every linked poll,
+  participant, raw phone number, answer and transcript. Deleting a contact also
+  removes the participant copies and interview material tied to that contact.
+  Both paths are transactional and covered for simulated and non-simulated data.
+  There is still no automatic retention period; deployment policy remains the
+  operator's responsibility.
 
 ### If you interrupt it
 
@@ -571,7 +578,7 @@ The whole suite runs without an account, without a network and without dialling
 anything. Where the live path is exercised, it stops at a guard before any
 socket is opened.
 
-The latest recorded full run passed 365 tests on 2026-08-04 (one existing
+The latest recorded full run passed 371 tests on 2026-08-05 (one existing
 Starlette `TestClient` / `httpx` deprecation warning).
 
 ## Project layout
