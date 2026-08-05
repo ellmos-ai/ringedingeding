@@ -92,9 +92,10 @@ def test_a_prominent_entry_preselects_its_chain_type(client):
     advisor = client.get("/?mode=roundtable").text
     schedule = client.get("/?mode=schedule").text
 
-    assert re.search(r'name="mode" value="roundtable"\s+checked', advisor)
-    assert not re.search(r'name="mode" value="schedule"\s+checked', advisor)
-    assert re.search(r'name="mode" value="schedule"\s+checked', schedule)
+    assert re.search(r'type="hidden" name="mode"\s+value="roundtable"', advisor)
+    assert re.search(r'type="hidden" name="mode"\s+value="schedule"', schedule)
+    assert "mode-choice mode-switch" not in advisor
+    assert "mode-choice mode-switch" not in schedule
 
 
 def test_the_start_form_visibly_changes_with_the_selected_product(client):
