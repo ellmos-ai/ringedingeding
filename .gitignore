@@ -48,3 +48,24 @@ NOTES.local.*
 
 # Lokale Koordination zwischen Agenten (nicht Teil des Projekts)
 LOCK*.txt
+
+# Interne Arbeits-, Planungs- und Agenten-Dokumente — nie im oeffentlichen Repo
+AGENTS.md
+CLAUDE.md
+AUFGABEN.txt
+TODO.md
+SPEC.md
+UI-SPEC.md
+ABLAUF.md
+DEVPOST*.md
+PR-VORSCHAU.md
+PR-EINREICHUNG.md
+HOST-READINESS.md
+VIDEO-ENTWURF.md
+STORYBOARD*.md
+_AGY*.md
+_CODEX*.md
+_OPUS*.md
+TERRA-*.md
+LUNA-*.md
+docs/audits/
