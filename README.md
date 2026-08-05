@@ -110,7 +110,7 @@ Python 3.11 or newer. **No third-party dependencies** for the command line — t
 dry run has to work on a machine with nothing installed and no network.
 
 ```bash
-git clone https://github.com/lukisch/ringedingeding.git
+git clone https://github.com/ellmos-ai/ringedingeding.git
 cd ringedingeding
 pip install -e .
 ```
