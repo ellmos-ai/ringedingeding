@@ -17,7 +17,7 @@ pytest.importorskip("fastapi", reason="the web interface is an optional extra")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from ringedingeding.projects import ProjectStore  # noqa: E402
+from ringedingeding.projects import ProjectMode, ProjectStore, RoundKind  # noqa: E402
 from ringedingeding.safety import LIVE_CONFIRMATION_PHRASE  # noqa: E402
 from ringedingeding.store import Store  # noqa: E402
 from ringedingeding.web.app import create_app  # noqa: E402
@@ -53,6 +53,19 @@ def make_demo(client) -> str:
     response = client.post("/demo", data={"fixture": "family-dinner"}, follow_redirects=False)
     assert response.status_code == 303
     return response.headers["location"].split("/")[2]
+
+
+def test_demo_route_seeds_advisor_fixture_as_a_roundtable(client, db):
+    response = client.post("/demo", data={"fixture": "team-retro"}, follow_redirects=False)
+
+    assert response.status_code == 303
+    project_id = response.headers["location"].split("/")[2]
+    with Store(db) as store:
+        projects = ProjectStore(store)
+        project = projects.project(project_id)
+        assert project.mode == ProjectMode.ROUNDTABLE
+        assert projects.round_ids(project_id, RoundKind.AVAILABILITY) == []
+        assert len(projects.round_ids(project_id, RoundKind.ROUNDTABLE)) == 1
 
 
 def slot_ids(html: str) -> list[str]:

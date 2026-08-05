@@ -968,11 +968,13 @@ def seed_from_fixture(
     fixture = load_fixture(resolve_fixture(fixture_name))
     spec = fixture.poll
     language = str(spec.get("language", "de"))
+    is_advisor_fixture = fixture.kind in (PollKind.OPEN, PollKind.CHOICE)
 
     project = create_project(
         projects,
         occasion=str(spec.get("question", fixture.name)),
         organizer=str(spec.get("organizer", "Lukas")),
+        mode=ProjectMode.ROUNDTABLE if is_advisor_fixture else ProjectMode.SCHEDULE,
         date_kind=DateKind.DAY_SLOTS,
         language=language,
         region=str(spec.get("region", "DE")),
@@ -986,15 +988,24 @@ def seed_from_fixture(
         contact_ids.append(contact.id)
     set_invitees(store, projects, project, contact_ids)
 
-    # The fixture's slots are already labels; keep them verbatim so the scripted
-    # answers still match. A generated label would silently break every fixture.
-    projects.replace_slots(
-        project, [{"label": str(label), "all_day": False} for label in spec.get("slots") or []]
-    )
-    poll = availability_round(store, projects, project)
-    if poll is not None:
-        store.set_poll_window(poll.id, [slot.label for slot in projects.slots(project.id)])
-        store.set_poll_question(poll.id, str(spec.get("question", question_for(project))))
+    if is_advisor_fixture:
+        set_advisor_question(
+            projects,
+            project,
+            str(spec.get("question", fixture.name)),
+            options=[str(option) for option in spec.get("options") or []],
+        )
+        roundtable_round(store, projects, project)
+    else:
+        # The fixture's slots are already labels; keep them verbatim so the scripted
+        # answers still match. A generated label would silently break every fixture.
+        projects.replace_slots(
+            project, [{"label": str(label), "all_day": False} for label in spec.get("slots") or []]
+        )
+        poll = availability_round(store, projects, project)
+        if poll is not None:
+            store.set_poll_window(poll.id, [slot.label for slot in projects.slots(project.id)])
+            store.set_poll_question(poll.id, str(spec.get("question", question_for(project))))
     return project
 
 
