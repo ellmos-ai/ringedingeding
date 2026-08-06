@@ -1,5 +1,10 @@
 ![Ringedingeding](banner.png)
 
+## Demo video
+
+[![Watch the demo video](youtube-play-thumb.png)](https://youtu.be/ipcyT63csPw)
+
+
 # Ringedingeding
 
 **English · [Deutsch](README_de.md)**
