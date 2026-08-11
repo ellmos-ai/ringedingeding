@@ -109,6 +109,10 @@ not a feature.
 [`ARCHITEKTUR.md`](ARCHITEKTUR.md) has the full design, including the parts not
 built yet and where they will attach.
 
+[`CONVERSATION-TREE.md`](CONVERSATION-TREE.md) maps every setting — Web-UI field, CLI flag and
+model field — to the exact place (or absence) in the call script it drives, with a coverage
+table naming every gap found and fixed.
+
 ## Install
 
 Python 3.11 or newer. **No third-party dependencies** for the command line — the
