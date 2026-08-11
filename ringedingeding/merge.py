@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
 
 from .models import Answer, Bucket, CallStatus, Participant, Poll, PollKind
+from .phone import mask_text
 from .schemas import OTHER_CHOICE_FIELD
 from .slots import SlotIndex
 
@@ -418,12 +419,30 @@ class OpenMerge:
             return "No answers collected."
         primary = self.primary_tendency
         if primary is None:
-            return f"{len(self.entries)} answer(s) collected; no single tendency leads."
+            return self._no_tendency_headline()
         counters = len(self.countervoices)
         suffix = f"; {counters} countervoice(s)" if counters else ""
         return (
             f"Tendency: {primary.stance} ({primary.count} of {len(self.entries)} answers)"
             f"{suffix}."
+        )
+
+    def _no_tendency_headline(self) -> str:
+        # No single tendency is asserted -- name what people actually said
+        # instead of just reporting an absence (FINDINGS.md, live case
+        # 2026-08-11: "no single tendency leads" alone hid that two people
+        # answered an alternative question with two different, mutually
+        # exclusive picks).
+        positions = "; ".join(
+            f'{entry.name}: "{mask_text(entry.answer)}"'
+            for entry in self.entries
+            if entry.answer
+        )
+        if not positions:
+            return f"{len(self.entries)} answer(s) collected; no single tendency leads."
+        return (
+            f"{len(self.entries)} answer(s) collected; no single tendency - "
+            f"positions: {positions}."
         )
 
     @property
@@ -435,6 +454,20 @@ class OpenMerge:
         if not ranked or ranked[0].count == 0:
             return None
         if len(ranked) > 1 and ranked[0].count == ranked[1].count:
+            return None
+        # Live finding, 2026-08-11 (FINDINGS.md): an alternative question
+        # ("A or B -- and where?") lets every participant be scored against
+        # their OWN pick, so two people who chose mutually exclusive things
+        # can both land on "support". A single distinct stance shared by
+        # more than one person is not evidence anyone agreed with anyone
+        # else -- it means the support/against axis was never used to
+        # discriminate between them at all (compare a genuine yes/no
+        # question, where "support" and "against" both appear and a leading
+        # tendency is a fair claim). One person's own single answer is not
+        # manufactured consensus -- there was nobody else who could have
+        # used the axis to disagree -- so this only applies once a second
+        # voice had the chance to and the data shows the axis stayed silent.
+        if len(ranked) < 2 and ranked[0].count > 1:
             return None
         return ranked[0]
 
