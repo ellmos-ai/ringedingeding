@@ -139,6 +139,11 @@ def test_identity_is_confirmed_right_after_the_disclosure():
     text = build_task_text(make_poll(organizer="Lukas"), "Anna")
     identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
     assert '"Am I speaking with Anna?"' in identity_step
+    # ... and, symmetrically, carries no German verbatim sentence at all —
+    # the seam is poll.language, not a hardcoded language (2026-08-11
+    # correction: "beide Versionen müssen in Deutsch und Englisch gehen").
+    assert "Spreche ich mit" not in text
+    assert "Führe das gesamte Gespräch" not in text
 
 
 def test_identity_question_is_german_for_german_polls():
