@@ -87,6 +87,7 @@ from ..service import (
 )
 from ..store import DEFAULT_DB_PATH, Store
 from ..calle_translator import TranslationSystem
+from ..umlaut_check import find_umlaut_substitutes
 from .jobs import Job, JobBusy, JobRegistry
 from .ui import (
     avatar_colour,
@@ -280,6 +281,15 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
     ) -> Response:
         context = ctx()
         try:
+            # region/locale are left unset on purpose here — this form has no
+            # field for either, so they are always derived from the language
+            # (region_locale_for, called one layer down). Deriving locale by
+            # hand here too, as this line used to, is exactly the kind of
+            # second, independently-maintained copy that caused the
+            # 2026-08-11 field finding (language and region/locale used to
+            # have no relationship at all): the mismatch would have gone
+            # unnoticed for region even after that fix landed if this line
+            # had kept setting locale without also learning about region.
             project = create_project(
                 context.projects,
                 occasion=occasion,
@@ -289,7 +299,6 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 urgency=urgency,
                 group_id=group_id or None,
                 language=language or _ui_language(request),
-                locale="en-US" if (language or _ui_language(request)) == "en" else "de-DE",
             )
             return back(project.id, "advisor" if mode == ProjectMode.ROUNDTABLE else "dates")
         finally:
@@ -548,6 +557,18 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             )
             view = preview(context.store, context.projects, project, poll)
             job = app.state.jobs.get(project_id)
+            # Field finding, 2026-08-11: substitute umlauts ("fuer" for
+            # "für") get spoken exactly as written. task_text is the exact
+            # string that leaves this machine, so checking it here catches
+            # every source of the text at once (question, options, slots,
+            # organizer, wording, the identity question) rather than
+            # re-checking each form field separately. German-only, like the
+            # CLI warning — there is no reason to flag "fuer" in English.
+            umlaut_findings = (
+                find_umlaut_substitutes(view.task_text)
+                if str(project.language).strip().lower().startswith("de")
+                else []
+            )
             return page(
                 request,
                 "preview.html",
@@ -556,6 +577,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 job=job,
                 has_fixture=bool(project.fixture_name),
                 api_key=api_key_present(),
+                umlaut_findings=umlaut_findings,
                 step="preview",
             )
         finally:

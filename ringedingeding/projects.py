@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from datetime import date, time
 from typing import Any, Sequence
 
+from .locales import region_locale_for
 from .models import new_id
 from .phone import mask, normalize_e164
 from .store import Store, utc_now
@@ -748,8 +749,8 @@ class ProjectStore:
         mode: str = ProjectMode.SCHEDULE,
         date_kind: str = DateKind.DAY_SLOTS,
         language: str = "de",
-        region: str = "DE",
-        locale: str = "de-DE",
+        region: str | None = None,
+        locale: str | None = None,
         urgency: str = "",
         group_id: str | None = None,
         fixture_name: str | None = None,
@@ -766,6 +767,7 @@ class ProjectStore:
                 f"date kind {date_kind!r} is part of the concept but not built yet "
                 f"(stage 2). Available now: {', '.join(DateKind.IMPLEMENTED)}."
             )
+        region, locale = region_locale_for(language, region=region, locale=locale)
         project = Project(
             id=project_id or new_id("prj"),
             occasion=occasion.strip(),

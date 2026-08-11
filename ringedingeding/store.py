@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from .huckepack_storage import open_connection
+from .locales import region_locale_for
 from .models import (
     Answer,
     CallStatus,
@@ -161,8 +162,8 @@ class Store:
         kind: PollKind | str,
         organizer: str,
         language: str = "en",
-        region: str = "US",
-        locale: str = "en-US",
+        region: str | None = None,
+        locale: str | None = None,
         options: Sequence[str] = (),
         slots: Sequence[str] = (),
         poll_id: str | None = None,
@@ -175,6 +176,7 @@ class Store:
             raise ValueError("a 'choice' poll needs at least two options")
         if parsed_kind is PollKind.CHOICE and len(set(options)) < 2:
             raise ValueError("a 'choice' poll needs at least two distinct options")
+        region, locale = region_locale_for(language, region=region, locale=locale)
 
         poll = Poll(
             id=poll_id or new_id("poll"),
