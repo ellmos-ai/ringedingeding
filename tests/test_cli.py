@@ -205,6 +205,54 @@ def test_create_with_an_explicit_region_and_locale_still_wins(tmp_path, capsys):
     assert "Language : de (de-CH, region CH)" in plan
 
 
+def test_bare_poll_plan_can_set_opening_closing_and_urgency(tmp_path, capsys):
+    """CONVERSATION-TREE.md #22 / FINDINGS.md #22: build_requests/run_poll have
+    always accepted opening/closing/urgency, but the bare-poll CLI never had
+    flags for them and never threaded them through -- unlike the project
+    wizard, which reaches the exact same builders via Phrase/Project records.
+    """
+    code = run(
+        ["create", "--question", "Wann passt es?", "--kind", "open",
+         "--organizer", "Lukas", "--language", "de",
+         "--participant", "Anna=+15555550100"],
+        tmp_path,
+    )
+    assert code == EXIT_OK
+    poll_id = capsys.readouterr().out.split("created poll ")[1].split(" ")[0]
+
+    assert run(
+        [
+            "plan", "--poll", poll_id, "--show-payload",
+            "--opening", "Hallo zusammen und danke fuers Rangehen!",
+            "--closing", "Schoenen Tag noch!",
+            "--urgency", "wirklich dringend",
+        ],
+        tmp_path,
+    ) == EXIT_OK
+    plan = capsys.readouterr().out
+    assert "Hallo zusammen und danke fuers Rangehen!" in plan
+    assert "Schoenen Tag noch!" in plan
+    assert "wirklich dringend" in plan
+
+
+def test_bare_poll_plan_without_wording_flags_behaves_as_before(tmp_path, capsys):
+    """The new flags are optional -- omitting them must not change anything
+    for a poll that never used them (regression guard for the fix above)."""
+    code = run(
+        ["create", "--question", "Wann passt es?", "--kind", "open",
+         "--organizer", "Lukas", "--language", "de",
+         "--participant", "Anna=+15555550100"],
+        tmp_path,
+    )
+    assert code == EXIT_OK
+    poll_id = capsys.readouterr().out.split("created poll ")[1].split(" ")[0]
+
+    assert run(["plan", "--poll", poll_id, "--show-payload"], tmp_path) == EXIT_OK
+    plan = capsys.readouterr().out
+    assert "Sage danach wörtlich:" not in plan
+    assert "Verabschiede dich am Ende wörtlich mit:" not in plan
+
+
 def test_rerunning_a_fixture_does_not_call_anyone_twice(tmp_path, capsys):
     run(["run", "--fixture", "family-dinner"], tmp_path)
     capsys.readouterr()

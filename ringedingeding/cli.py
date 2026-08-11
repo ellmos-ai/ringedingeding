@@ -369,6 +369,9 @@ def cmd_plan(args: argparse.Namespace, store: Store) -> int:
         existing=store.answers(poll.id),
         retry=args.retry,
         include_names=not args.no_names,
+        opening=args.opening,
+        closing=args.closing,
+        urgency=args.urgency,
     )
     _out(render_plan(poll, requests, show_payload=args.show_payload))
     if skipped:
@@ -444,6 +447,9 @@ def cmd_run(args: argparse.Namespace, store: Store) -> int:
             on_event=_event_printer(not args.quiet),
             retry=args.retry,
             include_names=not args.no_names,
+            opening=args.opening,
+            closing=args.closing,
+            urgency=args.urgency,
         )
 
     _out("")
@@ -545,6 +551,32 @@ def _add_selector(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--fixture", help="bundled fixture name or path to a fixture file")
 
 
+def _add_wording(parser: argparse.ArgumentParser) -> None:
+    """--opening/--closing/--urgency, for the bare poll only.
+
+    A bare poll (created with ``create``) has no ``Project``, so there is
+    nothing to persist these on between commands -- unlike the project
+    wizard, which reads them from ``Phrase``/``Project`` records at call
+    time. Supplied fresh per invocation instead, the same way ``--retry``,
+    ``--fresh`` and ``--no-names`` already are. See CONVERSATION-TREE.md #22.
+    """
+    parser.add_argument(
+        "--opening", action="append", default=[],
+        help="the organizer's own greeting, spoken verbatim right after the "
+        "disclosure sentence. Repeat for several lines.",
+    )
+    parser.add_argument(
+        "--closing", action="append", default=[],
+        help="the organizer's own closing, spoken verbatim at the end of the "
+        "call. Repeat for several lines.",
+    )
+    parser.add_argument(
+        "--urgency", default="",
+        help="how pressing it is, in the organizer's own words. Changes the "
+        "tone of the call, never the flow.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ringedingeding",
@@ -601,6 +633,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--no-names", action="store_true", help="do not send any name at all")
     plan.add_argument("--show-payload", action="store_true")
     plan.add_argument("--fresh", action="store_true", help="drop earlier answers of this fixture")
+    _add_wording(plan)
     plan.set_defaults(func=cmd_plan)
 
     run = subparsers.add_parser("run", help="place the calls (dry run unless --live)")
@@ -637,6 +670,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="dry run only: pause this many seconds per simulated call",
     )
     run.add_argument("--quiet", action="store_true")
+    _add_wording(run)
     run.set_defaults(func=cmd_run)
 
     report = subparsers.add_parser("report", help="show the merged result of a poll")

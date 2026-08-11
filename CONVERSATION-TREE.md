@@ -310,15 +310,21 @@ separate feature decision nobody asked for here. The fix: `Contact.note`'s field
 local/display-only and never reaches a call, matching `email`'s already-honest pattern instead of
 leaving `note` looking more capable than it is.
 
-**#22 (bare-poll `create`/`plan`/`run` cannot set opening/closing wording or urgency) — fixed by
-wiring, the mechanism already existed.** This is the one finding with a genuine, mechanical gap
-between what the underlying functions already support and what the CLI surface exposes:
+**#22 (bare-poll `plan`/`run` cannot set opening/closing wording or urgency) — fixed by wiring,
+the mechanism already existed.** This is the one finding with a genuine, mechanical gap between
+what the underlying functions already support and what the CLI surface exposes:
 `build_requests`/`run_poll` (`runner.py:61-70`, `116-128`) have accepted `opening`, `closing` and
 `urgency` parameters all along; `cmd_plan`/`cmd_run` (`cli.py`) simply never had flags for them
-and never threaded them through even as an explicit empty default. Fixed by adding
-`--opening`/`--closing` (repeatable, matching `project wording`'s own `action="append"`
-convention) and `--urgency` to the `create` command, and passing them through `cmd_plan` and
-`cmd_run` to `build_requests`/`run_poll`.
+and never threaded them through even as an explicit empty default. **Not on `create`**, on
+reflection while implementing this fix: `Poll` itself has no `opening`/`closing`/`urgency`
+fields at all — even the project wizard never persists these *on the poll*, it reads them from
+separate `Phrase`/`Project` records at call time. The correct parallel for a bare poll, which has
+no such record to read from, is the pattern this CLI already uses for every other
+per-dispatch-only setting: `--retry`, `--fresh` and `--no-names` are not persisted anywhere
+either, they are supplied fresh on `plan`/`run` itself. Fixed by adding `--opening`/`--closing`
+(repeatable, matching `project wording`'s own `action="append"` convention) and `--urgency` to
+**both** `plan` and `run` (so the wording can be previewed before a live dispatch, matching this
+project's own preview-before-live discipline), threaded through to `build_requests`/`run_poll`.
 
 **#8 (`--no-names` has no web-UI equivalent) is documented here but deliberately left
 unfixed**, in the same spirit as hungrycall's own #11 finding (`CONVERSATION-TREE.md`: *"a real
