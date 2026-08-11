@@ -62,6 +62,58 @@ def test_open_advice_reports_tendency_countervoices_and_reasons():
     assert "countervoice" in merged.headline
 
 
+def test_open_advice_alternative_question_is_not_reported_as_consensus():
+    """Live finding, 2026-08-11: 'Should we have a Grillfest or a trip to the
+    countryside -- and where?' drew two answers for two DIFFERENT, mutually
+    exclusive picks. Each participant supports their own choice, so the voice
+    agent scores both 'support' -- but that is not agreement. The app's own
+    README promises it 'never turns dissent into a false consensus'; a
+    headline reading 'Tendency: support (2 of 2 answers)' breaks that
+    promise."""
+    poll = make_poll(
+        kind=PollKind.OPEN,
+        slots=(),
+        question="Sollten wir ein Grillfest machen oder einen Ausflug ins Gruene -- und wohin?",
+    )
+    people = [make_participant(ref) for ref in ("a", "b")]
+    merged = merge_poll(
+        poll,
+        people,
+        {
+            "p_a": answer(
+                "p_a",
+                reachable=True,
+                refused=False,
+                answer="Grillfest im Garten",
+                stance="support",
+                reasons=["Alle koennen kommen, kein Reiseaufwand"],
+                concerns=["Ein Ausflug waere vielen zu weit"],
+            ),
+            "p_b": answer(
+                "p_b",
+                reachable=True,
+                refused=False,
+                answer="Ausflug nach Todtnau",
+                stance="support",
+                reasons=["Mal raus aus dem Alltag"],
+                concerns=["Ein Grillfest hatten wir erst letztes Jahr"],
+            ),
+        },
+    )
+
+    assert isinstance(merged, OpenMerge)
+    # Two people, two different, mutually exclusive picks -- must never read
+    # as a shared tendency just because the voice agent tagged both
+    # "support" for their own answer.
+    assert merged.primary_tendency is None
+    assert "Tendency: support" not in merged.headline
+    assert "2 of 2" not in merged.headline
+    # The honest fallback: name the actual, distinct positions instead of
+    # asserting a headcount that implies agreement.
+    assert "Grillfest im Garten" in merged.headline
+    assert "Ausflug nach Todtnau" in merged.headline
+
+
 def test_advisor_options_create_a_reasoned_vote(store):
     projects = ProjectStore(store)
     project = create_project(

@@ -359,6 +359,84 @@ Eingebunden, für deutsche Polls/Projekte:
   Opening/Closing/Urgency, und prüft: 0 Treffer. Hält den vom Operator bereits
   repo-weit geprüften sauberen Zustand fest.
 
+## 12. Advisor-Tendenz bei Alternativfragen erzeugte den falschen Konsens, den das README ausdrücklich ausschließt ✅
+
+> **Herkunft:** Live-Befund des Operators/Team-Lead (2026-08-11) aus einem echten
+> Advisor-Lauf. Der Bau-Agent hat keinen eigenen Anruf ausgeführt; Diagnose und Fix
+> unten sind codegelesen und testgedeckt (Live-Szenario als Regressionstest
+> nachgebaut), nicht selbst live nachgemessen.
+
+Frage: „Sollten wir ein Grillfest machen oder einen Ausflug ins Grüne — und wohin?"
+(`kind=open`). Zwei Teilnehmer antworteten mit **entgegengesetzten** Wünschen — einer
+Grillfest im Garten, eine Ausflug nach Todtnau, jeweils mit Begründung und einem
+Gegenargument gegen die Wahl der/des anderen. Der Bericht meldete trotzdem:
+
+> RESULT: Tendency: support (2 of 2 answers)
+
+und führte beide unter derselben Tendenz „support". Die Detailerfassung war exakt
+(Antwort, Gründe, Bedenken pro Person sauber getrennt und wörtlich) — der Fehler steckt
+in der Aggregationsachse: `support`/`against` beschreibt eine Ja/Nein-Richtung zu EINEM
+Vorschlag. Bei einer Entweder-oder-Frage gibt es keinen gemeinsamen Vorschlag — jede
+Person „unterstützt" ihre eigene, andere Wahl, und der Sprachagent vergibt dafür beiden
+dieselbe Stance „support", weil er (laut Schema-Anweisung in `schemas.py`) nur die
+Richtung DER EIGENEN Antwort klassifiziert, nicht ob sie sich auf denselben Referenten
+bezieht. Zwei Menschen mit gegensätzlichen Wünschen erschienen dadurch als einmütige
+Zustimmung.
+
+**Dokumentations-Abweichung, nicht nur ein UX-Mangel:** `README.md` verspricht für
+„Ask Your Advisor" wörtlich: *„It never turns dissent into a false consensus."* — genau
+das tat die App in diesem Fall. Der Befund ist damit als Doku↔Verhalten-Abweichung
+zu werten, nicht als bloße Verbesserungsidee.
+
+**Warum keine Fragetyp-Erkennung („oder" im Text):** Der Team-Lead hatte das selbst als
+schwaches, riskantes Signal markiert. Geprüft und verworfen: (a) Erkennung über ein
+„oder"/„or"-Muster im Fragetext — false positives/negatives unvermeidbar, echte
+Semantik-Raterei. (b) Gruppierung nach wörtlich identischem Antworttext — hätte den
+bestehenden, korrekten Ja/Nein-Testfall zerstört (`test_open_advice_reports_tendency_
+countervoices_and_reasons`: „Yes"/„Yes, carefully" sind beide `support`, aber nicht
+wortgleich; eine Gleichheitsprüfung hätte auch dort keine Tendenz mehr gemeldet).
+
+**Fix — Diskriminator ist die Zahl der tatsächlich genutzten Stances, nicht ihr
+Wortlaut:** In `merge.py::OpenMerge.primary_tendency` gilt jetzt zusätzlich: Eine
+Tendenz wird nur behauptet, wenn unter den beantwortenden Personen **mehr als eine**
+unterschiedliche, wertende Stance (`support`/`against`/`mixed`, `neutral`/`unclear`
+zählen nicht) tatsächlich vorkommt. Kommt nur EINE Stance vor, hat niemand die
+Support/Against-Achse genutzt, um sich von jemand anderem zu unterscheiden — das ist
+keine Zustimmung, sondern Abwesenheit eines unterscheidenden Signals. Eine einzelne
+Antwort (eine Person, niemand sonst der hätte widersprechen können) bleibt davon
+unberührt und wird weiterhin als Tendenz gemeldet — das ist keine erzeugte Einmütigkeit,
+da niemand sonst die Achse hätte nutzen können.
+
+- Ja/Nein-Fall (Testfixture „Should we expand?": support, support, against) — **zwei**
+  unterschiedliche Stances liegen vor → Tendenz „support" wird weiterhin gemeldet,
+  Countervoice „C" weiterhin sichtbar. **Unverändert, mit bestehendem Test geprüft.**
+- Alternativ-Fall (Grillfest/Ausflug: support, support) — **eine** Stance, geteilt von
+  zwei Personen → `primary_tendency` liefert `None`, keine Tendenz wird behauptet.
+- Die Tally-Tabelle „Tendency/Count/Who" (bereits vorhanden in jedem Report, zeigt
+  „support | 2 | A, B") bleibt unverändert stehen — sie behauptet keine Übereinstimmung,
+  sondern zählt nur Klassifikationen; nur die Ein-Zeilen-Schlagzeile „RESULT: Tendency:
+  …" wurde geändert.
+- **Ehrlicher Fallback statt Leerstelle:** Wenn keine Tendenz behauptet wird, listet die
+  Schlagzeile jetzt die tatsächlichen, unterschiedlichen Positionen wörtlich auf (`"N
+  answer(s) collected; no single tendency - positions: A: "…"; B: "…"."`) statt nur
+  „no single tendency leads" — ein Leser sieht sofort zwei Positionen statt einer
+  Abwesenheitsmeldung. Gilt auch für den vorbestehenden Fall eines echten Patts (z. B.
+  2 support vs. 2 against).
+- **Maskierung nicht vergessen:** Die neue Positions-Auflistung zitiert `entry.answer`
+  wörtlich — dieser Text kommt ungefiltert vom Sprachagenten und kann (Testfixture
+  `test_transcript_text_from_a_call_is_masked_before_display`) eine rohe Telefonnummer
+  enthalten. `merge.py` maskiert jetzt selbst mit `phone.mask_text` (importiert aus
+  `.phone`, keine Zirkularität — `phone.py` hat keine projektinternen Imports), statt
+  sich auf die Maskierung im Render-Layer zu verlassen, die die Schlagzeile nie
+  durchläuft. Ohne diesen Nachzieher hätte der ursprüngliche Fix die AGENTS.md-Regel
+  „no raw phone number ever reaches an output surface" verletzt — beim ersten
+  vollen Testlauf real aufgefallen (`test_transcript_text_from_a_call_is_masked_
+  before_display`, rot, dann behoben).
+- **Guard-Test:** `test_open_advice_alternative_question_is_not_reported_as_consensus`
+  baut das Live-Szenario exakt nach (zwei Personen, zwei unvereinbare Antworten, beide
+  `stance="support"`) und prüft: keine „Tendency: support (2 of 2)"-Zeile mehr, beide
+  wörtlichen Antworten stehen stattdessen in der Schlagzeile.
+
 ## Weiterhin ungeprüft
 
 - **Parallelität.** Ob mehrere Anrufe gleichzeitig laufen, ist offen. „concurrency
