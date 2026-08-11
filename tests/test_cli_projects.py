@@ -10,6 +10,8 @@ from __future__ import annotations
 import pytest
 
 from ringedingeding.cli import main
+from ringedingeding.projects import ProjectStore
+from ringedingeding.store import Store
 
 
 @pytest.fixture()
@@ -136,6 +138,95 @@ def test_a_refused_subject_is_stopped_at_creation(run):
     )
     assert code == 2
     assert "emergency" in output
+
+
+def test_project_new_with_only_language_derives_a_matching_region_and_locale(run, tmp_path):
+    """Field finding, 2026-08-11, the ``project`` half of the same bug:
+    ``--language`` alone used to leave region/locale at ``project new``'s own
+    independent defaults instead of following the chosen language."""
+    code, _ = run("project", "new", "--occasion", "Meeting", "--organizer", "Lukas",
+                  "--language", "en")
+    assert code == 0
+
+    store = Store(tmp_path / "cli.db")
+    project = list(ProjectStore(store).projects())[0]
+    assert project.language == "en"
+    assert project.region == "US"
+    assert project.locale == "en-US"
+
+
+def test_project_new_with_an_explicit_region_and_locale_still_wins(run, tmp_path):
+    code, _ = run("project", "new", "--occasion", "Meeting", "--organizer", "Lukas",
+                  "--language", "de", "--region", "CH", "--locale", "de-CH")
+    assert code == 0
+
+    store = Store(tmp_path / "cli.db")
+    project = list(ProjectStore(store).projects())[0]
+    assert project.region == "CH"
+    assert project.locale == "de-CH"
+
+
+def test_contact_add_warns_about_a_substitute_umlaut_in_the_given_name(run):
+    """No realistic first name is one of the fourteen listed words — this
+    proves the mechanism (first token only, checked, printed) with a
+    synthetic name rather than claiming real-world name coverage the
+    word-list approach cannot actually offer (see FINDINGS.md)."""
+    code, out = run("contact", "add", "--name", "Waere Beispiel", "--phone", "+15555550199")
+    assert code == 0
+    assert "WARNUNG" in out
+    assert '"Waere"' in out
+
+
+def test_contact_add_says_nothing_about_the_surname_which_is_never_spoken(run):
+    """Only the first token (Participant.given_name) ever reaches the voice
+    agent — a substitute umlaut in the surname alone must not warn."""
+    code, out = run("contact", "add", "--name", "Anna Ueberacker", "--phone", "+15555550198")
+    assert code == 0
+    assert "WARNUNG" not in out
+
+
+def test_project_new_warns_about_substitute_umlauts_in_occasion_and_organizer(run):
+    code, out = run(
+        "project", "new", "--occasion", "Feier fuer alle zurueck im Garten",
+        "--organizer", "Lukas", "--language", "de",
+    )
+    assert code == 0
+    assert "WARNUNG" in out
+    assert '"fuer"' in out
+    assert '"zurueck"' in out
+
+
+def test_project_new_says_nothing_for_an_english_project(run):
+    code, out = run(
+        "project", "new", "--occasion", "We would like fuer to celebrate",
+        "--organizer", "Lukas", "--language", "en",
+    )
+    assert code == 0
+    assert "WARNUNG" not in out
+
+
+def test_project_question_warns_about_substitute_umlauts(run, tmp_path):
+    run("project", "new", "--occasion", "Feiertag", "--organizer", "Lukas", "--mode", "roundtable")
+    _, listing = run("project", "list")
+    project_id = listing.split()[0]
+    code, out = run(
+        "project", "question", "--project", project_id,
+        "--question", "Was koennen wir spaeter besprechen?",
+    )
+    assert code == 0
+    assert "WARNUNG" in out
+    assert '"koennen"' in out
+    assert '"spaeter"' in out
+
+
+def test_project_wording_warns_about_substitute_umlauts(run, project):
+    code, out = run(
+        "project", "wording", "--project", project,
+        "--greeting", "Natuerlich freuen wir uns, von dir zu hoeren.",
+    )
+    assert code == 0
+    assert "WARNUNG" in out
+    assert '"Natuerlich"' in out
 
 
 def test_an_unusable_number_is_explained(run):

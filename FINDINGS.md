@@ -279,6 +279,86 @@ Abschlussbericht), da `ProjectStore` nur eine dünne Schicht über demselben
 nicht auto-generiert-vorhersagbar und muss per
 `ProjectStore.round_ids(project_id, round_kind)` nachgeschlagen werden.
 
+## 11. Live-Testdesign Block C: Region/Locale-Entkopplung und Ersatz-Umlaute
+
+> **Herkunft:** Beide Befunde sind vom Operator selbst im Rahmen von Block C live
+> beobachtet (2026-08-11/12). Der Bau-Agent hat keinen eigenen Anruf ausgeführt; die
+> Fixes unten sind codegelesen und testgedeckt, nicht live nachgemessen.
+
+### Sprache und Region/Locale waren drei unabhängige Defaults
+
+`create --language de` ergab im `plan`-Kopf wörtlich `Language : de (en-US, region
+US)` — deutscher Text, aber eine US-Region/en-US-Stimme wären beim Live-Anruf
+verwendet worden. Ursache: `language`, `region` und `locale` hatten an **jeder**
+Erzeugungsstelle ihre eigenen, unabhängigen Standardwerte, ohne jede Beziehung
+zueinander — und das an mehr Stellen als nur der zitierten:
+
+- `store.py::create_poll` (bare Poll, bare `create`-CLI): `en`/`US`/`en-US`.
+- `projects.py::ProjectStore.create_project` UND `service.py::create_project`
+  (Wrapper-Funktion mit eigenen, redundanten Defaults): `de`/`DE`/`de-DE`.
+- `web/app.py::create()` (`/projects` POST): leitete `locale` bereits ad-hoc aus der
+  Sprache ab, `region` aber gar nicht — ein englisches Web-UI-Projekt behielt
+  unbemerkt `region=DE` (spiegelbildlicher Fehler, nur in der anderen Richtung, vom
+  Operator nicht beobachtet, aber beim Codelesen gefunden).
+
+**Fix:** Eine einzige Funktion `locales.py::region_locale_for(language, *,
+region=None, locale=None)` — ein explizit gesetzter Wert (auch ein von einem
+HTML-Formular gesendeter Leerstring) gewinnt immer; unbelegt wird aus der Sprache
+abgeleitet (`de` → `DE`/`de-DE`, alles andere → der bisherige Gesamt-Default
+`US`/`en-US`). Eingebaut **an der Wurzel** — in `store.create_poll` und
+`ProjectStore.create_project` selbst, nicht nur an den CLI-Einstiegspunkten —, damit
+jede künftige Aufrufstelle den Fix automatisch erbt. `service.py::create_project`s
+eigene, bislang redundante Signatur-Defaults wurden entfernt (reiner Durchreicher),
+sonst hätten sie die tiefere Ableitung verdeckt. `web/app.py::create()`s
+handgeschriebene Locale-Ableitung wurde durch denselben, einen Mechanismus ersetzt.
+`render.py::_poll_header` (genutzt von `plan` UND `result`) warnt jetzt zusätzlich
+sichtbar, wenn ein gespeicherter Poll trotzdem eine Abweichung zeigt — ob durch einen
+bewussten expliziten Override oder einen vor dem Fix angelegten Datensatz.
+`render_markdown` (die familientaugliche Export-Ansicht) bekommt diese technische
+Warnung bewusst **nicht** — dort steht ohnehin kein Sprach-/Regionsfeld.
+
+**Wichtig für den Operator:** Der laufende Live-Lauf gegen Commit `6f2bb5d` nutzt noch
+das alte, unverknüpfte Verhalten — Projekte/Polls, die VOR diesem Fix angelegt
+wurden, tragen ihre damals zugewiesene (möglicherweise falsche) Region/Locale-Kombi
+weiter und werden vom Fix nicht rückwirkend korrigiert. Erst neu angelegte
+Runden profitieren.
+
+### ASCII-Ersatzumlaute werden wörtlich vorgelesen
+
+Eine Testfrage mit „fuer" wurde hörbar als „fuer" gesprochen, nicht als „für" — dieselbe
+wortwörtliche Vorlese-Eigenschaft, die Abschnitt 4 schon für ganze zitierte Sätze maß,
+gilt offenbar bis auf die Ebene eines einzelnen ersetzten Umlauts.
+
+**Fix (nur Warnung, keine automatische Korrektur):** `umlaut_check.py` mit einer
+**geschlossenen, exakten** Liste von 14 Ersatzwörtern (genau die vom Operator
+genannten: fuer, ueber, moechte, waere, koennen, muessen, groesse, strasse, zurueck,
+natuerlich, spaeter, gespraech, aenderung, oeffnung), wortgrenzen-genau und
+case-insensitiv geprüft (`\bfuer\b` etc.) — bewusst **kein** allgemeines
+ae/oe/ue-Muster, weil das auf „Feuer", „teuer", „neue" & Co. falsch anschlagen würde.
+Erweiterbar mit einer Zeile, keine Heuristik.
+
+Eingebunden, für deutsche Polls/Projekte:
+- CLI `create` (Frage, Organizer, Optionen, Slots), `contact add` (nur der **erste
+  Namensteil** — nur der reist per `Participant.given_name` tatsächlich zum
+  Sprachagenten; ein Ersatz-Umlaut allein im Nachnamen würde nie gesprochen und wäre
+  Fehlalarm), `project new` (Anlass, Organizer), `project question`
+  (Advisor-Frage/Optionen), `project wording` (Begrüßung/Abschluss).
+- Web-UI: bewusst **nur** auf `/preview` — dort steht bereits der vollständige,
+  tatsächlich versendete `task_text` als eine einzige Zeichenkette zur Verfügung, ein
+  einziger Check deckt damit Frage/Optionen/Slots/Organizer/Wording/Identitätsfrage
+  gleichzeitig ab. Eine flächendeckende Warn-/Flash-Mechanik über vier weitere
+  Web-Routen (die es im Projekt bisher gar nicht gibt) wurde bewusst **nicht** gebaut
+  — der Aufwand stünde außer Verhältnis zum Befund, und der Operator sah die Meldung
+  ohnehin zuerst auf der CLI.
+- **Bekannte, bewusste Lücke:** Die Liste prüft nur die **Grundform**. Konjugierte
+  Varianten wie „moechten"/„moechtet"/„koennten" matchen NICHT gegen „moechte" (exakte
+  Wortgrenzen-Regex) — eine Erweiterung um Flexionsformen wäre eine bewusste,
+  eigenständige Entscheidung, keine, die aus dem aktuellen Auftrag automatisch folgt.
+- **Guard-Test:** `test_this_projects_own_german_task_text_never_contains_a_substitute_umlaut`
+  rendert `build_task_text` über alle PollKinds, mit/ohne Namen, mit
+  Opening/Closing/Urgency, und prüft: 0 Treffer. Hält den vom Operator bereits
+  repo-weit geprüften sauberen Zustand fest.
+
 ## Weiterhin ungeprüft
 
 - **Parallelität.** Ob mehrere Anrufe gleichzeitig laufen, ist offen. „concurrency

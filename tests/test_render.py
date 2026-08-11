@@ -59,6 +59,30 @@ def test_plan_never_prints_a_raw_number(store):
     assert "5555550100" not in rendered
 
 
+def test_plan_warns_when_region_locale_do_not_match_the_language(store):
+    """Field finding, 2026-08-11: a German poll can still end up with a
+    mismatched region/locale — either an explicit override, or a poll stored
+    before the derivation fix landed. Either way the operator needs to see
+    it on the exact screen they read it from."""
+    poll = store.create_poll(
+        question="Wann passt es?", kind="open", organizer="Lukas",
+        language="de", region="US", locale="en-US",
+    )
+    requests, _, _ = build_requests(poll, store.participants(poll.id))
+    rendered = render_plan(poll, requests)
+    assert "WARNING" in rendered
+    assert "de" in rendered and "US" in rendered and "en-US" in rendered
+
+
+def test_plan_shows_no_warning_when_region_locale_match(store):
+    poll = store.create_poll(
+        question="Wann passt es?", kind="open", organizer="Lukas", language="de"
+    )
+    requests, _, _ = build_requests(poll, store.participants(poll.id))
+    rendered = render_plan(poll, requests)
+    assert "WARNING" not in rendered
+
+
 def test_plan_shows_the_goal_text_and_the_schema(store):
     poll = store.create_poll(
         question="When can you make it?", kind="slot", organizer="Lukas", slots=["Sat 14-18"]

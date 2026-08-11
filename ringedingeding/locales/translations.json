@@ -1072,5 +1072,17 @@
   "So bliebe kein einziger Terminvorschlag übrig.": {
     "de": "So bliebe kein einziger Terminvorschlag übrig.",
     "en": "That would leave no candidate date."
+  },
+  "Mögliche Ersatz-Umlaute im Auftragstext — keine automatische Korrektur, bitte von Hand mit echten Umlauten (ä ö ü ß) prüfen:": {
+    "de": "Mögliche Ersatz-Umlaute im Auftragstext — keine automatische Korrektur, bitte von Hand mit echten Umlauten (ä ö ü ß) prüfen:",
+    "en": "Possible ASCII umlaut substitutes in the task text — no automatic correction, please check by hand with real umlauts (ä ö ü ß):"
+  },
+  "wird sonst wörtlich als": {
+    "de": "wird sonst wörtlich als",
+    "en": "will otherwise be read out literally as"
+  },
+  "vorgelesen, nicht als": {
+    "de": "vorgelesen, nicht als",
+    "en": "instead of"
   }
 }

@@ -192,6 +192,24 @@ def test_slot_label_for_a_span_of_days():
 # -- projects and slots -----------------------------------------------------
 
 
+def test_a_project_language_without_an_explicit_region_derives_a_matching_one(projects):
+    """The other direction of the 2026-08-11 field finding: an English
+    project used to keep the project layer's own "DE"/"de-DE" defaults
+    regardless — the web UI's ``/projects`` form never sends a region at
+    all, so this was live, not just theoretical."""
+    project = projects.create_project(occasion="Meeting", organizer="Lukas", language="en")
+    assert project.region == "US"
+    assert project.locale == "en-US"
+
+
+def test_a_project_region_or_locale_explicitly_set_still_wins(projects):
+    project = projects.create_project(
+        occasion="Essen", organizer="Lukas", language="de", region="CH", locale="de-CH"
+    )
+    assert project.region == "CH"
+    assert project.locale == "de-CH"
+
+
 def test_unbuilt_date_kinds_are_refused_by_name(projects):
     """The concept knows six kinds; four say so instead of half-working."""
     with pytest.raises(ValueError, match="stage 2"):

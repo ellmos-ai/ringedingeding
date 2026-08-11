@@ -48,6 +48,7 @@ from .store import DEFAULT_DB_PATH, Store
 from .timings import LEAD_SECONDS, estimate_seconds, format_duration
 from .transports.base import CallTransport
 from .transports.fixture import FixtureTransport
+from .umlaut_check import warn_if_german
 
 __all__ = ["main", "build_parser"]
 
@@ -332,6 +333,14 @@ def cmd_create(args: argparse.Namespace, store: Store) -> int:
         store.add_participant(poll.id, name=name, phone=phone)
     people = store.participants(poll.id)
     _out(f"created poll {poll.id} with {len(people)} participant(s)")
+    warn_if_german(
+        poll.language,
+        args.question,
+        args.organizer,
+        *(args.option or []),
+        *(args.slot or []),
+        out=_out,
+    )
     _out(f"next: ringedingeding plan --poll {poll.id}")
     return EXIT_OK
 
@@ -575,8 +584,12 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--option", action="append", help="answer option (choice polls)")
     create.add_argument("--slot", action="append", help="proposed time slot (slot polls)")
     create.add_argument("--language", default="en")
-    create.add_argument("--region", default="US")
-    create.add_argument("--locale", default="en-US")
+    create.add_argument(
+        "--region", default=None, help="derived from --language when not given"
+    )
+    create.add_argument(
+        "--locale", default=None, help="derived from --language when not given"
+    )
     create.set_defaults(func=cmd_create)
 
     listing = subparsers.add_parser("list", help="list stored polls")

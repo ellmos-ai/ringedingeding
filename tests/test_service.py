@@ -20,6 +20,15 @@ def projects(store):
     return ProjectStore(store)
 
 
+def test_create_project_derives_region_locale_through_the_wrapper(projects):
+    """The web UI's ``/projects`` form goes through exactly this wrapper and
+    never sends a region at all — before 2026-08-11 an English project kept
+    this function's own hardcoded "DE" default regardless of language."""
+    project = service.create_project(projects, occasion="Meeting", organizer="Lukas", language="en")
+    assert project.region == "US"
+    assert project.locale == "en-US"
+
+
 def build(store, projects, *, with_uncallable: bool = True):
     """A small project: four people who can be called, one who cannot."""
     project = service.create_project(

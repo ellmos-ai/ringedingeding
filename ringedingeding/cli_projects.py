@@ -47,6 +47,7 @@ from .service import (
     uncallable,
 )
 from .store import Store
+from .umlaut_check import warn_if_german
 
 __all__ = ["add_parsers"]
 
@@ -147,6 +148,15 @@ def cmd_contact_add(args: argparse.Namespace, store: Store) -> int:
     )
     state = contact.phone_masked if contact.callable else "no phone — cannot be called"
     _out(f"added {contact.name}  [{contact.id}]  {state}")
+    # Only the first token of the name ever reaches the voice agent
+    # (Participant.given_name) — the surname is never spoken, so it is never
+    # checked here either; a warning about text that is never sent would be
+    # noise, not help. Checked unconditionally (not gated on any language):
+    # a contact is not yet attached to a project, so no language is known
+    # yet, and the word list itself is German-specific vocabulary that
+    # cannot false-positive on a non-German name.
+    given_name = contact.name.strip().split()[0] if contact.name.strip() else ""
+    warn_if_german("de", given_name, out=_out)
     return 0
 
 
@@ -203,6 +213,7 @@ def cmd_project_new(args: argparse.Namespace, store: Store) -> int:
         group_id=_resolve_group(projects, args.group),
     )
     _out(f"created project {project.id}")
+    warn_if_german(project.language, project.occasion, project.organizer, out=_out)
     if project.mode == ProjectMode.ROUNDTABLE:
         _out(f"next: ringedingeding project question --project {project.id} --question 'What do you think?' ")
     else:
@@ -256,6 +267,7 @@ def cmd_project_question(args: argparse.Namespace, store: Store) -> int:
     question = set_advisor_question(projects, project, args.question, options=args.option or [])
     shape = f"choice: {', '.join(question.options)}" if question.options else "open advice"
     _out(f"advisor question saved ({shape})")
+    warn_if_german(project.language, question.text, *question.options, out=_out)
     _out(f"next: ringedingeding project people --project {project.id} --all")
     return 0
 
@@ -305,6 +317,7 @@ def cmd_project_wording(args: argparse.Namespace, store: Store) -> int:
     _out(f"greeting: {greeting or '(none)'}")
     _out(f"closing : {closing or '(none)'}")
     _out("These sentences are spoken word for word.")
+    warn_if_german(project.language, *greeting, *closing, out=_out)
     return 0
 
 
@@ -589,8 +602,8 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
              "Changes the tone of the call, never the flow.",
     )
     new.add_argument("--language", default="de")
-    new.add_argument("--region", default="DE")
-    new.add_argument("--locale", default="de-DE")
+    new.add_argument("--region", default=None, help="derived from --language when not given")
+    new.add_argument("--locale", default=None, help="derived from --language when not given")
     new.set_defaults(func=cmd_project_new)
 
     listing = project_sub.add_parser("list", help="list projects")

@@ -41,6 +41,16 @@
 <h2>{{ t('Der Auftragstext, wörtlich') }}</h2>
 <p class="muted small">{{ t(data_note) }}</p>
 <pre class="task">{{ preview.task_text }}</pre>
+{% if umlaut_findings %}
+<p class="warn-line">
+  {{ t('Mögliche Ersatz-Umlaute im Auftragstext — keine automatische Korrektur, bitte von Hand mit echten Umlauten (ä ö ü ß) prüfen:') }}
+</p>
+<ul class="small">
+  {% for found, correct in umlaut_findings %}
+    <li>„{{ found }}“ {{ t('wird sonst wörtlich als') }} „{{ found }}“ {{ t('vorgelesen, nicht als') }} „{{ correct }}“</li>
+  {% endfor %}
+</ul>
+{% endif %}
 {% endif %}
 
 <h2>{{ t('Starten') }}</h2>

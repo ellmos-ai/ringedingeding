@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
+from .locales import region_locale_for
 from .merge import ChoiceMerge, Coverage, MergeResult, OpenMerge, SlotMerge
 from .models import Poll, PollKind
 from .phone import mask_text
@@ -60,6 +61,18 @@ def _poll_header(poll: Poll) -> list[str]:
         f"Organizer: {poll.organizer}",
         f"Language : {poll.language} ({poll.locale}, region {poll.region})",
     ]
+    expected_region, expected_locale = region_locale_for(poll.language)
+    if poll.region != expected_region or poll.locale != expected_locale:
+        # Field finding, 2026-08-11: language, region and locale used to be
+        # three independent defaults with no relationship — this stored poll
+        # predates the fix, or somebody deliberately overrode region/locale.
+        # Either way the voice CALL-E uses may not match the spoken text.
+        lines.append(
+            f"WARNING  : region/locale ({poll.region}, {poll.locale}) do not "
+            f"match language {poll.language!r} — expected "
+            f"({expected_region}, {expected_locale}). The voice may not "
+            "match the text being read out."
+        )
     if poll.kind is PollKind.SLOT:
         lines.append(f"Slots    : {'; '.join(poll.slots) if poll.slots else '(open question)'}")
     if poll.kind is PollKind.CHOICE:

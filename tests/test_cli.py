@@ -147,6 +147,64 @@ def test_create_then_plan(tmp_path, capsys):
     assert "+15*****00" in plan
 
 
+def test_create_with_only_language_derives_a_matching_region_and_locale(tmp_path, capsys):
+    """The exact field finding, 2026-08-11: ``create --language de`` alone
+    produced a plan header reading "de (en-US, region US)"."""
+    code = run(
+        ["create", "--question", "Wann passt es?", "--kind", "open",
+         "--organizer", "Lukas", "--language", "de"],
+        tmp_path,
+    )
+    assert code == EXIT_OK
+    created = capsys.readouterr().out
+    poll_id = created.split("created poll ")[1].split(" ")[0]
+
+    assert run(["plan", "--poll", poll_id], tmp_path) == EXIT_OK
+    plan = capsys.readouterr().out
+    assert "Language : de (de-DE, region DE)" in plan
+    assert "region US" not in plan
+
+
+def test_create_warns_about_substitute_umlauts_in_a_german_question(tmp_path, capsys):
+    """Field finding, 2026-08-11: a test question containing "fuer" was
+    spoken aloud as "fuer", not "für"."""
+    code = run(
+        ["create", "--question", "Wann passt es fuer dich?", "--kind", "open",
+         "--organizer", "Lukas", "--language", "de"],
+        tmp_path,
+    )
+    assert code == EXIT_OK
+    out = capsys.readouterr().out
+    assert "WARNUNG" in out
+    assert '"fuer"' in out
+
+
+def test_create_says_nothing_about_umlauts_for_an_english_poll(tmp_path, capsys):
+    code = run(
+        ["create", "--question", "When does it work fuer you?", "--kind", "open",
+         "--organizer", "Lukas", "--language", "en"],
+        tmp_path,
+    )
+    assert code == EXIT_OK
+    out = capsys.readouterr().out
+    assert "WARNUNG" not in out
+
+
+def test_create_with_an_explicit_region_and_locale_still_wins(tmp_path, capsys):
+    code = run(
+        ["create", "--question", "?", "--kind", "open", "--organizer", "L",
+         "--language", "de", "--region", "CH", "--locale", "de-CH"],
+        tmp_path,
+    )
+    assert code == EXIT_OK
+    created = capsys.readouterr().out
+    poll_id = created.split("created poll ")[1].split(" ")[0]
+
+    assert run(["plan", "--poll", poll_id], tmp_path) == EXIT_OK
+    plan = capsys.readouterr().out
+    assert "Language : de (de-CH, region CH)" in plan
+
+
 def test_rerunning_a_fixture_does_not_call_anyone_twice(tmp_path, capsys):
     run(["run", "--fixture", "family-dinner"], tmp_path)
     capsys.readouterr()

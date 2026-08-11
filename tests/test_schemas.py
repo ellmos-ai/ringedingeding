@@ -249,3 +249,29 @@ def test_no_schema_sent_to_calle_ever_contains_a_nullable_union():
         poll = make_poll(kind=kind, options=("A", "B"), slots=("Sat 14-18",))
         for schema in (recipient_result_schema(poll), aggregate_result_schema(poll)):
             assert _nullable_unions(schema) == []
+
+
+# --------------------------------------------------------------------------
+# guard: this project's own German prompt building blocks never contain a
+# substitute umlaut — 2026-08-11, checked repo-wide by the operator and
+# clean at the time; this test holds that.
+# --------------------------------------------------------------------------
+
+
+def test_this_projects_own_german_task_text_never_contains_a_substitute_umlaut():
+    from ringedingeding.umlaut_check import find_umlaut_substitutes
+
+    for given_name in (None, "Anna"):
+        for kind in PollKind:
+            kind_poll = make_poll(
+                language="de", locale="de-DE", region="DE",
+                kind=kind, options=("A", "B"), slots=("Sat 14-18", "Sun 10-14"),
+            )
+            text = build_task_text(
+                kind_poll,
+                given_name,
+                opening=("Schön, dich zu hören.",),
+                closing=("Bis dann.",),
+                urgency="wirklich dringend",
+            )
+            assert find_umlaut_substitutes(text) == []

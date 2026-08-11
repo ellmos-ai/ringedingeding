@@ -119,13 +119,19 @@ def create_project(
     mode: str = ProjectMode.SCHEDULE,
     date_kind: str = DateKind.DAY_SLOTS,
     language: str = "de",
-    region: str = "DE",
-    locale: str = "de-DE",
+    region: str | None = None,
+    locale: str | None = None,
     urgency: str = "",
     group_id: str | None = None,
     fixture_name: str | None = None,
 ) -> Project:
     """Create a project. The occasion is checked for refused content first.
+
+    ``region``/``locale`` left unset (``None``) are derived from ``language``
+    one layer down, in :meth:`ProjectStore.create_project` — this wrapper
+    only needs to not shadow that with hardcoded defaults of its own (it did,
+    until 2026-08-11: an English project made through the web UI, which never
+    sends a region at all, kept this function's old "DE" default regardless).
 
     Refusing here rather than at dial time means a medical or emergency subject
     never gets as far as being attached to somebody's phone number.

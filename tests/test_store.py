@@ -26,6 +26,23 @@ def test_poll_roundtrip(store):
     assert loaded.has_window
 
 
+def test_a_poll_language_without_an_explicit_region_derives_a_matching_one(store):
+    """Field finding, 2026-08-11: ``--language de`` alone used to leave
+    region/locale at their own independent defaults ("US"/"en-US") — German
+    prose read out with a US voice in a US region."""
+    poll = store.create_poll(question="?", kind="open", organizer="L", language="de")
+    assert poll.region == "DE"
+    assert poll.locale == "de-DE"
+
+
+def test_a_poll_region_or_locale_explicitly_set_still_wins(store):
+    poll = store.create_poll(
+        question="?", kind="open", organizer="L", language="de", region="CH", locale="de-CH"
+    )
+    assert poll.region == "CH"
+    assert poll.locale == "de-CH"
+
+
 def test_choice_poll_needs_at_least_two_distinct_options(store):
     with pytest.raises(ValueError):
         store.create_poll(question="A or B?", kind="choice", organizer="L")

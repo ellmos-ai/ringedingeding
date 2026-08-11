@@ -220,6 +220,50 @@ def test_creating_a_project_by_hand_and_calling_nobody(client):
     assert "Es gibt niemanden anzurufen" in preview.text
 
 
+def test_preview_warns_about_substitute_umlauts_in_the_task_text(client):
+    """Field finding, 2026-08-11: a task text containing "fuer" was spoken
+    aloud as "fuer", not "für". The task text is the exact string sent to
+    CALL-E, so it is checked once, whole, rather than field by field."""
+    created = client.post(
+        "/projects",
+        data={"occasion": "Feier fuer alle", "organizer": "Lukas",
+              "date_kind": "day_slots", "language": "de"},
+        follow_redirects=False,
+    )
+    project_id = created.headers["location"].split("/")[2]
+    client.post("/contacts", data={"name": "Anna", "phone": "+15555550101", "project": project_id})
+    contacts = client.get(f"/projects/{project_id}/people").text
+    contact_id = re.search(r'name="contact" value="([^"]+)"', contacts).group(1)
+    client.post(f"/projects/{project_id}/dates",
+                data={"date_kind": "day_slots", "day": ["2026-08-08"],
+                      "start": ["18:00"], "end": ["21:00"]})
+    client.post(f"/projects/{project_id}/people", data={"contact": [contact_id]})
+
+    preview = client.get(f"/projects/{project_id}/preview").text
+    assert "Mögliche Ersatz-Umlaute" in preview
+    assert '„fuer“' in preview
+
+
+def test_preview_shows_no_umlaut_warning_for_an_english_project(client):
+    created = client.post(
+        "/projects",
+        data={"occasion": "Party fuer everyone", "organizer": "Lukas",
+              "date_kind": "day_slots", "language": "en"},
+        follow_redirects=False,
+    )
+    project_id = created.headers["location"].split("/")[2]
+    client.post("/contacts", data={"name": "Anna", "phone": "+15555550101", "project": project_id})
+    contacts = client.get(f"/projects/{project_id}/people").text
+    contact_id = re.search(r'name="contact" value="([^"]+)"', contacts).group(1)
+    client.post(f"/projects/{project_id}/dates",
+                data={"date_kind": "day_slots", "day": ["2026-08-08"],
+                      "start": ["18:00"], "end": ["21:00"]})
+    client.post(f"/projects/{project_id}/people", data={"contact": [contact_id]})
+
+    preview = client.get(f"/projects/{project_id}/preview").text
+    assert "Mögliche Ersatz-Umlaute" not in preview
+
+
 def test_dates_without_a_day_are_refused_with_a_readable_message(client):
     project_id = make_demo(client)
     response = client.post(
