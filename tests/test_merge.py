@@ -94,6 +94,23 @@ def test_completed_call_with_wrong_person_counts_as_unreached():
     assert [r.ref for r in coverage.unreached] == ["a"]
 
 
+def test_a_strangers_refusal_never_counts_as_this_participants_answer():
+    """``reachable`` is checked before ``refused`` (models.py, 2026-08-11).
+
+    The wrong person answered, declined to continue on their own behalf, and
+    the round never confirmed it was reaching out to the right person at
+    all. Before this ordering was fixed, a stranger's "no" turned into this
+    participant's REFUSED — the exact misattribution the identity gate
+    (schemas.py) exists to prevent.
+    """
+    poll = make_poll()
+    people = [make_participant("a")]
+    answers = {"p_a": answer("p_a", reachable=False, refused=True)}
+    coverage = merge_poll(poll, people, answers).coverage
+    assert [r.ref for r in coverage.unreached] == ["a"]
+    assert coverage.refused == ()
+
+
 def test_a_completed_call_with_no_structured_result_at_all_counts_as_unreached():
     """A missing ``reachable`` is not the same as an affirmed one.
 

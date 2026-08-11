@@ -436,7 +436,22 @@ def test_the_voicemail_check_only_applies_to_a_completed_status():
 # --------------------------------------------------------------------------
 
 
-def test_a_generic_failed_status_is_recovered_via_the_failure_message():
+def test_a_declined_failure_message_without_conversation_substance_stays_failed():
+    """DECLINED claimed by ``failure_message`` is not trusted on its own.
+
+    Verified 2026-08-11 against the upstream tracker directly (``gh issue
+    view 111`` / ``gh issue view 82``, CALLE-AI/awesome-phone-call-agents):
+    a call that never rang at all — zero duration, no media, the callee
+    never on the line — can still come back with exactly this text:
+    "calling task status=DECLINED (Hangup by: user)". This is the same
+    payload the operator originally relayed for section 9 (empty
+    ``transcript_turns``); recovering DECLINED from it unconditionally, as
+    this project did until now, turned "the phone never connected" into "this
+    person actively refused" without a shred of evidence for the refusal.
+    Absent conversation substance, the outcome now falls back to the plain
+    FAILED path a few lines down, which already keeps the (masked) message
+    as ``CallOutcome.error`` instead of inventing a status for it.
+    """
     call = {
         "status": "failed",
         "failure_code": "call_failed",
@@ -449,17 +464,53 @@ def test_a_generic_failed_status_is_recovered_via_the_failure_message():
     outcome = _outcome_from(
         participant_id="p1", call=call, recipient=call["recipients"][0], run_id="call_1"
     )
+    assert outcome.status is CallStatus.FAILED
+    assert outcome.error is not None
+    assert "DECLINED" in outcome.error
+
+
+def test_a_declined_failure_message_with_conversation_substance_is_recovered():
+    """The same claimed status *is* trusted once the callee actually spoke."""
+    call = {
+        "status": "failed",
+        "failure_message": "calling task status=DECLINED (Hangup by: user)",
+        "recipients": [
+            {
+                "status": "failed",
+                "attempts": [
+                    {
+                        "transcript_turns": [
+                            {"offset_seconds": 0, "speaker": "bot", "text": "Guten Tag, hier ist ein automatischer Assistent."},
+                            {"offset_seconds": 3, "speaker": "user", "text": "Nein, kein Interesse."},
+                        ]
+                    }
+                ],
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1", call=call, recipient=call["recipients"][0], run_id="call_1"
+    )
     assert outcome.status is CallStatus.DECLINED
     assert outcome.error is None  # a valid outcome, not a technical failure
 
 
 def test_recipient_level_failure_message_wins_over_call_level():
+    """Recipient-level status still wins over call-level — with substance so
+    the DECLINED half of that claim survives the new gate above."""
     outcome = _outcome_from(
         participant_id="p1",
         call={"status": "failed", "failure_message": "calling task status=BUSY"},
         recipient={
             "status": "failed",
             "failure_message": "calling task status=DECLINED (Hangup by: user)",
+            "attempts": [
+                {
+                    "transcript_turns": [
+                        {"offset_seconds": 4, "speaker": "user", "text": "Nein, danke."},
+                    ]
+                }
+            ],
         },
         run_id=None,
     )

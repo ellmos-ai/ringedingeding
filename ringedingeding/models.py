@@ -251,9 +251,16 @@ class Answer:
     def bucket(self) -> Bucket:
         """Classify this answer for the merge step.
 
-        Order matters. ``refused`` and ``reachable`` come from the recipient
-        schema and override an otherwise ``COMPLETED`` call: a call can complete
-        technically while the person declined to answer.
+        Order matters. ``reachable`` is checked *before* ``refused`` — on
+        purpose, and the other way round was a latent bug (found 2026-08-11
+        while wiring the identity gate in schemas.py): a call where the wrong
+        person answered and, for themselves, declined to continue can come
+        back with ``{"reachable": false, "refused": true}``. Checking
+        ``refused`` first turned that into this participant's REFUSED, which
+        is exactly the misattribution the identity gate exists to prevent —
+        a stranger's "no" is not this person's answer. ``reachable`` is
+        therefore the earlier, stronger gate: nothing recorded about a call
+        counts until the right person was actually confirmed on the line.
         """
         if self.call_status is CallStatus.PENDING:
             return Bucket.PENDING
@@ -268,8 +275,6 @@ class Answer:
         if self.call_status is not CallStatus.COMPLETED:
             # NO_ANSWER, BUSY, VOICEMAIL, EXPIRED, FAILED, CANCELED
             return Bucket.UNREACHED
-        if self.structured.get("refused") is True:
-            return Bucket.REFUSED
         if self.structured.get("reachable") is not True:
             # Every recipient schema requires "reachable" (schemas.py); the
             # agent always fills it in on a real call. A missing or ``None``
@@ -278,4 +283,6 @@ class Answer:
             # transports/calle.py falls back to ``{}`` when the API sends
             # none), and that must read the same as an explicit ``False``.
             return Bucket.UNREACHED
+        if self.structured.get("refused") is True:
+            return Bucket.REFUSED
         return Bucket.ANSWERED
