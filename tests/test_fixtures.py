@@ -210,5 +210,26 @@ def test_an_impossible_status_and_answer_combination_fails():
     assert "cannot occur" in (outcome.error or "")
 
 
+def test_a_voicemail_status_can_carry_a_filled_answer():
+    """Measured 2026-08-11 (FINDINGS.md section 9): CALL-E reports a mailbox
+    pickup as a plain "completed" call with the recipient schema filled in
+    (typically ``reachable: false``). The live transport only relabels the
+    *status* to VOICEMAIL afterwards — the structured result was never empty.
+    A fixture authored to match that reality must not be rejected as an
+    impossible combination."""
+    transport = FixtureTransport(
+        {
+            "anna": {
+                "call_status": "VOICEMAIL",
+                "structured_result": {"reachable": False, "refused": False},
+            }
+        }
+    )
+    outcome = transport.place_one(_request(make_poll(), make_participant("anna")))
+    assert outcome.status is CallStatus.VOICEMAIL
+    assert outcome.structured == {"reachable": False, "refused": False}
+    assert outcome.error is None
+
+
 def test_the_fixture_transport_is_not_live():
     assert FixtureTransport({}).is_live is False

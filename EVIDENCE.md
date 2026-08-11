@@ -1092,3 +1092,63 @@ localization, banner and deletion changes do not alter the slim fixture-only agg
 core in that merged contribution, so no follow-up PR is required.
 
 No live call, video upload or DevPost action was made in this work.
+
+## 34. Transport-layer fixes for the mailbox/decline status matrix — 2026-08-11
+
+The operator relayed two live-measured payload shapes from `GET /v1/calls/{id}` (see
+FINDINGS.md section 9): a mailbox pickup reported as a plain `completed` call with no
+`VOICEMAIL` status on the wire, and an active decline reported as a generic `failed` with
+the real terminal status folded into `failure_message`. Nothing was run against the live
+API in this session — the fixes below were built and tested against the payload shapes as
+relayed, test-first, without a network connection.
+
+Four changes:
+
+1. `models.py::Answer.bucket` — a missing or `None` `structured["reachable"]` now counts
+   as `Bucket.UNREACHED`, not `Bucket.ANSWERED`. Previously only an explicit `False` did;
+   `transports/calle.py` falls back to `{}` when the API returns no structured result at
+   all, and every recipient schema requires `reachable`, so its absence was silently read
+   as an affirmed answer.
+2. `transports/calle.py::_outcome_from` — a `COMPLETED` call is checked against its
+   transcript (callee/user lines only, never the bot side) for mailbox phrasing and
+   relabelled `VOICEMAIL` when found; a `FAILED` call is checked against `failure_message`
+   for an embedded real status (`status=DECLINED (Hangup by: user)` → `CallStatus.DECLINED`)
+   and, when no known status is embedded, the masked message is kept in
+   `CallOutcome.error` instead of being dropped.
+3. `ringedingeding/activity.py::extract_transcript` — a new fallback reads
+   `attempts[].transcript_turns` (a list of `{offset_seconds, speaker, text}`) and renders
+   it into the same `[mm:ss] SPEAKER: Text` form as `result.transcript`, for recipients
+   that carry no top-level transcript string at all.
+4. `transports/fixture.py::FixtureTransport.place_one` — `VOICEMAIL` was added to the set
+   of statuses allowed to carry a filled `structured_result`, alongside `COMPLETED` and
+   `DECLINED`. A mailbox pickup on the live path now legitimately carries both, so the
+   equivalent fixture shape must not be rejected as an impossible combination.
+
+Test-first throughout: each change has a failing test committed alongside it before the
+fix, using the exact measured JSON shapes where the operator provided them and clearly
+synthetic (not claimed as measured) shapes for the negative and edge cases — most notably
+a participant saying "I might not be reachable next week" in a scheduling poll, which must
+stay `COMPLETED` and not be mistaken for a mailbox.
+
+Executed locally, without an account, network or telephone side effect:
+
+```text
+python -m pytest -q
+exit=0 (395 tests; baseline was 375; the same pre-existing Starlette/httpx deprecation
+warning as before)
+
+node --test tests/*.test.js
+11 passed, 0 failed
+
+python -m compileall -q ringedingeding tests
+exit=0
+```
+
+Test count by area: `tests/test_activity.py` gained 7 (transcript_turns extraction),
+`tests/test_merge.py` gained 1 (the missing-`reachable` regression), `tests/test_live_guard.py`
+gained 11 (voicemail detection and failure-message recovery), `tests/test_fixtures.py`
+gained 1 (the `VOICEMAIL` + structured combination) — 20 new tests, 375 + 20 = 395.
+
+No fixtures under `ringedingeding/fixtures/*.json` were touched. No file outside this
+repository was written. `git status` before the commit below showed only the files listed
+in the commit itself.

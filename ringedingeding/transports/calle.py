@@ -31,7 +31,15 @@ Measured, and therefore relied upon here:
   on ``PREPARING`` throughout an ongoing conversation,
 * the transcript lives in ``result.transcript`` as a string, not in
   ``transcript`` at the top level, which stayed ``null``,
-* roughly 40 seconds pass before a telephone rings, whatever the call.
+* roughly 40 seconds pass before a telephone rings, whatever the call,
+* a mailbox pickup is reported as a plain ``COMPLETED`` call, with no
+  ``VOICEMAIL`` status on the wire — read from the transcript instead
+  (FINDINGS.md section 9, 2026-08-11, relayed by the operator),
+* an active decline arrives as a generic ``FAILED``, with the real terminal
+  status folded into ``failure_message`` (FINDINGS.md section 9, same date),
+* a recipient without ``result.transcript`` carries the conversation in
+  ``attempts[].transcript_turns`` instead — a list of turn dictionaries, not
+  a ready-made string (FINDINGS.md section 9, same date).
 
 Still **not** measured, and therefore kept open rather than assumed:
 
@@ -47,20 +55,25 @@ Still **not** measured, and therefore kept open rather than assumed:
   disagree every call in the batch is reported as ``FAILED`` instead of being
   guessed at — attributing one person's answer to another is the worst thing
   this tool could do.
+* the exact wording CALL-E uses for BUSY, NO_ANSWER, CANCELED or EXPIRED
+  pickups — only the mailbox and decline cases above have been observed.
 
-No code in this module has been executed against the live API. See EVIDENCE.md.
+No code in this module has been executed against the live API — the API itself
+was, by the operator, and the payloads it returned are what section 9 records.
+See EVIDENCE.md for what ran in this repository.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Iterator, Sequence
 
-from ..activity import ActivityLine, dedupe, extract_activity, extract_transcript
+from ..activity import ActivityLine, dedupe, extract_activity, extract_transcript, parse_transcript
 from ..calle_credentials import (
     API_KEY_ENV,
     BASE_URL_ENV,
@@ -359,6 +372,101 @@ def _call_id(payload: dict[str, Any]) -> str | None:
     return None
 
 
+# --------------------------------------------------------------------------
+# a mailbox pickup, mapped onto its own status
+# --------------------------------------------------------------------------
+#
+# Measured 2026-08-11 (FINDINGS.md section 9, relayed by the operator from a
+# live call): CALL-E reports a mailbox pickup as a plain "completed" call,
+# task_completed true, indistinguishable from a real conversation by status
+# alone. There is no VOICEMAIL status on the wire to read — it has to be read
+# out of the transcript instead.
+#
+# Two tiers, because not every telltale phrase is equally trustworthy. A
+# phrase that only ever occurs on an answering machine (the beep tone, the
+# German words for mailbox and answering machine) is decisive by itself,
+# anywhere a callee or bot line says it. A phrase a real participant could
+# plausibly say about their *own* availability in one of this tool's polls —
+# "I won't be reachable", "leave a message [with someone else]" — is not
+# trusted alone. It only counts when it opens the conversation (the way an
+# answering machine's greeting always does) *and* the agent's own evidence
+# text independently names the same thing.
+
+_STRONG_VOICEMAIL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"nachricht\s+nach\s+dem\s+signalton",
+        r"\bsignalton\b",
+        r"anrufbeantworter",
+        r"\bsprachbox\b",
+        r"\bmailbox\b",
+        r"\bvoicemail\b",
+        r"answering\s+machine",
+        r"after\s+the\s+(?:tone|beep)",
+    )
+)
+
+_WEAK_VOICEMAIL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"nicht\s+erreichbar",
+        r"hinterlassen\s+sie\s+eine\s+nachricht",
+        r"leave\s+a\s+message",
+    )
+)
+
+
+def _matches_any(text: str, patterns: Sequence[re.Pattern[str]]) -> bool:
+    return any(pattern.search(text) for pattern in patterns)
+
+
+def _looks_like_voicemail(transcript: str, evidence_text: str) -> bool:
+    """Conservative on purpose: only ``callee``/``user`` lines are read.
+
+    The bot side is never trusted for this. FINDINGS.md section 4 measured
+    that the planner adds voicemail-handling instructions to the bot's own
+    behaviour on its own initiative, never asked for — so a bot line
+    mentioning "mailbox" is evidence of an instruction, not of a mailbox.
+    """
+    lines = [line for line in parse_transcript(transcript) if line.speaker in ("USER", "CALLEE")]
+    if not lines:
+        return False
+    callee_text = " ".join(line.text for line in lines)
+    if _matches_any(callee_text, _STRONG_VOICEMAIL_PATTERNS):
+        return True
+    if not _matches_any(lines[0].text, _WEAK_VOICEMAIL_PATTERNS):
+        return False
+    return _matches_any(evidence_text, (*_STRONG_VOICEMAIL_PATTERNS, *_WEAK_VOICEMAIL_PATTERNS))
+
+
+# --------------------------------------------------------------------------
+# a generic FAILED, recovered from the failure message
+# --------------------------------------------------------------------------
+#
+# Measured 2026-08-11 (FINDINGS.md section 9, relayed by the operator): an
+# active decline arrives as the generic top-level status "failed", with the
+# real terminal status folded into ``failure_message``:
+# "calling task status=DECLINED (Hangup by: user)". Nothing in this project
+# read ``failure_message`` before this — an active refusal was landing in
+# ``Bucket.UNREACHED`` next to a phone nobody answered, which is exactly the
+# distinction ``CallStatus`` exists to keep apart.
+
+_FAILURE_STATUS_PATTERN = re.compile(r"status\s*=\s*([A-Za-z_]+)")
+
+
+def _status_from_failure_message(message: str) -> CallStatus | None:
+    """The status ``failure_message`` claims, if this program knows it.
+
+    Only a recognised token is trusted — an unfamiliar one is left as
+    ``FAILED`` rather than guessed at, the same rule :meth:`CallStatus.known`
+    already applies while polling.
+    """
+    match = _FAILURE_STATUS_PATTERN.search(message)
+    if not match:
+        return None
+    return CallStatus.known(match.group(1))
+
+
 def _outcome_from(
     *,
     participant_id: str,
@@ -377,9 +485,26 @@ def _outcome_from(
     a single recipient is involved and no per-recipient text exists — handing
     somebody else's conversation to the wrong person would be exactly the kind
     of mix-up the length check above refuses to make.
+
+    Two refinements sit between the raw status and the outcome, both measured
+    2026-08-11 (see the sections above): a generic ``FAILED`` is checked
+    against ``failure_message`` for the real status it may be hiding, and a
+    ``COMPLETED`` call is checked against its transcript for a mailbox pickup.
     """
     status_source = recipient.get("status", call.get("status"))
     status = CallStatus.parse(status_source)
+    error: str | None = None
+
+    if status is CallStatus.FAILED:
+        failure_message = str(
+            recipient.get("failure_message") or call.get("failure_message") or ""
+        ).strip()
+        embedded = _status_from_failure_message(failure_message)
+        if embedded is not None:
+            status = embedded
+        elif failure_message:
+            error = mask_text(failure_message)
+
     structured = recipient.get("structured_result") or recipient.get("structuredResult") or {}
     if not isinstance(structured, dict):
         structured = {}
@@ -397,6 +522,14 @@ def _outcome_from(
         if single:
             transcript = extract_transcript(call)
 
+    if status is CallStatus.COMPLETED:
+        evidence = recipient.get("evidence") or call.get("evidence")
+        evidence_text = (
+            " ".join(str(item) for item in evidence) if isinstance(evidence, list) else ""
+        )
+        if _looks_like_voicemail(transcript, evidence_text):
+            status = CallStatus.VOICEMAIL
+
     return CallOutcome(
         participant_id=participant_id,
         status=status,
@@ -404,4 +537,5 @@ def _outcome_from(
         summary=summary,
         transcript=mask_text(transcript),
         run_id=run_id,
+        error=error,
     )

@@ -294,6 +294,23 @@ _TRANSCRIPT_PATHS: tuple[tuple[str, ...], ...] = (
     ("transcript",),
 )
 
+# Measured 2026-08-11 (FINDINGS.md section 9): a recipient carries neither of
+# the paths above at all. What it has instead is ``attempts``, a list of dial
+# tries, each with its own ``transcript_turns`` — a list of ``{offset_seconds,
+# speaker, text}`` dictionaries rather than one pre-formatted string. Only one
+# entry was ever observed in ``attempts``, even for a call the service redialled
+# internally, but the shape is a list, so it is walked rather than indexed.
+_TURN_SPEAKER_MAP: dict[str, str] = {
+    "bot": "BOT",
+    "agent": "BOT",
+    "assistant": "BOT",
+    "ai": "BOT",
+    "user": "USER",
+    "callee": "USER",
+    "customer": "USER",
+    "human": "USER",
+}
+
 
 def _dig(payload: Any, path: Sequence[str]) -> Any:
     current = payload
@@ -313,12 +330,72 @@ def extract_activity(payload: Any) -> list[ActivityLine]:
     return []
 
 
+def _format_offset_seconds(seconds: Any) -> str:
+    """``offset_seconds`` (an int or float) rendered as ``mm:ss``.
+
+    Matches the ``[mm:ss] SPEAKER: Text`` convention of section 3 exactly, so a
+    transcript built from turns parses the same way as one that arrived as a
+    ready-made string.
+    """
+    try:
+        total = int(float(seconds))
+    except (TypeError, ValueError):
+        total = 0
+    total = max(0, total)
+    minutes, secs = divmod(total, 60)
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def _transcript_from_turns(turns: Any) -> str:
+    """Render a ``transcript_turns`` list into the established string form."""
+    if not isinstance(turns, list):
+        return ""
+    lines: list[str] = []
+    for turn in turns:
+        if not isinstance(turn, dict):
+            continue
+        text = _first_string(turn, ("text", "message", "content"))
+        if not text:
+            continue
+        speaker_raw = _first_string(turn, ("speaker", "role", "actor")).strip().lower()
+        speaker = _TURN_SPEAKER_MAP.get(speaker_raw, speaker_raw.upper() or "SYSTEM")
+        stamp = _format_offset_seconds(turn.get("offset_seconds"))
+        lines.append(f"[{stamp}] {speaker}: {text}")
+    return "\n".join(lines)
+
+
+def _transcript_from_attempts(payload: Any) -> str:
+    """Measured 2026-08-11 (FINDINGS.md section 9): the only place a
+    recipient's transcript lives when ``result.transcript`` never existed.
+
+    Walked from the end: not observed with more than one attempt, but a retry
+    that finally connects must not hand back an earlier, empty try.
+    """
+    if not isinstance(payload, dict):
+        return ""
+    attempts = payload.get("attempts")
+    if isinstance(attempts, list):
+        for attempt in reversed(attempts):
+            if not isinstance(attempt, dict):
+                continue
+            transcript = _transcript_from_turns(attempt.get("transcript_turns"))
+            if transcript:
+                return transcript
+        return ""
+    # Permissive fallback: turns directly on the payload, without the
+    # ``attempts`` wrapper. Not observed, but plausible — this module accepts
+    # several shapes rather than insisting on the one that was seen once.
+    return _transcript_from_turns(payload.get("transcript_turns"))
+
+
 def extract_transcript(payload: Any) -> str:
     """Return the transcript string, or ``""`` when there is none.
 
     Looks in ``result.transcript`` first because that is where the real service
     put it. ``transcript`` at the top level was measured to be ``null`` even
-    after the call had finished, so it is checked last.
+    after the call had finished, so it is checked last. ``attempts[].transcript_turns``
+    (section 9) is the final fallback, for the shape that carries no top-level
+    string transcript at all.
     """
     for path in _TRANSCRIPT_PATHS:
         found = _dig(payload, path)
@@ -329,7 +406,7 @@ def extract_transcript(payload: Any) -> str:
             parts = [str(item).strip() for item in found if str(item).strip()]
             if parts:
                 return "\n".join(parts)
-    return ""
+    return _transcript_from_attempts(payload)
 
 
 def parse_transcript(text: str) -> list[TranscriptLine]:

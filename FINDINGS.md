@@ -99,9 +99,99 @@ prüfbar, ob richtig kategorisiert wurde.
   ein Anruf ist dann nicht auslösbar. Sauberer Schutz, auf den man sich verlassen kann.
 - Pläne haben eine TTL von 24 Stunden.
 
+## 9. Live-measured status matrix (2026-08-11)
+
+> **Herkunft:** Diese Payloads stammen aus einer echten Messung des Operators gegen
+> die live CALL-E-REST-API am 2026-08-11 (`GET /v1/calls/{id}`) und wurden dem
+> Bau-Agenten als Auftrag mitgeteilt. Der Bau-Agent selbst hat **keinen** Anruf
+> ausgeführt und keine eigene Live-Messung vorgenommen — siehe EVIDENCE.md für das,
+> was in diesem Repo tatsächlich lief (Tests gegen die Payloads unten, keine Sockets).
+
+### Mailbox / Anrufbeantworter kommt als `completed`, nicht als `VOICEMAIL`
+
+Kein Feld auf der Leitung sagt „Anrufbeantworter". Der Anruf ist technisch
+`status: "completed"`, `task_completed: true`, und der Beleg steckt im Transkript:
+
+```json
+{
+  "status": "completed",
+  "task_completed": true,
+  "failure_code": null,
+  "failure_message": null,
+  "evidence": [
+    "Die Ansage der Mailbox bat darum, nach dem Signalton eine Nachricht zu hinterlassen.",
+    "..."
+  ],
+  "recipients": [
+    {
+      "status": "completed",
+      "attempts": [
+        {
+          "status": "completed",
+          "transcript_turns": [
+            {"offset_seconds": 0, "speaker": "bot", "text": "..."},
+            {
+              "offset_seconds": 4,
+              "speaker": "user",
+              "text": "Die angerufene Person ist nicht erreichbar. bitte hinterlassen sie eine nachricht nach dem signalton"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Folge:** `transports/calle.py::_outcome_from` liest jetzt die Callee-/User-Zeilen des
+Transkripts (nie die Bot-Zeilen — Abschnitt 4 oben zeigt, dass der Planer von sich aus
+Voicemail-Verhalten in den Bot-Text einfügt) und ordnet einen `completed`-Anruf mit
+eindeutigem Beleg (`signalton`, `anrufbeantworter`, `sprachbox`, `mailbox`, `voicemail`,
+`answering machine`, `after the tone/beep`) als `VOICEMAIL` ein. Uneindeutige Wendungen
+(„nicht erreichbar", „leave a message") zählen nur, wenn sie den ersten Callee-Turn
+öffnen **und** der `evidence`-Freitext des Agenten dasselbe unabhängig bestätigt — ein
+realer Umfrageteilnehmer kann plausibel „ich bin nächste Woche nicht erreichbar" sagen.
+
+### Aktive Ablehnung kommt als generisches `failed`, mit dem echten Status in `failure_message`
+
+```json
+{
+  "status": "failed",
+  "failure_code": "call_failed",
+  "failure_message": "calling task status=DECLINED (Hangup by: user)",
+  "task_completed": false
+}
+```
+
+Das System wählt bei Nichterreichen automatisch bis zu 3× nach, zeigt dabei aber nur
+**einen** Eintrag in `recipients[].attempts[]`. Im beobachteten Ablehnungsfall war
+`attempts[0].transcript_turns` leer (`[]`) — niemand hat gesprochen, der Anruf wurde
+sofort aufgelegt.
+
+**Folge:** `failure_message`/`failure_code` wurden vorher an keiner Stelle im Repo
+gelesen — eine aktive Ablehnung landete als generisches `FAILED` und damit in
+`Bucket.UNREACHED`, ununterscheidbar von einem Anruf, der schlicht nicht erreichbar
+war. `_outcome_from` wertet `failure_message` jetzt per Regex (`status=([A-Za-z_]+)`)
+aus; ein erkannter Token (hier `DECLINED`) ersetzt das generische `FAILED`, ein
+unbekannter Token bleibt `FAILED`, wird aber (maskiert) in `CallOutcome.error`
+festgehalten statt verworfen.
+
+### Das Transkript steht nicht immer in `result.transcript`
+
+Beide Payloads oben tragen **kein** `result.transcript`. Stattdessen liegt das
+Gespräch in `recipients[].attempts[].transcript_turns` — einer Liste von
+`{offset_seconds, speaker, text}`-Objekten, nicht als fertiger String.
+`ringedingeding.activity.extract_transcript` formatiert das jetzt in dieselbe
+`[mm:ss] SPRECHER: Text`-Form wie Abschnitt 3, damit nachgelagerter Code (Anzeige,
+Voicemail-Erkennung, Export) nicht zwischen den beiden Formen unterscheiden muss.
+
 ## Weiterhin ungeprüft
 
 - **Parallelität.** Ob mehrere Anrufe gleichzeitig laufen, ist offen. „concurrency
   controls" sind dokumentiert, die Grenze nicht. **Im Code beide Fälle offenhalten.**
-- Verhalten bei Voicemail, Besetzt, Nicht-Abheben — bisher nur `COMPLETED` gesehen.
+- Verhalten bei Besetzt und Nicht-Abheben (`BUSY`, `NO_ANSWER`) — bisher nur
+  `COMPLETED` (Abschnitt 1) sowie Mailbox und Ablehnung (Abschnitt 9) gesehen.
+- Ob `recipients[].attempts[]` bei mehreren automatischen Nachwahlversuchen jemals
+  mehr als einen Eintrag zeigt — im beobachteten Ablehnungsfall war es trotz „bis zu
+  3× Nachwahl" genau einer.
 - Ob REST- und MCP-Weg dasselbe Kontingent teilen.
