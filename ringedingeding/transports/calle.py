@@ -73,7 +73,14 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable, Iterator, Sequence
 
-from ..activity import ActivityLine, dedupe, extract_activity, extract_transcript, parse_transcript
+from ..activity import (
+    ActivityLine,
+    TranscriptLine,
+    dedupe,
+    extract_activity,
+    extract_transcript,
+    parse_transcript,
+)
 from ..calle_credentials import (
     API_KEY_ENV,
     BASE_URL_ENV,
@@ -420,6 +427,18 @@ def _matches_any(text: str, patterns: Sequence[re.Pattern[str]]) -> bool:
     return any(pattern.search(text) for pattern in patterns)
 
 
+def _callee_lines(transcript: str) -> list[TranscriptLine]:
+    """The callee's/user's own lines, never the bot's.
+
+    Shared by the voicemail heuristic below and the DECLINED-substance check
+    further down: both need to know whether the person on the other end of
+    the line ever actually said anything, and the bot side is never trusted
+    as evidence of that (FINDINGS.md section 4 — the bot narrates
+    instructions on its own initiative, unprompted).
+    """
+    return [line for line in parse_transcript(transcript) if line.speaker in ("USER", "CALLEE")]
+
+
 def _looks_like_voicemail(transcript: str, evidence_text: str) -> bool:
     """Conservative on purpose: only ``callee``/``user`` lines are read.
 
@@ -428,7 +447,7 @@ def _looks_like_voicemail(transcript: str, evidence_text: str) -> bool:
     behaviour on its own initiative, never asked for — so a bot line
     mentioning "mailbox" is evidence of an instruction, not of a mailbox.
     """
-    lines = [line for line in parse_transcript(transcript) if line.speaker in ("USER", "CALLEE")]
+    lines = _callee_lines(transcript)
     if not lines:
         return False
     callee_text = " ".join(line.text for line in lines)
@@ -467,6 +486,37 @@ def _status_from_failure_message(message: str) -> CallStatus | None:
     return CallStatus.known(match.group(1))
 
 
+# --------------------------------------------------------------------------
+# DECLINED without a conversation: not a refusal
+# --------------------------------------------------------------------------
+#
+# Verified 2026-08-11 directly against the upstream tracker (``gh issue view
+# 111`` and ``gh issue view 82``, CALLE-AI/awesome-phone-call-agents — read
+# first-hand, not taken on relay): a call that never rang at all — zero
+# duration, no media, the callee never on the line — can still come back
+# with the exact text this project reads above: "calling task
+# status=DECLINED (Hangup by: user)". Recovering DECLINED from that text
+# unconditionally turns "the phone never connected" into "this person
+# actively refused" without a shred of evidence for the refusal — precisely
+# the kind of misattribution the identity gate in schemas.py exists to keep
+# out of the other direction. A DECLINED recovered from ``failure_message``
+# is therefore trusted only when the callee's own words are on record;
+# otherwise the outcome falls through to the plain FAILED path below, which
+# already keeps the (masked) message as ``CallOutcome.error`` and lets
+# ``Answer.bucket`` compute UNREACHED for it.
+#
+# Deliberately not implemented: a duration-based check. No REST payload with
+# a duration field has been measured for this project (only an MCP-shaped
+# example in issue #111 shows one) — absent fields must not be read as zero
+# (FINDINGS.md's own rule elsewhere), so this only checks what is actually on
+# hand: transcript substance.
+
+
+def _has_conversation_substance(transcript: str) -> bool:
+    """Whether the callee/user side of the call ever actually spoke."""
+    return bool(_callee_lines(transcript))
+
+
 def _outcome_from(
     *,
     participant_id: str,
@@ -486,20 +536,35 @@ def _outcome_from(
     somebody else's conversation to the wrong person would be exactly the kind
     of mix-up the length check above refuses to make.
 
-    Two refinements sit between the raw status and the outcome, both measured
+    Three refinements sit between the raw status and the outcome, all measured
     2026-08-11 (see the sections above): a generic ``FAILED`` is checked
-    against ``failure_message`` for the real status it may be hiding, and a
-    ``COMPLETED`` call is checked against its transcript for a mailbox pickup.
+    against ``failure_message`` for the real status it may be hiding — with a
+    claimed DECLINED trusted only when the transcript shows the callee
+    actually spoke — and a ``COMPLETED`` call is checked against its
+    transcript for a mailbox pickup. The transcript is therefore extracted
+    first, before either check needs it.
     """
     status_source = recipient.get("status", call.get("status"))
     status = CallStatus.parse(status_source)
     error: str | None = None
+
+    transcript = extract_transcript(recipient)
+    if not transcript:
+        others = call.get("recipients")
+        single = not isinstance(others, list) or len(others) <= 1
+        if single:
+            transcript = extract_transcript(call)
 
     if status is CallStatus.FAILED:
         failure_message = str(
             recipient.get("failure_message") or call.get("failure_message") or ""
         ).strip()
         embedded = _status_from_failure_message(failure_message)
+        if embedded is CallStatus.DECLINED and not _has_conversation_substance(transcript):
+            # #111 / #82: a "decline" with nobody ever on the line. Left as
+            # FAILED so the message is not lost, but not trusted as this
+            # person's refusal.
+            embedded = None
         if embedded is not None:
             status = embedded
         elif failure_message:
@@ -514,13 +579,6 @@ def _outcome_from(
         if isinstance(value, str) and value.strip():
             summary = mask_text(value.strip())
             break
-
-    transcript = extract_transcript(recipient)
-    if not transcript:
-        others = call.get("recipients")
-        single = not isinstance(others, list) or len(others) <= 1
-        if single:
-            transcript = extract_transcript(call)
 
     if status is CallStatus.COMPLETED:
         evidence = recipient.get("evidence") or call.get("evidence")

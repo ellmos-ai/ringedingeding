@@ -185,6 +185,100 @@ Gespräch in `recipients[].attempts[].transcript_turns` — einer Liste von
 `[mm:ss] SPRECHER: Text`-Form wie Abschnitt 3, damit nachgelagerter Code (Anzeige,
 Voicemail-Erkennung, Export) nicht zwischen den beiden Formen unterscheiden muss.
 
+## 10. Nachschärfung 2026-08-11: DECLINED ohne Gespräch, Identitäts-Gate, Nullable-Unions, Batch-Dispatch
+
+> **Herkunft:** Der DECLINED-Befund unten ist **selbst verifiziert** — direkt gegen den
+> Upstream-Tracker gelesen (`gh issue view 111` / `gh issue view 82`,
+> `CALLE-AI/awesome-phone-call-agents`), nicht nur vom Operator relayed. Die
+> Batch-Dispatch-Aussage ist **codegelesen** (`service.py::make_transport`,
+> `transports/calle.py::CalleBatchTransport`), keine eigene Live-Messung — dieser
+> Bau-Agent hat wie in Abschnitt 9 keinen Anruf ausgeführt.
+
+### Abschnitt 9 war zu gutgläubig: DECLINED kommt auch ohne jedes Klingeln
+
+Die dort gezeigte Ablehnungs-Payload (`failure_message: "calling task
+status=DECLINED (Hangup by: user)"`, `attempts[0].transcript_turns: []`) wurde am
+2026-08-11 unbesehen als aktive Ablehnung übernommen. Die Upstream-Issues #111 und
+#82 beschreiben genau diesen Fall als **eigenständigen Fehler des Dienstes**: ein
+Anruf, der nie klingelte — keine Verbindung, keine Dauer, niemand je in der
+Leitung — kommt dennoch mit `status=DECLINED`/„Hangup by: user" zurück. Die
+Payload aus Abschnitt 9 ist damit nicht als „Person hat aufgelegt" belegt, sondern
+ebenso gut als „Anruf kam nie an" erklärbar — beides sieht auf der Leitung gleich
+aus.
+
+**Folge:** `transports/calle.py::_outcome_from` übernimmt ein aus `failure_message`
+gelesenes `DECLINED` jetzt nur noch, wenn das Transkript tatsächlich Callee-/
+User-Zeilen enthält (`_has_conversation_substance`, dieselbe Callee-Filterung wie
+die Voicemail-Erkennung in Abschnitt 9). Ohne Gesprächssubstanz bleibt der Status
+`FAILED`, die (maskierte) `failure_message` bleibt aber in `CallOutcome.error`
+erhalten statt verworfen zu werden — `Answer.bucket` liefert dafür automatisch
+`UNREACHED`, nicht `REFUSED`. Eine Dauer-basierte Zusatzprüfung (`duration > 0`)
+ist bewusst **nicht** eingebaut: kein REST-Payload mit Dauer-Feld wurde bisher
+gemessen (nur ein MCP-Beispiel in Issue #111 zeigt `duration_seconds: 0`), und ein
+fehlendes Feld darf nicht als Null gelesen werden — dieselbe Regel, die dieses
+Projekt an anderer Stelle schon befolgt.
+
+### Identitäts-Gate: eine Ablehnung der falschen Person ist keine Antwort des Mitglieds
+
+`models.py::Answer.bucket` prüfte bisher `refused` **vor** `reachable`. Für das neue
+Identitäts-Gate in `schemas.py::build_task_text` (Schritt 2: „Spreche ich mit
+{Name}?" / „Am I speaking with {name}?", nur wenn ein Name mitgegeben wurde) wurde
+das zum konkreten Fehler: `{"reachable": false, "refused": true}` — die falsche
+Person am Apparat, die für sich selbst ablehnt — landete als REFUSED für das
+eigentliche Mitglied. Die Reihenfolge ist jetzt getauscht: `reachable` zuerst, dann
+`refused`. Regressionstest: `tests/test_merge.py::
+test_a_strangers_refusal_never_counts_as_this_participants_answer`.
+
+### Sprachdirektive gegen englisch gesprochene wörtliche Sätze
+
+Feldbefund aus dem Schwesterprojekt `hungrycall` (2026-08-11): ein wörtlich in
+Anführungszeichen vorgegebener englischer Satz wurde englisch gesprochen, obwohl
+der Anruf sonst deutsch lief. `_RULES_DE`/`_RULES_EN` in `schemas.py` tragen jetzt
+je eine unquotierte Sprachdirektive vor der Regelliste („Führe das gesamte
+Gespräch auf Deutsch…" / „Conduct the entire conversation in English…") —
+außerhalb jeder Anführungszeichen, sonst würde die Direktive selbst vorgelesen statt
+befolgt (Regressionstest: `test_the_language_directive...` bzw. der
+`_unquoted()`-Helfer in `tests/test_schemas.py`).
+
+### Keine nullable Union-Types in Schemas an die API (Upstream-Issue #120)
+
+Bestätigt über den Upstream-Tracker (`gh issue view 120`) und im Schwesterprojekt
+`researchcall` bereits behoben: CALL-E lehnt den gesamten Call-Create-Request mit
+`result_schema_invalid` ab, sobald irgendwo im Schema ein nullable Union
+(`{"type": ["string", "null"]}`), ein blankes `"type": "null"` oder ein `null` in
+einem `enum` vorkommt. Das neue optionale Feld `callback_requested` in
+`_COMMON_PROPERTIES` ist entsprechend ein einfaches `{"type": "string"}`,
+**nicht** in `required` — Abwesenheit statt `null` für „trifft nicht zu".
+Dauerhafter Regressionswächter: `tests/test_schemas.py::
+test_no_schema_sent_to_calle_ever_contains_a_nullable_union` (rekursiver
+Schema-Walker, prüft `recipient_result_schema` und `aggregate_result_schema` für
+jede `PollKind`).
+
+### Live-Dispatch ist immer Batch — der Projekt-/Web-UI-Pfad kennt kein `--serial`
+
+`service.py::make_transport` liefert für `RunMode.LIVE` unbedingt
+`CalleBatchTransport` — sowohl `cli_projects.py::cmd_project_call` (`project call`)
+als auch `web/app.py::run_round_route` (`POST /projects/{id}/run`) rufen
+ausschließlich diese Funktion auf; keiner der beiden hat einen `--serial`-Schalter
+oder ein Formularfeld dafür. Der `--serial`-Schalter existiert nur auf der
+eigenständigen, projektlosen `run`-CLI (`cli.py::_transport_for`).
+
+Zwei Empfänger mit **identischer** Telefonnummer in einem Batch-Request sind vom
+Code her nicht verhindert (`ProjectStore.create_contact`/`set_channel` prüfen
+Rufnummern nicht auf Eindeutigkeit) — was der Dienst selbst mit zwei gleichen
+Empfängern in einem Batch macht, ist unbeobachtet. Bekannt und bereits im Code
+behandelt ist nur der Fall, dass der Dienst die Antwortliste **kürzt oder anders
+zählt**: `transports/calle.py::CalleBatchTransport` prüft
+`len(recipients) != len(requests)` und liefert dann für **alle** Teilnehmer
+`FAILED` mit der Meldung „…; refusing to map answers by position. Re-run with
+--serial." — ein Batch-Live-Lauf mit doppelter Nummer scheitert also so, nicht
+mit einer stillen Verwechslung. Serieller Fallback über die projektlose CLI ist möglich
+(`run --db <db> --poll <poll_id> --live --serial`, siehe Betreiber-Anleitung im
+Abschlussbericht), da `ProjectStore` nur eine dünne Schicht über demselben
+`Store`/derselben SQLite-Datei ist — die Poll-ID einer Projekt-Runde ist aber
+nicht auto-generiert-vorhersagbar und muss per
+`ProjectStore.round_ids(project_id, round_kind)` nachgeschlagen werden.
+
 ## Weiterhin ungeprüft
 
 - **Parallelität.** Ob mehrere Anrufe gleichzeitig laufen, ist offen. „concurrency
@@ -195,3 +289,8 @@ Voicemail-Erkennung, Export) nicht zwischen den beiden Formen unterscheiden muss
   mehr als einen Eintrag zeigt — im beobachteten Ablehnungsfall war es trotz „bis zu
   3× Nachwahl" genau einer.
 - Ob REST- und MCP-Weg dasselbe Kontingent teilen.
+- **Batch-Dispatch mit zwei identischen Empfängernummern in einem Live-Request**
+  (Testdesign 2026-08-11 für Punkt E): ob der Dienst das als zwei getrennte
+  Anrufe behandelt oder die Empfängerliste dedupliziert/kürzt, ist unbeobachtet —
+  nur die Code-Reaktion auf eine mengenmäßig abweichende Antwortliste ist bekannt
+  (siehe Abschnitt 10 oben).

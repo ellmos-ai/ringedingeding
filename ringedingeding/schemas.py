@@ -15,15 +15,32 @@ asked for. So the two things that must not drift, the question itself and the
 sentence disclosing that this is an automated call, are quoted below; the rest
 is left as guidance on purpose.
 
-Every schema here carries three fields that exist purely to keep the merge
+Every schema here carries these fields that exist purely to keep the merge
 honest:
 
 ``reachable``
-    False when the line was answered but not by the person we wanted.
+    False when the line was answered but not by the person we wanted — including
+    when identity could never be confirmed at all (see the identity check in
+    ``build_task_text`` below). Checked before ``refused`` in ``models.py`` on
+    purpose: nothing said on a call where the wrong person picked up is this
+    participant's answer.
 ``refused``
     True when the person was reached and chose not to answer. A valid outcome.
+``callback_requested``
+    Only set when ``reachable`` is false because the right person could not
+    come to the phone: a good time to call back, if one was offered. Omitted,
+    never null, when it does not apply — see the schema note on nullable
+    types below.
 ``note``
     The qualifier a tally would otherwise flatten ("yes, but under 50 euros").
+
+No schema sent to the CALL-E API may use a nullable union type anywhere
+(``{"type": ["string", "null"]}``, ``"type": "null"``, or ``null`` inside an
+``enum``): the API rejects the entire call-create request for it
+(``result_schema_invalid``, upstream issue #120). "Not applicable" is
+therefore always expressed as an *absent* optional field, never as an
+explicit null — both in the schemas below and in the guidance that tells the
+agent what to do with an optional field it has nothing to put in.
 """
 
 from __future__ import annotations
@@ -55,6 +72,15 @@ _COMMON_PROPERTIES: dict[str, Any] = {
         "description": (
             "true if the person understood the question and chose not to answer. "
             "This is a valid outcome. Do not try to change their mind."
+        ),
+    },
+    "callback_requested": {
+        "type": "string",
+        "description": (
+            "Only when the right person could not be reached: what they said "
+            "about a good time to call back, in their own words. Leave this "
+            "out entirely when it does not apply — do not send an empty "
+            "string or null for it."
         ),
     },
 }
@@ -286,44 +312,52 @@ _RULES_EN = """\
 Anything in quotation marks is spoken exactly as written, word for word.
 Everything outside quotation marks is guidance you put into your own words.
 
+Conduct the entire conversation in English. Every sentence you speak aloud
+must be English, even a sentence given to you here in quotation marks.
+
 Rules for this call, in this order:
 
 1. Open with this sentence, before anything else and unprompted:
    "Hello, this is an automated assistant calling on behalf of {organizer}.
    I have one short question." Do not wait to be asked.
-{opening_block}2. Ask whether now is a good moment. If it is not, say you will not call back
+{opening_block}2. {identity_block}
+3. Ask whether now is a good moment. If it is not, say you will not call back
    automatically and end the call politely.
-3. {question_block}
-4. If the person does not want to answer, accept it immediately, thank them and
+4. {question_block}
+5. If the person does not want to answer, accept it immediately, thank them and
    end the call. Do not persuade, do not ask twice, do not offer reasons.
-5. Give no medical, legal or financial advice, and ask for none. If anything
+6. Give no medical, legal or financial advice, and ask for none. If anything
    sounds like an emergency, end the poll immediately and tell the person to
    contact the local emergency services.
-6. Never reveal who else is being called, what anyone else answered, or any
+7. Never reveal who else is being called, what anyone else answered, or any
    phone number.
-7. Keep it short. Two minutes is plenty. Then fill in the result fields.
+8. Keep it short. Two minutes is plenty. Then fill in the result fields.
 {closing_block}"""
 
 _RULES_DE = """\
 Alles in Anführungszeichen wird wortwörtlich so gesprochen, wie es dasteht.
 Alles außerhalb der Anführungszeichen formulierst du selbst.
 
+Führe das gesamte Gespräch auf Deutsch. Jeder Satz, den du laut sprichst, muss
+Deutsch sein — auch ein Satz, der dir hier in Anführungszeichen vorgegeben ist.
+
 Regeln für dieses Gespräch, in dieser Reihenfolge:
 
 1. Beginne von dir aus mit genau diesem Satz, vor allem anderen:
    "Guten Tag, hier ist ein automatischer Assistent im Auftrag von {organizer}.
    Ich habe eine kurze Frage." Warte nicht, bis jemand nachfragt.
-{opening_block}2. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
+{opening_block}2. {identity_block}
+3. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
    erneut anrufst, und beende das Gespräch freundlich.
-3. {question_block}
-4. Will die Person nicht antworten, akzeptiere das sofort, bedanke dich und
+4. {question_block}
+5. Will die Person nicht antworten, akzeptiere das sofort, bedanke dich und
    beende das Gespräch. Nicht überreden, nicht nachfragen, keine Gründe anbieten.
-5. Gib keine medizinischen, rechtlichen oder finanziellen Ratschläge und frage
+6. Gib keine medizinischen, rechtlichen oder finanziellen Ratschläge und frage
    auch nicht danach. Klingt etwas nach einem Notfall, beende die Umfrage sofort
    und verweise auf den Notruf.
-6. Verrate nie, wer sonst noch angerufen wird, was andere geantwortet haben,
+7. Verrate nie, wer sonst noch angerufen wird, was andere geantwortet haben,
    oder irgendeine Rufnummer.
-7. Fasse dich kurz. Zwei Minuten reichen. Fülle danach die Ergebnisfelder aus.
+8. Fasse dich kurz. Zwei Minuten reichen. Fülle danach die Ergebnisfelder aus.
 {closing_block}"""
 
 
@@ -358,11 +392,64 @@ def _closing_block(lines: Sequence[str], german: bool) -> str:
     if not said:
         return ""
     lead = (
-        "8. Verabschiede dich am Ende wörtlich mit:"
+        "9. Verabschiede dich am Ende wörtlich mit:"
         if german
-        else "8. Close the call with these words, exactly:"
+        else "9. Close the call with these words, exactly:"
     )
     return "\n".join([lead] + [f"   {_quote(line)}" for line in said]) + "\n"
+
+
+def _identity_block(given_name: str | None, german: bool) -> str:
+    """Confirm identity right after the disclosure, before anything else.
+
+    Nutzer-Testdesign 2026-08-11: a call must never be scored as the intended
+    participant having answered just because *somebody* picked up. This step
+    forces the check before the real question is asked. The result travels
+    back through the required ``reachable`` field (see ``_COMMON_PROPERTIES``
+    above) — the agent is told explicitly, below, to leave it false whenever
+    identity was never confirmed, regardless of what the other person then
+    says or agrees to. ``models.py`` checks ``reachable`` before ``refused``
+    for exactly this reason: nothing a stranger says on this call is this
+    participant's answer.
+
+    Skipped, honestly, when there is no name to ask for — ``--no-names``
+    withholds the name from CALL-E by design, so there is nothing to confirm
+    against. That is a known, deliberate limitation of this gate, not an
+    oversight: a caller must choose between the privacy of ``--no-names`` and
+    the identity check, it cannot have both at once.
+    """
+    if not given_name:
+        if german:
+            return (
+                "Ohne Namen kann die Identität nicht geprüft werden — fahre "
+                "direkt mit der nächsten Frage fort."
+            )
+        return (
+            "No name was given, so identity cannot be confirmed — proceed "
+            "directly to the next question."
+        )
+    if german:
+        question = _quote(f"Spreche ich mit {given_name}?")
+        return (
+            f"Frage als Erstes {question} Ist es nicht {given_name}: bitte "
+            f"höflich darum, {given_name} ans Telefon zu holen. Geht das "
+            "nicht, frage nach einem guten Zeitpunkt für einen Rückruf und "
+            "halte ihn in callback_requested fest (weglassen, falls nicht "
+            "zutreffend), bedanke dich und beende das Gespräch, ohne die "
+            "eigentliche Frage zu stellen. Ohne bestätigte Identität bleibt "
+            "reachable false — unabhängig davon, was die andere Person sagt "
+            "oder antwortet."
+        )
+    question = _quote(f"Am I speaking with {given_name}?")
+    return (
+        f"First ask {question} If this is not {given_name}: politely ask "
+        f"them to bring {given_name} to the phone. If that is not possible, "
+        "ask for a good time to call back and record it in "
+        "callback_requested (leave it out when it does not apply), thank "
+        "them and end the call without asking the actual question. Without "
+        "confirmed identity, reachable stays false — regardless of what the "
+        "other person says or answers."
+    )
 
 
 def _urgency_block(urgency: str, german: bool) -> str:
@@ -420,6 +507,7 @@ def build_task_text(
         question_block=block,
         opening_block=_opening_block(opening, german) + _urgency_block(urgency, german),
         closing_block=_closing_block(closing, german),
+        identity_block=_identity_block(given_name, german),
     )
     if given_name:
         greeting = (
