@@ -234,6 +234,98 @@ def test_a_response_without_activity_is_empty_not_an_error():
 
 
 # --------------------------------------------------------------------------
+# transcript_turns inside attempts — measured 2026-08-11 (FINDINGS.md section 9)
+#
+# A recipient that answers, or that reaches a mailbox, carries no top-level
+# ``result.transcript`` string at all. What is there instead is
+# ``attempts[].transcript_turns``, a list of ``{offset_seconds, speaker,
+# text}`` dictionaries — one attempt per dial try, though only ever one entry
+# was observed even when the service redials internally.
+# --------------------------------------------------------------------------
+
+
+def test_transcript_turns_inside_attempts_are_read():
+    recipient = {
+        "status": "completed",
+        "attempts": [
+            {
+                "status": "completed",
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": "Hello, this is a test."},
+                    {"offset_seconds": 4, "speaker": "user", "text": "Hallo."},
+                ],
+            }
+        ],
+    }
+    assert extract_transcript(recipient) == (
+        "[00:00] BOT: Hello, this is a test.\n[00:04] USER: Hallo."
+    )
+
+
+def test_empty_transcript_turns_yield_no_transcript():
+    """The declined case: the attempt is terminal but nobody ever spoke."""
+    recipient = {
+        "status": "failed",
+        "attempts": [{"status": "failed", "transcript_turns": []}],
+    }
+    assert extract_transcript(recipient) == ""
+
+
+def test_a_string_transcript_still_wins_over_transcript_turns():
+    """The measured, documented location (section 3) is checked first."""
+    payload = {
+        "result": {"transcript": "[00:01] BOT: Hello."},
+        "attempts": [
+            {"transcript_turns": [{"offset_seconds": 9, "speaker": "user", "text": "ignored"}]}
+        ],
+    }
+    assert extract_transcript(payload) == "[00:01] BOT: Hello."
+
+
+def test_transcript_turns_speaker_labels_are_normalised():
+    """``callee``/``customer``/``human`` all mean the same thing as ``user``."""
+    for label in ("user", "callee", "customer", "human"):
+        recipient = {
+            "attempts": [
+                {"transcript_turns": [{"offset_seconds": 1, "speaker": label, "text": "hi"}]}
+            ]
+        }
+        assert extract_transcript(recipient) == "[00:01] USER: hi"
+
+
+def test_a_turn_without_text_is_skipped_not_blank():
+    recipient = {
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": ""},
+                    {"offset_seconds": 2, "speaker": "user", "text": "hallo"},
+                ]
+            }
+        ]
+    }
+    assert extract_transcript(recipient) == "[00:02] USER: hallo"
+
+
+def test_only_the_last_attempt_with_turns_is_used():
+    """Not observed with more than one entry, but the shape is a list —
+
+    a retried call should not hand back the transcript of the failed first
+    try once a later attempt actually connected."""
+    recipient = {
+        "attempts": [
+            {"transcript_turns": [{"offset_seconds": 0, "speaker": "bot", "text": "first try"}]},
+            {"transcript_turns": [{"offset_seconds": 0, "speaker": "bot", "text": "second try"}]},
+        ]
+    }
+    assert extract_transcript(recipient) == "[00:00] BOT: second try"
+
+
+def test_a_response_without_attempts_at_all_still_yields_no_transcript():
+    assert extract_transcript({"status": "no_answer"}) == ""
+
+
+# --------------------------------------------------------------------------
 # the transcript format
 # --------------------------------------------------------------------------
 

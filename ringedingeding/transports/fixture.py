@@ -63,7 +63,14 @@ class FixtureTransport(CallTransport):
         transcript = str(spec.get("transcript") or "")
 
         # A call that never connected cannot carry a filled-in schema.
-        if status not in (CallStatus.COMPLETED, CallStatus.DECLINED) and structured:
+        # VOICEMAIL is an exception, measured 2026-08-11 (FINDINGS.md section
+        # 9): CALL-E reports a mailbox pickup as a plain COMPLETED call with
+        # the recipient schema filled in — the live transport (calle.py)
+        # relabels the *status* to VOICEMAIL afterwards, the structured
+        # result was never empty. A fixture built to match that shape is
+        # exactly what a real mailbox pickup looks like once it reaches here.
+        connected_statuses = (CallStatus.COMPLETED, CallStatus.DECLINED, CallStatus.VOICEMAIL)
+        if status not in connected_statuses and structured:
             return CallOutcome(
                 participant_id=request.participant.id,
                 status=CallStatus.FAILED,

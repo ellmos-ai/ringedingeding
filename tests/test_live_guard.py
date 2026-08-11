@@ -221,6 +221,275 @@ def test_summaries_coming_back_from_the_call_are_masked():
 def test_a_missing_status_is_a_failure_not_a_success():
     outcome = _outcome_from(participant_id="p1", call={}, recipient={}, run_id=None)
     assert outcome.status is CallStatus.FAILED
+    assert outcome.error is None
+
+
+# --------------------------------------------------------------------------
+# voicemail detection — measured 2026-08-11, relayed by the operator
+# (FINDINGS.md section 9). CALL-E reports a mailbox pickup as a plain
+# "completed" call; status alone cannot tell it apart from a real
+# conversation, so the transcript is read.
+# --------------------------------------------------------------------------
+
+
+def _mailbox_call() -> dict:
+    """The measured payload, trimmed to what the mapping actually reads."""
+    return {
+        "status": "completed",
+        "task_completed": True,
+        "failure_code": None,
+        "failure_message": None,
+        "evidence": [
+            "Die Ansage der Mailbox bat darum, nach dem Signalton eine "
+            "Nachricht zu hinterlassen."
+        ],
+        "recipients": [
+            {
+                "status": "completed",
+                "attempts": [
+                    {
+                        "status": "completed",
+                        "transcript_turns": [
+                            {
+                                "offset_seconds": 0,
+                                "speaker": "bot",
+                                "text": "Hello, this is an automated assistant.",
+                            },
+                            {
+                                "offset_seconds": 4,
+                                "speaker": "user",
+                                "text": (
+                                    "Die angerufene Person ist nicht erreichbar. "
+                                    "bitte hinterlassen sie eine nachricht nach "
+                                    "dem signalton"
+                                ),
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_a_mailbox_pickup_is_reported_as_voicemail_not_completed():
+    call = _mailbox_call()
+    outcome = _outcome_from(
+        participant_id="p1", call=call, recipient=call["recipients"][0], run_id="call_1"
+    )
+    assert outcome.status is CallStatus.VOICEMAIL
+    assert "signalton" in outcome.transcript.lower()
+
+
+def test_a_strong_voicemail_phrase_need_not_be_in_the_opening_turn():
+    """'signalton' decides it on its own, wherever in the call it is said —
+    unlike the ambiguous phrases below, no real participant says this."""
+    recipient = {
+        "status": "completed",
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": "Hello?"},
+                    {"offset_seconds": 2, "speaker": "user", "text": "Hallo?"},
+                    {"offset_seconds": 5, "speaker": "bot", "text": "Is now a good time?"},
+                    {
+                        "offset_seconds": 8,
+                        "speaker": "user",
+                        "text": "Bitte sprechen Sie nach dem Signalton.",
+                    },
+                ]
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1", call={"status": "completed"}, recipient=recipient, run_id="call_1"
+    )
+    assert outcome.status is CallStatus.VOICEMAIL
+
+
+def test_a_person_who_is_merely_unavailable_next_week_is_not_a_voicemail():
+    """'nicht erreichbar' alone, in the opening turn, is not decisive.
+
+    A real participant in a scheduling poll can say exactly this about their
+    own availability. Without corroboration it must not flip a call the
+    service reported as completed."""
+    recipient = {
+        "status": "completed",
+        "structured_result": {"reachable": True, "refused": False},
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": "Hello, is now a good time?"},
+                    {
+                        "offset_seconds": 3,
+                        "speaker": "user",
+                        "text": "Ich bin naechste Woche nicht erreichbar, sonst gerne.",
+                    },
+                ]
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1",
+        call={"status": "completed", "evidence": []},
+        recipient=recipient,
+        run_id="call_1",
+    )
+    assert outcome.status is CallStatus.COMPLETED
+
+
+def test_an_ambiguous_phrase_outside_the_opening_turn_is_never_enough():
+    """The same phrase, said later, is not even looked at — only the opening
+    turn is checked for the ambiguous patterns."""
+    recipient = {
+        "status": "completed",
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": "Hello, is now a good time?"},
+                    {"offset_seconds": 3, "speaker": "user", "text": "Yes, go ahead."},
+                    {"offset_seconds": 20, "speaker": "user", "text": "I might not be reachable next week though."},
+                ]
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1",
+        call={"status": "completed", "evidence": ["voicemail system"]},
+        recipient=recipient,
+        run_id="call_1",
+    )
+    assert outcome.status is CallStatus.COMPLETED
+
+
+def test_a_weak_voicemail_phrase_is_confirmed_by_the_agents_own_evidence():
+    """'leave a message' alone in the opening turn is ambiguous; the agent's
+    own evidence text can corroborate it."""
+    recipient = {
+        "status": "completed",
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": "Hello, this is a test call."},
+                    {"offset_seconds": 5, "speaker": "user", "text": "Please just leave a message for me."},
+                ]
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1",
+        call={
+            "status": "completed",
+            "evidence": ["The call reached a voicemail system before any human spoke."],
+        },
+        recipient=recipient,
+        run_id="call_1",
+    )
+    assert outcome.status is CallStatus.VOICEMAIL
+
+
+def test_a_human_answer_is_never_mistaken_for_a_mailbox():
+    recipient = {
+        "status": "completed",
+        "structured_result": {"reachable": True, "refused": False, "answer": "Sure, sounds good."},
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "bot", "text": "Hello, is now a good time?"},
+                    {"offset_seconds": 2, "speaker": "user", "text": "Hallo?"},
+                    {"offset_seconds": 6, "speaker": "user", "text": "Sure, sounds good."},
+                ]
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1",
+        call={"status": "completed", "evidence": []},
+        recipient=recipient,
+        run_id="call_1",
+    )
+    assert outcome.status is CallStatus.COMPLETED
+
+
+def test_the_voicemail_check_only_applies_to_a_completed_status():
+    """A call already reported as something else is never second-guessed by
+    the transcript — only COMPLETED is ambiguous enough to need this."""
+    recipient = {
+        "status": "no_answer",
+        "attempts": [
+            {
+                "transcript_turns": [
+                    {"offset_seconds": 0, "speaker": "user", "text": "This is a voicemail box."}
+                ]
+            }
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1", call={"status": "no_answer"}, recipient=recipient, run_id="call_1"
+    )
+    assert outcome.status is CallStatus.NO_ANSWER
+
+
+# --------------------------------------------------------------------------
+# DECLINED recovered from a generic FAILED — measured 2026-08-11, relayed by
+# the operator (FINDINGS.md section 9).
+# --------------------------------------------------------------------------
+
+
+def test_a_generic_failed_status_is_recovered_via_the_failure_message():
+    call = {
+        "status": "failed",
+        "failure_code": "call_failed",
+        "failure_message": "calling task status=DECLINED (Hangup by: user)",
+        "task_completed": False,
+        "recipients": [
+            {"status": "failed", "attempts": [{"status": "failed", "transcript_turns": []}]}
+        ],
+    }
+    outcome = _outcome_from(
+        participant_id="p1", call=call, recipient=call["recipients"][0], run_id="call_1"
+    )
+    assert outcome.status is CallStatus.DECLINED
+    assert outcome.error is None  # a valid outcome, not a technical failure
+
+
+def test_recipient_level_failure_message_wins_over_call_level():
+    outcome = _outcome_from(
+        participant_id="p1",
+        call={"status": "failed", "failure_message": "calling task status=BUSY"},
+        recipient={
+            "status": "failed",
+            "failure_message": "calling task status=DECLINED (Hangup by: user)",
+        },
+        run_id=None,
+    )
+    assert outcome.status is CallStatus.DECLINED
+
+
+def test_an_unrecognised_failure_message_keeps_failed_but_is_not_lost():
+    """An unknown token must not be guessed at — but the diagnostic text is
+    kept rather than silently dropped, masked like every other output."""
+    outcome = _outcome_from(
+        participant_id="p1",
+        call={
+            "status": "failed",
+            "failure_message": "network error while dialing +1 555 555 0100",
+        },
+        recipient={},
+        run_id=None,
+    )
+    assert outcome.status is CallStatus.FAILED
+    assert outcome.error is not None
+    assert "5555550100" not in outcome.error
+    assert "network error while dialing" in outcome.error
+
+
+def test_a_failure_without_a_message_carries_no_invented_error():
+    outcome = _outcome_from(
+        participant_id="p1", call={"status": "failed"}, recipient={}, run_id=None
+    )
+    assert outcome.status is CallStatus.FAILED
+    assert outcome.error is None
 
 
 def test_the_key_format_is_never_second_guessed(monkeypatch):

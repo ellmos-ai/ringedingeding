@@ -270,6 +270,12 @@ class Answer:
             return Bucket.UNREACHED
         if self.structured.get("refused") is True:
             return Bucket.REFUSED
-        if self.structured.get("reachable") is False:
+        if self.structured.get("reachable") is not True:
+            # Every recipient schema requires "reachable" (schemas.py); the
+            # agent always fills it in on a real call. A missing or ``None``
+            # value is not silence agreeing to be counted — it means the
+            # structured result never arrived (audit finding, 2026-08-11:
+            # transports/calle.py falls back to ``{}`` when the API sends
+            # none), and that must read the same as an explicit ``False``.
             return Bucket.UNREACHED
         return Bucket.ANSWERED

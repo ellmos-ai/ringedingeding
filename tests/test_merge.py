@@ -94,6 +94,22 @@ def test_completed_call_with_wrong_person_counts_as_unreached():
     assert [r.ref for r in coverage.unreached] == ["a"]
 
 
+def test_a_completed_call_with_no_structured_result_at_all_counts_as_unreached():
+    """A missing ``reachable`` is not the same as an affirmed one.
+
+    Audit finding (2026-08-11): ``transports/calle.py`` falls back to ``{}``
+    when the API returns no ``structured_result`` at all — a transport hiccup,
+    not a confirmation that the right person was reached. Silence must not
+    read as "answered", the one rule this whole module exists to enforce.
+    """
+    poll = make_poll()
+    people = [make_participant("a")]
+    answers = {"p_a": Answer(participant_id="p_a", call_status=CallStatus.COMPLETED)}
+    coverage = merge_poll(poll, people, answers).coverage
+    assert [r.ref for r in coverage.unreached] == ["a"]
+    assert coverage.answered == ()
+
+
 # --------------------------------------------------------------------------
 # slot polls
 # --------------------------------------------------------------------------
