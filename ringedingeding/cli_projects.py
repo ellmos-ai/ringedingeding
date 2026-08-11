@@ -561,7 +561,7 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
         "--phone", help="E.164: a '+', the country code, then the number without its leading 0"
     )
     add.add_argument("--email", help="stored for stage 2; not used for calling yet")
-    add.add_argument("--note")
+    add.add_argument("--note", help="local reminder only; never reaches a call")
     add.set_defaults(func=cmd_contact_add)
 
     listing = contact_sub.add_parser("list", help="list contacts")

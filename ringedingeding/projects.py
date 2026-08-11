@@ -299,6 +299,11 @@ class Contact:
     id: str
     name: str
     note: str = ""
+    """Local/display-only. Never read by service.py, runner.py or schemas.py --
+    it does not reach a call in any form (CONVERSATION-TREE.md row 18,
+    FINDINGS.md #18). Compare `email`, which is likewise not sent to CALL-E
+    today but says so explicitly wherever it is configured; `note` did not,
+    and looked more capable than it is."""
     photo_mime: str | None = None
     has_photo: bool = False
     created_at: str = ""
