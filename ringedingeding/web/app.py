@@ -416,13 +416,17 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                         "Bitte mindestens einen Zeitraum angeben — oder „ganzer Tag“ wählen.",
                     )
                 )
-            overrides = _overrides(form, days)
-
+            # No per-day exceptions here: this route only ever collects
+            # standard times for every chosen day. day_slot_specs() also
+            # accepts an `overrides` argument for inline per-day exceptions,
+            # but nothing here ever populated one that reached it (FINDINGS.md
+            # #17 / CONVERSATION-TREE.md row 17) -- the working mechanism for
+            # per-day exceptions is the separate /dates/adjust route below,
+            # which builds its own specs directly instead.
             specs = day_slot_specs(
                 project,
                 days=days,
                 default_times=default_times,
-                overrides=overrides,
                 whole_day=whole_day,
             )
             if not specs:
@@ -1208,21 +1212,6 @@ def _time_pairs(starts: list[Any], ends: list[Any]) -> list[tuple[str, str]]:
     return pairs
 
 
-def _overrides(form: Any, days: list[str]) -> dict[str, list[tuple[str, str]]]:
-    """Read the per-day exceptions out of the form.
-
-    A day appears here only when it was ticked as deviating. Its own time list
-    then replaces the standard times for that day — including the case where the
-    list is empty, which means "that day, but no times after all".
-    """
-    result: dict[str, list[tuple[str, str]]] = {}
-    for day in days:
-        if not form.get(f"override-{day}"):
-            continue
-        result[day] = _time_pairs(
-            form.getlist(f"start-{day}"), form.getlist(f"end-{day}")
-        )
-    return result
 
 
 def _sse(event: str, payload: dict[str, Any]) -> str:

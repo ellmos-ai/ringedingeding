@@ -188,6 +188,14 @@ def day_slot_specs(
     wins where it exists. A day whose override is an empty list keeps the day
     but drops every time slot — which is how somebody says "not that day after
     all" without unpicking their standard times.
+
+    ``overrides`` is not currently reachable from the web UI or the CLI
+    (CONVERSATION-TREE.md row 17, FINDINGS.md #17) — nothing populates it with
+    real data today. The per-day exception UI that does work is the separate
+    ``/projects/{id}/dates/adjust`` route, which builds its own specs directly
+    instead of going through this function at all. Kept here, documented
+    rather than removed, because the shape is sound and a future caller could
+    still wire it up; it is simply not one yet.
     """
     exceptions = {str(key): list(value) for key, value in (overrides or {}).items()}
     specs: list[dict[str, Any]] = []
