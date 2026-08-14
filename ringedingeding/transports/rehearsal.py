@@ -41,7 +41,7 @@ from ..models import CallStatus, PollKind
 from ..validate import validate
 from .base import CallOutcome, CallRequest, CallTransport
 
-__all__ = ["RehearsalTransport", "REHEARSAL_NOTE"]
+__all__ = ["REHEARSAL_NOTE", "RehearsalTransport"]
 
 REHEARSAL_NOTE = "SIMULATED — this answer was generated locally, no call was made"
 

@@ -29,8 +29,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from conftest import make_poll
+
 from ringedingeding.models import PollKind
 from ringedingeding.schemas import build_task_text
 
@@ -46,7 +46,7 @@ _URGENCY = "wirklich dringend"
 
 
 def _poll(kind: PollKind, *, language: str, with_window: bool = True, **overrides) -> object:
-    defaults: dict = dict(kind=kind, language=language, organizer="Lukas")
+    defaults: dict = {"kind": kind, "language": language, "organizer": "Lukas"}
     if kind is PollKind.SLOT:
         defaults["slots"] = ("Sat 14-18", "Sun 10-14") if with_window else ()
         defaults["question"] = "When can you make it?"

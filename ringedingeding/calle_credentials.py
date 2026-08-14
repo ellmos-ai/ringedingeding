@@ -8,12 +8,13 @@ every offline and rehearsal path usable on a clean machine.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Mapping
 
 API_KEY_ENV = "CALLE_API_KEY"
 BASE_URL_ENV = "CALLE_BASE_URL"
@@ -182,14 +183,10 @@ def save_project_api_key(
             handle.write("\n")
             temporary = handle.name
         os.replace(temporary, path)
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(path, 0o600)
-        except OSError:
-            pass
     finally:
         if temporary:
-            try:
+            with contextlib.suppress(OSError):
                 Path(temporary).unlink(missing_ok=True)
-            except OSError:
-                pass
     return path

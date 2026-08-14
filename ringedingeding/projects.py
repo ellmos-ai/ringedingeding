@@ -33,9 +33,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, time
-from typing import Any, Sequence
+from typing import Any
 
 from .locales import region_locale_for
 from .models import new_id
@@ -43,23 +44,23 @@ from .phone import mask, normalize_e164
 from .store import Store, utc_now
 
 __all__ = [
-    "ProjectMode",
-    "DateKind",
-    "ChannelKind",
-    "ProjectState",
+    "WEEKDAYS",
     "Channel",
+    "ChannelKind",
     "Contact",
     "ContactGroup",
-    "Project",
-    "ProjectQuestion",
-    "Slot",
+    "Criteria",
+    "DateKind",
+    "Decision",
     "Invitee",
     "Phrase",
-    "Criteria",
-    "Decision",
+    "Project",
+    "ProjectMode",
+    "ProjectQuestion",
+    "ProjectState",
     "ProjectStore",
+    "Slot",
     "slot_label",
-    "WEEKDAYS",
 ]
 
 

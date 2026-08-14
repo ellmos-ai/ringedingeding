@@ -34,22 +34,23 @@ instead of dropping.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Iterable, Sequence
+from enum import StrEnum
+from typing import Any
 
 from .phone import mask_text
 
 __all__ = [
-    "Speaker",
+    "CORRECTION_WINDOW_SECONDS",
     "ActivityLine",
+    "Speaker",
     "TranscriptLine",
-    "parse_activity",
     "dedupe",
     "extract_activity",
     "extract_transcript",
+    "parse_activity",
     "parse_transcript",
-    "CORRECTION_WINDOW_SECONDS",
 ]
 
 CORRECTION_WINDOW_SECONDS = 5.0
@@ -58,7 +59,7 @@ of the earlier one. The observed gap was 0.67 s; five seconds leaves room
 without swallowing somebody genuinely repeating themselves a minute later."""
 
 
-class Speaker(str, Enum):
+class Speaker(StrEnum):
     BOT = "bot"
     CALLEE = "callee"
     SYSTEM = "system"

@@ -11,7 +11,6 @@ from conftest import answer, make_participant, make_poll
 from ringedingeding.merge import merge_poll
 from ringedingeding.models import Answer, CallStatus, PollKind
 
-
 # --------------------------------------------------------------------------
 # coverage: the non-negotiable part
 # --------------------------------------------------------------------------

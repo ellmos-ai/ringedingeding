@@ -35,7 +35,6 @@ import sqlite3
 import threading
 import time
 from contextvars import ContextVar
-from typing import Dict, Optional
 
 from .server_mode import ServerMode, current_mode
 
@@ -48,7 +47,7 @@ SESSION_TTL_SECONDS = 2 * 60 * 60
 #: Upper bound on parked sessions; the least recently used one goes first.
 MAX_SESSIONS = 64
 
-_session_token: ContextVar[Optional[str]] = ContextVar("huckepack_session", default=None)
+_session_token: ContextVar[str | None] = ContextVar("huckepack_session", default=None)
 
 
 class SnapshotError(ValueError):
@@ -64,7 +63,7 @@ class _SessionConnection(sqlite3.Connection):
     here and only :meth:`discard` really closes.
     """
 
-    def close(self) -> None:  # noqa: D102 - deliberate no-op, see class docstring
+    def close(self) -> None:
         return None
 
     def discard(self) -> None:
@@ -85,8 +84,8 @@ class SessionDatabases:
         self._max_sessions = max_sessions
         self._max_snapshot_bytes = max_snapshot_bytes
         self._lock = threading.RLock()
-        self._connections: Dict[str, _SessionConnection] = {}
-        self._touched: Dict[str, float] = {}
+        self._connections: dict[str, _SessionConnection] = {}
+        self._touched: dict[str, float] = {}
 
     # -- lifecycle --------------------------------------------------------
 
@@ -167,7 +166,7 @@ SESSIONS = SessionDatabases()
 
 # -- the session a request belongs to -------------------------------------
 
-def bind_session(token: Optional[str]):
+def bind_session(token: str | None):
     """Bind the browser session for the current request; returns the reset token."""
     return _session_token.set(token or None)
 
@@ -176,7 +175,7 @@ def unbind_session(reset_token) -> None:
     _session_token.reset(reset_token)
 
 
-def current_session() -> Optional[str]:
+def current_session() -> str | None:
     return _session_token.get()
 
 
@@ -188,7 +187,7 @@ ANONYMOUS_SESSION = "__no-session__"
 
 # -- the single choke point -----------------------------------------------
 
-def open_connection(path: str, *, mode: Optional[ServerMode] = None) -> sqlite3.Connection:
+def open_connection(path: str, *, mode: ServerMode | None = None) -> sqlite3.Connection:
     """Open the database this installation is supposed to use.
 
     In host-storage modes this is ``sqlite3.connect(path)`` and nothing else.

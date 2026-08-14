@@ -71,7 +71,8 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from typing import Any
 
 from ..activity import (
     ActivityLine,
@@ -94,7 +95,7 @@ from ..safety import LiveCallBlocked
 from ..timings import LEAD_SECONDS
 from .base import CallOutcome, CallRequest, CallTransport
 
-__all__ = ["CalleTransport", "CalleBatchTransport", "DEFAULT_BASE_URL", "API_KEY_ENV"]
+__all__ = ["API_KEY_ENV", "BASE_URL_ENV", "DEFAULT_BASE_URL", "CalleBatchTransport", "CalleTransport"]
 
 _FIRST_POLL_DELAY = LEAD_SECONDS
 """Nothing observable happens in the first ~40 seconds; the telephone has not
@@ -335,7 +336,7 @@ class CalleBatchTransport(CalleTransport):
             if not call_id:
                 raise RuntimeError("POST /v1/calls returned no call id")
             final = self._poll_until_terminal(call_id)
-        except Exception as error:  # noqa: BLE001 - report per participant
+        except Exception as error:
             message = f"{type(error).__name__}: {error}"
             for request in requests:
                 yield CallOutcome(
@@ -362,7 +363,7 @@ class CalleBatchTransport(CalleTransport):
                 )
             return
 
-        for request, recipient in zip(requests, recipients):
+        for request, recipient in zip(requests, recipients, strict=False):
             yield _outcome_from(
                 participant_id=request.participant.id,
                 call=final,

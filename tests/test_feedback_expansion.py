@@ -9,8 +9,8 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
-
 from conftest import answer, make_participant, make_poll
+
 from manage_translations import source_keys
 from ringedingeding.calendar_export import calendar_entries, render_ics, render_xlsx
 from ringedingeding.merge import ChoiceMerge, OpenMerge, merge_poll
@@ -198,6 +198,7 @@ def test_pythonbox_catalog_contract_covers_every_template_key():
 def test_english_web_surface_and_product_split(tmp_path):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
+
     from ringedingeding.web.app import create_app
 
     with TestClient(create_app(tmp_path / "english.db")) as client:
@@ -216,6 +217,7 @@ def test_english_web_surface_and_product_split(tmp_path):
 def test_calendar_route_exports_exactly_its_checked_project(tmp_path):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
+
     from ringedingeding.web.app import create_app
 
     database = tmp_path / "calendar.db"
@@ -243,6 +245,7 @@ def test_calendar_route_exports_exactly_its_checked_project(tmp_path):
 def test_advisor_web_flow_runs_fully_offline(tmp_path):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
+
     from ringedingeding.web.app import create_app
 
     with TestClient(create_app(tmp_path / "advisor.db")) as client:

@@ -149,7 +149,7 @@ def test_project_new_with_only_language_derives_a_matching_region_and_locale(run
     assert code == 0
 
     store = Store(tmp_path / "cli.db")
-    project = list(ProjectStore(store).projects())[0]
+    project = next(iter(ProjectStore(store).projects()))
     assert project.language == "en"
     assert project.region == "US"
     assert project.locale == "en-US"
@@ -161,7 +161,7 @@ def test_project_new_with_an_explicit_region_and_locale_still_wins(run, tmp_path
     assert code == 0
 
     store = Store(tmp_path / "cli.db")
-    project = list(ProjectStore(store).projects())[0]
+    project = next(iter(ProjectStore(store).projects()))
     assert project.region == "CH"
     assert project.locale == "de-CH"
 

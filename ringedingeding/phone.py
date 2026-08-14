@@ -17,10 +17,10 @@ import re
 
 __all__ = [
     "InvalidPhoneNumber",
-    "normalize_e164",
     "is_e164",
     "mask",
     "mask_text",
+    "normalize_e164",
 ]
 
 # E.164: a leading '+', a non-zero country code digit, then 7..14 more digits.

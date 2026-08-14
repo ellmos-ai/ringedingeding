@@ -45,15 +45,16 @@ agent what to do with an optional field it has nothing to put in.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .models import Poll, PollKind
 
 __all__ = [
-    "recipient_result_schema",
+    "OTHER_CHOICE_FIELD",
     "aggregate_result_schema",
     "build_task_text",
-    "OTHER_CHOICE_FIELD",
+    "recipient_result_schema",
 ]
 
 OTHER_CHOICE_FIELD = "other_choice"

@@ -9,11 +9,11 @@ complete offline path.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from html import escape as xml_escape
 from io import BytesIO
-from typing import Iterable, Sequence
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from .projects import Project, ProjectMode, ProjectStore, Slot

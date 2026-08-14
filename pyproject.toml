@@ -55,3 +55,21 @@ ringedingeding = [
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "UP", "B", "C4", "SIM", "RUF"
+]
+ignore = [
+    "E501",   # Line length handled by formatter / docstrings
+    "SIM108", # Ternary operator can reduce readability in complex cases
+    "SIM118", # sqlite3.Row needs .keys() for membership testing of column names
+    "RUF001", # Ambiguous characters in strings (like multiplication sign ×)
+    "RUF002", # Ambiguous characters in docstrings (like en-dash –)
+    "RUF003", # Ambiguous characters in comments
+]
+

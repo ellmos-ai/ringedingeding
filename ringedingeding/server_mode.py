@@ -19,8 +19,9 @@ Unset means ``local``. Whoever configures nothing gets today's behaviour.
 from __future__ import annotations
 
 import os
-from enum import Enum
-from typing import Any, Dict, Mapping, Optional
+from collections.abc import Mapping
+from enum import StrEnum
+from typing import Any
 
 ENV_VAR = "RINGEDINGEDING_SERVER_MODE"
 
@@ -29,7 +30,7 @@ class ServerModeError(RuntimeError):
     """An unusable mode: unknown name, or a mode that is only a stub."""
 
 
-class ServerMode(str, Enum):
+class ServerMode(StrEnum):
     LOCAL = "local"
     HUCKEPACK_GIFT = "huckepack-gift"
     HUCKEPACK_ONLY_HOST = "huckepack-only-host"
@@ -72,10 +73,10 @@ class ServerMode(str, Enum):
 
 DEFAULT_MODE = ServerMode.LOCAL
 
-_cached: Optional[ServerMode] = None
+_cached: ServerMode | None = None
 
 
-def parse_mode(raw: Optional[str]) -> ServerMode:
+def parse_mode(raw: str | None) -> ServerMode:
     """Turn the configured string into a mode, or say precisely what is wrong."""
     text = (raw or "").strip().lower()
     if not text:
@@ -89,7 +90,7 @@ def parse_mode(raw: Optional[str]) -> ServerMode:
         ) from None
 
 
-def resolve_mode(environ: Optional[Mapping[str, str]] = None) -> ServerMode:
+def resolve_mode(environ: Mapping[str, str] | None = None) -> ServerMode:
     """Read the mode from an environment mapping without touching the cache."""
     source = os.environ if environ is None else environ
     return parse_mode(source.get(ENV_VAR))
@@ -113,7 +114,7 @@ def reset_mode_cache() -> None:
     _cached = None
 
 
-def describe_mode(mode: Optional[ServerMode] = None) -> Dict[str, Any]:
+def describe_mode(mode: ServerMode | None = None) -> dict[str, Any]:
     """The machine-readable descriptor the browser asks for on page load.
 
     Deliberately free of wording: the interface holds its own sentences, so a
@@ -131,7 +132,7 @@ def describe_mode(mode: Optional[ServerMode] = None) -> Dict[str, Any]:
     }
 
 
-def require_implemented(mode: Optional[ServerMode] = None) -> ServerMode:
+def require_implemented(mode: ServerMode | None = None) -> ServerMode:
     """Refuse to serve a stub mode instead of pretending it works."""
     mode = mode or current_mode()
     if not mode.implemented:

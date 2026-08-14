@@ -10,19 +10,19 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from .phone import mask, normalize_e164
 
 __all__ = [
-    "PollKind",
-    "CallStatus",
+    "Answer",
     "Bucket",
+    "CallStatus",
+    "Participant",
     "ParticipantState",
     "Poll",
-    "Participant",
-    "Answer",
+    "PollKind",
     "new_id",
 ]
 
@@ -32,7 +32,7 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:10]}"
 
 
-class PollKind(str, Enum):
+class PollKind(StrEnum):
     """What kind of question is being asked."""
 
     SLOT = "slot"
@@ -45,7 +45,7 @@ class PollKind(str, Enum):
     """A free-text question. Collected verbatim, never auto-summarised."""
 
     @classmethod
-    def parse(cls, value: str) -> "PollKind":
+    def parse(cls, value: str) -> PollKind:
         try:
             return cls(str(value).strip().lower())
         except ValueError as error:
@@ -53,7 +53,7 @@ class PollKind(str, Enum):
             raise ValueError(f"unknown poll kind {value!r} (expected one of: {allowed})") from error
 
 
-class CallStatus(str, Enum):
+class CallStatus(StrEnum):
     """Call status as reported by CALL-E, plus two local states.
 
     The upstream set is kept intact on purpose: ``NO_ANSWER`` is not
@@ -89,7 +89,7 @@ class CallStatus(str, Enum):
     EXPIRED = "EXPIRED"
 
     @classmethod
-    def known(cls, value: Any) -> "CallStatus | None":
+    def known(cls, value: Any) -> CallStatus | None:
         """Map an API status onto the enum, or ``None`` if it is not one of ours.
 
         The Developer API documents lowercase statuses (``"completed"``) while
@@ -107,7 +107,7 @@ class CallStatus(str, Enum):
             return None
 
     @classmethod
-    def parse(cls, value: Any) -> "CallStatus":
+    def parse(cls, value: Any) -> CallStatus:
         """Like :meth:`known`, but an unrecognised status becomes ``FAILED``.
 
         Right for the *final* mapping of a finished call, where an
@@ -127,7 +127,7 @@ class CallStatus(str, Enum):
         return self not in (CallStatus.PENDING, CallStatus.PREPARING)
 
 
-class Bucket(str, Enum):
+class Bucket(StrEnum):
     """How a participant counts towards the merged result."""
 
     ANSWERED = "answered"
@@ -143,7 +143,7 @@ class Bucket(str, Enum):
     """Not attempted yet, or attempt aborted."""
 
 
-class ParticipantState(str, Enum):
+class ParticipantState(StrEnum):
     PENDING = "pending"
     DONE = "done"
 

@@ -15,7 +15,7 @@ work on a machine where nothing is installed.
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from .locales import region_locale_for
 from .merge import ChoiceMerge, Coverage, MergeResult, OpenMerge, SlotMerge
@@ -23,7 +23,7 @@ from .models import Poll, PollKind
 from .phone import mask_text
 from .transports.base import CallRequest
 
-__all__ = ["render_plan", "render_result", "render_markdown", "table"]
+__all__ = ["render_markdown", "render_plan", "render_result", "table"]
 
 _NOBODY = "-"
 
@@ -319,7 +319,7 @@ def render_markdown(merge: MergeResult) -> str:
         f"- **Kind:** {poll.kind.value}",
         f"- **Answers:** {coverage.basis} participants",
         "",
-        f"## Result",
+        "## Result",
         "",
         merge.headline,
         "",

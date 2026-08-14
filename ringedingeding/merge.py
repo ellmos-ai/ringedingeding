@@ -16,8 +16,9 @@ into ``unknown``, not into ``cannot``. Anything else would fabricate data.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from .models import Answer, Bucket, CallStatus, Participant, Poll, PollKind
 from .phone import mask_text
@@ -25,16 +26,16 @@ from .schemas import OTHER_CHOICE_FIELD
 from .slots import SlotIndex
 
 __all__ = [
-    "ParticipantResult",
-    "Coverage",
-    "SlotRow",
-    "SlotMerge",
     "ChoiceCount",
     "ChoiceMerge",
-    "OpenEntry",
-    "StanceCount",
-    "OpenMerge",
+    "Coverage",
     "MergeResult",
+    "OpenEntry",
+    "OpenMerge",
+    "ParticipantResult",
+    "SlotMerge",
+    "SlotRow",
+    "StanceCount",
     "merge_poll",
 ]
 

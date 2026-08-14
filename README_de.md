@@ -7,12 +7,35 @@
 
 # Ringedingeding
 
+[![Ecosystem: ellmos-ai](https://img.shields.io/badge/Ecosystem-ellmos--ai-blue.svg)](https://github.com/ellmos-ai)
+[![Umbrella: open-bricks](https://img.shields.io/badge/Umbrella-open--bricks-orange.svg)](https://github.com/open-bricks)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Tests: 498 passed](https://img.shields.io/badge/Tests-498%20passed-brightgreen.svg)](tests/)
+[![Context: llms.txt](https://img.shields.io/badge/Context-llms.txt-4B0082.svg)](llms.txt)
+
+> [!NOTE]
+> **KI-Agenten- & LLM-Kontext**: Eine standardisierte, maschinenlesbare Zusammenfassung ist unter [`llms.txt`](llms.txt) verfügbar.
+
 **[English](README.md) · Deutsch**
 
 **Frag alle, bekomm eine Antwort.**
 
 Stell mehreren Leuten dieselbe Frage per Telefon und führe die Antworten zu einem Ergebnis
 zusammen. Gebaut auf [CALL-E](https://github.com/CALLE-AI/call-e-integrations).
+
+```mermaid
+flowchart TD
+    A[Frage & Gruppe definieren] --> B[Dry-Run Simulation / Fixtures]
+    B -->|Explizite --live Bestätigung| C[CALL-E Voice-Agenten Kaskade]
+    C --> D1[Teilnehmer 1: Verfügbar / Ja]
+    C --> D2[Teilnehmer 2: Besetzt / Keine Antwort]
+    C --> D3[Teilnehmer 3: Gegenvorschlag]
+    D1 & D2 & D3 --> E[Strukturierte Antwort-Erfassung]
+    E --> F[Konsens-Matrix & Verfügbarkeits-Merge]
+    F --> G1[Deterministische Terminauswahl]
+    F --> G2[Beirats-Auswertung: Tendenz, Dissens & Bedenken]
+```
 
 Auf demselben Mechanismus stehen zwei bewusst getrennte Produkte:
 
