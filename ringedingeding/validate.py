@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-__all__ = ["validate", "SchemaViolation"]
+__all__ = ["SchemaViolation", "validate"]
 
 _TYPES: dict[str, tuple[type, ...] | type] = {
     "object": dict,

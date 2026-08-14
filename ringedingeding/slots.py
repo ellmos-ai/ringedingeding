@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["normalize_slot", "canonical_display", "SlotIndex"]
+__all__ = ["SlotIndex", "canonical_display", "normalize_slot"]
 
 _DASHES = dict.fromkeys(map(ord, "–—−‐‑­"), "-")
 _PUNCT_EDGE = re.compile(r"^[\s.,;:!?]+|[\s.,;:!?]+$")

@@ -17,9 +17,9 @@ nowhere else:
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, Sequence
 
 from ..models import CallStatus
 from ..projects import WEEKDAYS
@@ -27,13 +27,13 @@ from ..service import Board, Person, SlotView
 from ..translator import TranslationSystem
 
 __all__ = [
-    "avatar_colour",
-    "CalendarDay",
-    "calendar_days",
-    "status_word",
-    "LiveRow",
-    "live_rows",
     "MONTHS",
+    "CalendarDay",
+    "LiveRow",
+    "avatar_colour",
+    "calendar_days",
+    "live_rows",
+    "status_word",
 ]
 
 MONTHS = {

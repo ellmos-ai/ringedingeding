@@ -16,7 +16,7 @@ from ..models import CallStatus
 from ..validate import validate
 from .base import CallOutcome, CallRequest, CallTransport
 
-__all__ = ["FixtureTransport", "FixtureOutcomeMissing"]
+__all__ = ["FixtureOutcomeMissing", "FixtureTransport"]
 
 
 class FixtureOutcomeMissing(KeyError):

@@ -15,12 +15,12 @@ import pytest
 
 pytest.importorskip("fastapi", reason="the web interface is an optional extra")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from ringedingeding.projects import ProjectMode, ProjectStore, RoundKind  # noqa: E402
-from ringedingeding.safety import LIVE_CONFIRMATION_PHRASE  # noqa: E402
-from ringedingeding.store import Store  # noqa: E402
-from ringedingeding.web.app import create_app  # noqa: E402
+from ringedingeding.projects import ProjectMode, ProjectStore, RoundKind
+from ringedingeding.safety import LIVE_CONFIRMATION_PHRASE
+from ringedingeding.store import Store
+from ringedingeding.web.app import create_app
 
 # Anything that looks like a dialable number in rendered HTML.
 RAW_NUMBER = re.compile(r"\+\d{6,}")
@@ -531,7 +531,7 @@ def test_the_six_end_states_are_kept_apart(client, db):
             CallStatus.VOICEMAIL,
             CallStatus.FAILED,
         ]
-        for participant, status in zip(people, statuses):
+        for participant, status in zip(people, statuses, strict=False):
             store.record_answer(
                 Answer(
                     participant_id=participant.id,
@@ -549,7 +549,7 @@ def test_the_six_end_states_are_kept_apart(client, db):
         store.close()
 
     states = {row.ref: row.state for row in rows}
-    by_status = dict(zip([p.ref for p in people], statuses))
+    by_status = dict(zip([p.ref for p in people], statuses, strict=False))
     for ref, status in by_status.items():
         expected = {
             CallStatus.COMPLETED: "answered",

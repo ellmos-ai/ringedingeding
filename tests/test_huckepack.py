@@ -18,14 +18,14 @@ import pytest
 
 pytest.importorskip("fastapi", reason="the web interface is an optional extra")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from ringedingeding import huckepack_key, huckepack_storage, server_mode  # noqa: E402
-from ringedingeding.huckepack_storage import SESSIONS, SnapshotError  # noqa: E402
-from ringedingeding.huckepack_web import SESSION_HEADER  # noqa: E402
-from ringedingeding.server_mode import ServerMode, ServerModeError  # noqa: E402
-from ringedingeding.store import Store  # noqa: E402
-from ringedingeding.web.app import create_app  # noqa: E402
+from ringedingeding import huckepack_key, huckepack_storage, server_mode
+from ringedingeding.huckepack_storage import SESSIONS, SnapshotError
+from ringedingeding.huckepack_web import SESSION_HEADER
+from ringedingeding.server_mode import ServerMode, ServerModeError
+from ringedingeding.store import Store
+from ringedingeding.web.app import create_app
 
 TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 OTHER_TOKEN = "BBBBBBBBBBBBBBBBBBBBBBBBBBBB"
@@ -433,17 +433,16 @@ def test_the_visitors_key_reaches_no_store_and_no_log(monkeypatch, tmp_path, cap
     """A full only-host request: the key must leave no trace behind it."""
     use_mode(monkeypatch, "huckepack-only-host")
 
-    with caplog.at_level(logging.DEBUG):
-        with TestClient(create_app(tmp_path / "web.db")) as client:
-            page = client.get(
-                "/", headers={huckepack_key.KEY_HEADER: VISITOR_KEY, SESSION_HEADER: TOKEN}
-            )
-            assert page.status_code == 200
-            assert VISITOR_KEY not in page.text
+    with caplog.at_level(logging.DEBUG), TestClient(create_app(tmp_path / "web.db")) as client:
+        page = client.get(
+            "/", headers={huckepack_key.KEY_HEADER: VISITOR_KEY, SESSION_HEADER: TOKEN}
+        )
+        assert page.status_code == 200
+        assert VISITOR_KEY not in page.text
 
-            snapshot = client.get(
-                "/huckepack/session", headers={SESSION_HEADER: TOKEN}
-            ).content
+        snapshot = client.get(
+            "/huckepack/session", headers={SESSION_HEADER: TOKEN}
+        ).content
 
     assert VISITOR_KEY.encode() not in snapshot
     assert VISITOR_KEY not in caplog.text

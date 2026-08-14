@@ -14,13 +14,14 @@ finished is on disk, whatever did not stays ``PENDING``.
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterable, Iterator, Sequence
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any
 
 from ..models import CallStatus, Participant, Poll
 
-__all__ = ["CallRequest", "CallOutcome", "CallTransport"]
+__all__ = ["CallOutcome", "CallRequest", "CallTransport"]
 
 
 @dataclass(frozen=True)
@@ -156,7 +157,7 @@ class CallTransport:
         """Never let one failed call abort the rest of the poll."""
         try:
             return self.place_one(request)
-        except Exception as error:  # noqa: BLE001 - deliberately broad
+        except Exception as error:
             return CallOutcome(
                 participant_id=request.participant.id,
                 status=CallStatus.FAILED,
@@ -166,7 +167,7 @@ class CallTransport:
     def close(self) -> None:
         """Release resources. Safe to call more than once."""
 
-    def __enter__(self) -> "CallTransport":
+    def __enter__(self) -> CallTransport:
         return self
 
     def __exit__(self, *exc: object) -> None:

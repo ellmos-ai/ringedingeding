@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import argparse
 import threading
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .projects import ChannelKind, DateKind, ProjectMode, ProjectStore, RoundKind
 from .service import (
@@ -39,10 +40,10 @@ from .service import (
     roundtable_round,
     run_round,
     seed_from_fixture,
+    set_advisor_question,
     set_criteria,
     set_dates,
     set_invitees,
-    set_advisor_question,
     set_wording,
     uncallable,
 )

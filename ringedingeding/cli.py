@@ -16,12 +16,14 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import signal
 import sys
 import threading
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from . import __version__
 from .activity import ActivityLine
@@ -50,7 +52,7 @@ from .transports.base import CallTransport
 from .transports.fixture import FixtureTransport
 from .umlaut_check import warn_if_german
 
-__all__ = ["main", "build_parser"]
+__all__ = ["build_parser", "main"]
 
 COST_PER_CALL_USD = 0.05
 """Documented CALL-E price: per call, not per minute."""
@@ -86,10 +88,8 @@ def _configure_stdout() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
-            try:
+            with contextlib.suppress(ValueError, OSError):  # pragma: no cover - platform dependent
                 reconfigure(encoding="utf-8", errors="replace")
-            except (ValueError, OSError):  # pragma: no cover - platform dependent
-                pass
 
 
 def parse_participant(spec: str) -> tuple[str, str]:
@@ -168,10 +168,8 @@ def _install_sigint(cancel: threading.Event) -> None:
             _err("\nGiving up. Answers already received are saved.")
             raise KeyboardInterrupt
 
-    try:
+    with contextlib.suppress(ValueError):  # pragma: no cover - not on the main thread
         signal.signal(signal.SIGINT, handler)
-    except ValueError:  # pragma: no cover - not on the main thread
-        pass
 
 
 # --------------------------------------------------------------------------
@@ -506,7 +504,7 @@ def cmd_demo(args: argparse.Namespace, store: Store) -> int:
         return EXIT_ERROR
 
     out_dir = Path(args.out)
-    for index, (name, path) in enumerate(fixtures.items(), start=1):
+    for index, (_name, path) in enumerate(fixtures.items(), start=1):
         fixture = load_fixture(path)
         poll = ensure_fixture_poll(store, fixture, fresh=True)
         participants = store.participants(poll.id)

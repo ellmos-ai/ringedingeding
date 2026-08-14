@@ -16,9 +16,10 @@ ask. Reading this file top to bottom is reading the interview.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any
 
 from .activity import ActivityLine
 from .fixtures import Fixture, load_fixture, placeholder_numbers, resolve_fixture
@@ -37,7 +38,6 @@ from .projects import (
     ProjectStore,
     RoundKind,
     Slot,
-    slot_label,
 )
 from .runner import RunReport, build_requests, run_poll
 from .safety import LIVE_CONFIRMATION_PHRASE, LiveCallBlocked, assert_question_allowed
@@ -49,34 +49,34 @@ from .transports.fixture import FixtureTransport
 from .transports.rehearsal import RehearsalTransport
 
 __all__ = [
-    "RunMode",
     "COST_PER_CALL_USD",
-    "Person",
-    "SlotView",
+    "AdvisorBoard",
     "Board",
+    "Person",
     "Preview",
+    "RunMode",
+    "SlotView",
+    "advisor_board",
+    "advisor_question",
+    "availability_round",
+    "board",
     "create_project",
-    "set_dates",
     "day_slot_specs",
-    "set_invitees",
+    "decide",
+    "default_invitation_text",
+    "invitation_round",
+    "make_transport",
+    "preview",
+    "question_for",
     "resync_contact",
+    "roundtable_round",
+    "run_round",
+    "set_advisor_question",
+    "set_criteria",
+    "set_dates",
+    "set_invitees",
     "set_wording",
     "wording",
-    "availability_round",
-    "set_advisor_question",
-    "advisor_question",
-    "roundtable_round",
-    "invitation_round",
-    "default_invitation_text",
-    "preview",
-    "make_transport",
-    "run_round",
-    "board",
-    "AdvisorBoard",
-    "advisor_board",
-    "set_criteria",
-    "decide",
-    "question_for",
 ]
 
 COST_PER_CALL_USD = 0.05
@@ -882,16 +882,14 @@ def board(store: Store, projects: ProjectStore, project: Project) -> Board:
                 unknown.append(person(result))
 
         met: list[str] = []
-        if criteria.favourite_slot_id:
-            if criteria.favourite_slot_id == slot.id:
-                met.append("Lieblingstermin")
+        if criteria.favourite_slot_id and criteria.favourite_slot_id == slot.id:
+            met.append("Lieblingstermin")
         if must_have:
             can_ids = {p.contact_id for p in can}
             if must_have.issubset(can_ids):
                 met.append("Pflichtpersonen dabei")
-        if criteria.min_count:
-            if len(can) >= criteria.min_count:
-                met.append(f"mindestens {criteria.min_count} Personen")
+        if criteria.min_count and len(can) >= criteria.min_count:
+            met.append(f"mindestens {criteria.min_count} Personen")
 
         views.append(
             SlotView(

@@ -25,8 +25,8 @@ from __future__ import annotations
 
 __all__ = [
     "LEAD_SECONDS",
-    "TYPICAL_CONVERSATION_SECONDS",
     "SETTLE_SECONDS",
+    "TYPICAL_CONVERSATION_SECONDS",
     "estimate_seconds",
     "format_duration",
 ]

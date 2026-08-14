@@ -17,8 +17,9 @@ job — Task Scheduler, cron, n8n — and is therefore visible to the user.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Sequence
+from typing import Any
 
 from .models import Answer, CallStatus, Participant, Poll
 from .phone import InvalidPhoneNumber, normalize_e164
@@ -27,7 +28,7 @@ from .schemas import aggregate_result_schema, build_task_text, recipient_result_
 from .store import Store, utc_now
 from .transports.base import CallOutcome, CallRequest, CallTransport
 
-__all__ = ["build_requests", "run_poll", "RunReport", "EventSink"]
+__all__ = ["EventSink", "RunReport", "build_requests", "run_poll"]
 
 EventSink = Callable[..., None]
 

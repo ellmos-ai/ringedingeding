@@ -26,9 +26,10 @@ from __future__ import annotations
 
 import re
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .fixtures import Fixture, load_fixture, resolve_fixture
 from .projects import ChannelKind, DateKind, ProjectStore
@@ -47,7 +48,7 @@ from .service import (
 )
 from .store import Store
 
-__all__ = ["FIXTURE_NAME", "CATCH_UP_REF", "Check", "ProofResult", "run_proof"]
+__all__ = ["CATCH_UP_REF", "FIXTURE_NAME", "Check", "ProofResult", "run_proof"]
 
 FIXTURE_NAME = "weekend-hike"
 
@@ -269,7 +270,7 @@ def _run(
     out(f"        => {first_headline}")
     out("")
 
-    sat_morning = _slot(view, "Sat 09-13")
+    _slot(view, "Sat 09-13")
     sat_afternoon = _slot(view, "Sat 14-18")
     sunday = _slot(view, "Sun 09-13")
 

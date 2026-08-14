@@ -13,17 +13,17 @@ def store(tmp_path):
 
 
 def make_poll(**overrides) -> Poll:
-    defaults = dict(
-        id="poll_test",
-        question="When can you make it?",
-        kind=PollKind.SLOT,
-        organizer="Lukas",
-        language="en",
-        region="US",
-        locale="en-US",
-        options=(),
-        slots=("Sat 14-18", "Sun 10-14"),
-    )
+    defaults = {
+        "id": "poll_test",
+        "question": "When can you make it?",
+        "kind": PollKind.SLOT,
+        "organizer": "Lukas",
+        "language": "en",
+        "region": "US",
+        "locale": "en-US",
+        "options": (),
+        "slots": ("Sat 14-18", "Sun 10-14"),
+    }
     defaults.update(overrides)
     return Poll(**defaults)
 

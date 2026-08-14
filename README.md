@@ -7,12 +7,35 @@
 
 # Ringedingeding
 
+[![Ecosystem: ellmos-ai](https://img.shields.io/badge/Ecosystem-ellmos--ai-blue.svg)](https://github.com/ellmos-ai)
+[![Umbrella: open-bricks](https://img.shields.io/badge/Umbrella-open--bricks-orange.svg)](https://github.com/open-bricks)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Tests: 498 passed](https://img.shields.io/badge/Tests-498%20passed-brightgreen.svg)](tests/)
+[![Context: llms.txt](https://img.shields.io/badge/Context-llms.txt-4B0082.svg)](llms.txt)
+
+> [!NOTE]
+> **AI Agent & LLM Context**: A standardized, machine-readable summary is available at [`llms.txt`](llms.txt).
+
 **English · [Deutsch](README_de.md)**
 
 **Ask everyone, get one answer.**
 
 Ask one question to several people by telephone and merge the replies into a
 single result. Built on [CALL-E](https://github.com/CALLE-AI/call-e-integrations).
+
+```mermaid
+flowchart TD
+    A[Define Inquiry & Group] --> B[Dry-Run Simulation / Fixtures]
+    B -->|Explicit --live Confirmation| C[CALL-E Voice Agent Cascade]
+    C --> D1[Participant 1: Available / Yes]
+    C --> D2[Participant 2: Busy / No Answer]
+    C --> D3[Participant 3: Counter-Proposal]
+    D1 & D2 & D3 --> E[Structured Response Ingestion]
+    E --> F[Consensus Matrix & Availability Merge]
+    F --> G1[Deterministic Date Selection]
+    F --> G2[Advisor Breakdown: Tendency, Dissent & Concerns]
+```
 
 There are now two deliberately separate products on top of that mechanism:
 

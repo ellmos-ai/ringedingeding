@@ -1,0 +1,47 @@
+# Ringedingeding — Machine-Readable LLM & AI Agent Context
+
+> Ask one question to multiple people by phone and merge their replies into a single decision. Built on CALL-E voice agents.
+
+## System Architecture
+
+- **Core Framework**: Python 3.11+, SQLite (immediate write persistence), FastAPI & Jinja2 (optional local Web UI), Pytest (498 tests).
+- **Voice Platform**: CALL-E / AiRudder API integration via `CalleTransport` and `CalleBatchTransport`.
+- **Execution Pattern**: Multi-participant inquiry with intelligent response aggregation, voting, consensus finding, and schedule reconciliation.
+- **Safety Architecture**: Strict dry-run default, explicit `--live` requirement with typed confirmation phrase (`LIVE_CONFIRMATION_PHRASE`), E.164 phone validation, full number masking in all outputs, and sensitive topic moderation filters.
+- **Testability**: 100% dry-run fixture simulation mode without requiring live telephony credentials or network access.
+
+## Core Modules & Symbols
+
+- `ringedingeding.cli` ([`main`](ringedingeding/cli.py)): Primary CLI entry point with subcommands for dry-run simulation, live dialing, fixture evaluation, and project management.
+- `ringedingeding.service` ([`availability_round`](ringedingeding/service.py), [`invitation_round`](ringedingeding/service.py), [`roundtable_round`](ringedingeding/service.py), [`board`](ringedingeding/service.py), [`decide`](ringedingeding/service.py)): Business logic orchestrating polling rounds, scheduling matrix calculation, criteria verification, and decision generation.
+- `ringedingeding.merge` ([`merge_poll`](ringedingeding/merge.py)): Aggregation and consensus algorithm merging multi-participant answers into unified outcomes (slots, choices, open responses).
+- `ringedingeding.models` ([`Poll`](ringedingeding/models.py), [`Participant`](ringedingeding/models.py), [`Answer`](ringedingeding/models.py), [`CallStatus`](ringedingeding/models.py), [`Bucket`](ringedingeding/models.py), [`PollKind`](ringedingeding/models.py)): Core dataclasses and domain enumeration models.
+- `ringedingeding.projects` ([`ProjectStore`](ringedingeding/projects.py), [`Project`](ringedingeding/projects.py), [`Contact`](ringedingeding/projects.py), [`Slot`](ringedingeding/projects.py)): Multi-step inquiry projects supporting persistent contacts, groups, calendar slots, and interview rounds.
+- `ringedingeding.transports` ([`CalleTransport`](ringedingeding/transports/calle.py), [`CalleBatchTransport`](ringedingeding/transports/calle.py), [`FixtureTransport`](ringedingeding/transports/fixture.py), [`RehearsalTransport`](ringedingeding/transports/rehearsal.py)): Transport abstraction layer decoupling live CALL-E API calling from simulated test fixtures.
+- `ringedingeding.safety` ([`assert_question_allowed`](ringedingeding/safety.py), [`LIVE_CONFIRMATION_PHRASE`](ringedingeding/safety.py)): Content moderation filters prohibiting sensitive/inappropriate prompts and enforcing explicit user consent.
+- `ringedingeding.phone` ([`mask`](ringedingeding/phone.py), [`normalize_e164`](ringedingeding/phone.py)): E.164 phone formatting and safe log masking (`+49 ••• ••••567`).
+- `ringedingeding.server_mode` ([`ServerMode`](ringedingeding/server_mode.py), [`current_mode`](ringedingeding/server_mode.py)): Multi-tenant and browser isolation deployment modes (`local`, `huckepack-gift`, `huckepack-only-host`, `pay-membership`).
+- `ringedingeding.web.app` ([`app`](ringedingeding/web/app.py)): Optional FastAPI web interface providing interactive project creation, preview generation, SSE live progress streaming, and calendar export (ICS/XLSX).
+
+## CLI & Entry Points
+
+```bash
+# Run dry-run poll via CLI
+python -m ringedingeding --poll "When can we meet?" --slots "Sat 14-18,Sun 10-14" Anna=+15555550100 Ben=+15555550101
+
+# Start Web UI (FastAPI on port 8000)
+python run_web.py
+
+# Run Test Suite
+python -m pytest
+
+# Code Quality & Linting
+python -m ruff check .
+```
+
+## Key Documentation
+
+- [`README.md`](README.md): English project overview, feature matrix, setup instructions, and privacy disclosures.
+- [`README_de.md`](README_de.md): German project overview.
+- [`CHANGELOG.md`](CHANGELOG.md): Version history and notable changes.
+- [`LICENSE`](LICENSE): MIT License terms.

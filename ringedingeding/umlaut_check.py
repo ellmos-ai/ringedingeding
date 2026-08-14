@@ -18,7 +18,7 @@ with one line rather than turned into a heuristic.
 from __future__ import annotations
 
 import re
-from typing import Callable
+from collections.abc import Callable
 
 __all__ = ["find_umlaut_substitutes", "umlaut_warning", "warn_if_german"]
 

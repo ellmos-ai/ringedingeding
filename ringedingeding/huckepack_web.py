@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -107,7 +107,7 @@ def install(app: FastAPI) -> None:
         return JSONResponse({"dropped": True})
 
 
-def receipt_script_tag(payload: Dict[str, Any]) -> str:
+def receipt_script_tag(payload: dict[str, Any]) -> str:
     """Hand a finished result to the browser so it can write the receipt file.
 
     A ``<script type="application/json">`` block, not a data attribute: the
@@ -119,7 +119,7 @@ def receipt_script_tag(payload: Dict[str, Any]) -> str:
     return f'<script type="application/json" id="huckepack-receipt">{body}</script>'
 
 
-def mode_payload() -> Dict[str, Any]:
+def mode_payload() -> dict[str, Any]:
     """The descriptor plus the names the browser needs to talk to this server."""
     payload = describe_mode()
     payload["session_header"] = SESSION_HEADER

@@ -22,8 +22,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from ringedingeding.schemas import build_task_text  # noqa: E402
-from test_conversation_tree_scenarios import GOLDENS_DIR, LANGUAGES, SCENARIOS  # noqa: E402
+from test_conversation_tree_scenarios import GOLDENS_DIR, LANGUAGES, SCENARIOS
+
+from ringedingeding.schemas import build_task_text
 
 
 def main() -> int:

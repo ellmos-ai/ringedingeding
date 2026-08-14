@@ -29,27 +29,27 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from datetime import datetime
-
-from .. import huckepack_key, huckepack_storage, huckepack_web
-from .. import __version__
+from .. import __version__, huckepack_key, huckepack_storage, huckepack_web
 from ..calendar_export import calendar_entries, render_ics, render_xlsx
 from ..calle_credentials import (
-    CalleCredentialError,
     DEFAULT_CONFIG_FILE,
     DEFAULT_ENV_FILE,
+    CalleCredentialError,
     load_calle_settings,
     save_project_api_key,
 )
+from ..calle_translator import TranslationSystem
 from ..fixtures import bundled_fixtures
 from ..phone import InvalidPhoneNumber
 from ..projects import (
@@ -66,13 +66,13 @@ from ..service import (
     RunMode,
     advisor_board,
     advisor_question,
+    api_key_present,
     availability_round,
     board,
+    create_project,
     day_slot_specs,
     decide,
     default_invitation_text,
-    api_key_present,
-    create_project,
     invitation_round,
     preview,
     resync_contact,
@@ -86,7 +86,6 @@ from ..service import (
     wording,
 )
 from ..store import DEFAULT_DB_PATH, Store
-from ..calle_translator import TranslationSystem
 from ..umlaut_check import find_umlaut_substitutes
 from .jobs import Job, JobBusy, JobRegistry
 from .ui import (
@@ -1172,7 +1171,7 @@ def _calendar_query(project_ids: set[str]) -> str:
 
 
 def _advisor_summary(merge: Any, translator: TranslationSystem) -> str:
-    if merge is None or not getattr(merge, "entries", None) and not getattr(merge, "tally", None):
+    if merge is None or (not getattr(merge, "entries", None) and not getattr(merge, "tally", None)):
         return translator.t("Keine auswertbare Antwort.")
     if getattr(merge, "tally", None) is not None:
         votes = sum(item.count for item in merge.tally)

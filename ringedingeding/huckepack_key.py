@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import re
 from contextvars import ContextVar
-from typing import Optional
 
 from .server_mode import ServerMode, current_mode, require_implemented
 
@@ -33,14 +32,14 @@ KEY_HEADER = "X-Calle-Key"
 
 _KEY_PATTERN = re.compile(r"^[!-~]{8,512}$")
 
-_request_key: ContextVar[Optional[str]] = ContextVar("huckepack_request_key", default=None)
+_request_key: ContextVar[str | None] = ContextVar("huckepack_request_key", default=None)
 
 
 class UserKeyError(RuntimeError):
     """A missing or unusable visitor key. Never contains the key itself."""
 
 
-def mask_key(value: Optional[str]) -> str:
+def mask_key(value: str | None) -> str:
     """The only representation of a key that may be shown, stored or logged."""
     if not value:
         return ""
@@ -49,13 +48,13 @@ def mask_key(value: Optional[str]) -> str:
     return f"••••{value[-4:]}"
 
 
-def describe_key(value: Optional[str]) -> str:
+def describe_key(value: str | None) -> str:
     if not value:
         return "no key"
     return f"key {mask_key(value)} ({len(value)} characters)"
 
 
-def validate_key(raw: Optional[str]) -> str:
+def validate_key(raw: str | None) -> str:
     value = (raw or "").strip()
     if not value:
         raise UserKeyError(
@@ -70,7 +69,7 @@ def validate_key(raw: Optional[str]) -> str:
     return value
 
 
-def bind_request_key(raw: Optional[str]):
+def bind_request_key(raw: str | None):
     """Hold a visitor key for the current request or job. Returns the reset token."""
     value = (raw or "").strip() or None
     return _request_key.set(value)
@@ -80,11 +79,11 @@ def unbind_request_key(reset_token) -> None:
     _request_key.reset(reset_token)
 
 
-def current_request_key() -> Optional[str]:
+def current_request_key() -> str | None:
     return _request_key.get()
 
 
-def credential_override(mode: Optional[ServerMode] = None) -> Optional[str]:
+def credential_override(mode: ServerMode | None = None) -> str | None:
     """The key that must be used, or ``None`` when the host's resolver applies.
 
     ``None`` is not "no key": it means the ordinary configuration path — the
@@ -96,7 +95,7 @@ def credential_override(mode: Optional[ServerMode] = None) -> Optional[str]:
     return validate_key(current_request_key())
 
 
-def host_may_store_a_key(mode: Optional[ServerMode] = None) -> bool:
+def host_may_store_a_key(mode: ServerMode | None = None) -> bool:
     """False wherever the settings page must refuse to write a key to the host.
 
     The settings page writes *host configuration* over an unauthenticated

@@ -11,11 +11,13 @@ no output path ever prints the raw number — see :mod:`ringedingeding.phone`.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
-from datetime import datetime, timezone
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from .huckepack_storage import open_connection
 from .locales import region_locale_for
@@ -30,7 +32,7 @@ from .models import (
 )
 from .server_mode import current_mode
 
-__all__ = ["Store", "utc_now", "DEFAULT_DB_PATH"]
+__all__ = ["DEFAULT_DB_PATH", "Store", "utc_now"]
 
 DEFAULT_DB_PATH = Path("ringedingeding.db")
 
@@ -97,7 +99,7 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class PollNotFound(KeyError):
@@ -113,9 +115,8 @@ class Store:
         # file below, or the copy the browser sent for this session. In the
         # browser modes not even the directory is created — see
         # ``huckepack_storage``.
-        if current_mode().stores_on_host:
-            if self.path.parent and str(self.path.parent) not in ("", "."):
-                self.path.parent.mkdir(parents=True, exist_ok=True)
+        if current_mode().stores_on_host and self.path.parent and str(self.path.parent) not in ("", "."):
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = open_connection(str(self.path))
         self.connection.row_factory = sqlite3.Row
         self.connection.executescript(_SCHEMA)
@@ -142,12 +143,10 @@ class Store:
     # -- lifecycle ----------------------------------------------------------
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(sqlite3.ProgrammingError):
             self.connection.close()
-        except sqlite3.ProgrammingError:
-            pass
 
-    def __enter__(self) -> "Store":
+    def __enter__(self) -> Store:
         return self
 
     def __exit__(self, *exc: object) -> None:

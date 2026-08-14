@@ -39,12 +39,12 @@ from typing import Any
 
 from .. import huckepack_key, huckepack_storage
 from ..activity import ActivityLine
-from ..server_mode import current_mode
 from ..projects import ProjectStore
+from ..server_mode import current_mode
 from ..service import RunMode, fixture_for, make_transport, run_round
 from ..store import Store
 
-__all__ = ["JobEvent", "Job", "JobRegistry", "JobBusy"]
+__all__ = ["Job", "JobBusy", "JobEvent", "JobRegistry"]
 
 
 class JobBusy(RuntimeError):
@@ -203,7 +203,7 @@ class Job:
                     on_event=self._on_event,
                 )
             self._append(JobEvent(kind="done", text="Runde beendet."))
-        except Exception as error:  # noqa: BLE001 - the page has to show it
+        except Exception as error:
             self.error = f"{type(error).__name__}: {error}"
             self._append(JobEvent(kind="error", text=self.error))
         finally:
