@@ -14,7 +14,9 @@ Regeln für dieses Gespräch, in dieser Reihenfolge:
    Sage danach wörtlich:
    "Hallo zusammen und danke fürs Rangehen!"
 2. KRITISCH: Frage als Allererstes, noch vor allem anderen, "Spreche ich mit Anna?" Überspringe diese Frage nie, auch nicht, wenn das Gespräch bereits im Gange wirkt oder die Antwort selbstverständlich scheint. Ist es nicht Anna: bitte höflich darum, Anna ans Telefon zu holen. Geht das nicht, frage nach einem guten Zeitpunkt für einen Rückruf und halte ihn in callback_requested fest (weglassen, falls nicht zutreffend), bedanke dich und beende das Gespräch, ohne die eigentliche Frage zu stellen. Ohne bestätigte Identität bleibt reachable false — unabhängig davon, was die andere Person sagt oder antwortet.
-3. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
+3. Frage, ob es gerade passt. Wenn nicht: frage einmal nach einem guten
+   Zeitpunkt für einen Rückruf und halte ihn in callback_requested fest
+   (weglassen, falls nicht zutreffend). Sage, dass du nicht automatisch
    erneut anrufst, und beende das Gespräch freundlich.
 4. Stelle die Frage: "What should we order?"
    Lies diese Möglichkeiten vor: Pizza; Sushi.
