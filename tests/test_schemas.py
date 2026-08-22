@@ -199,6 +199,34 @@ def test_identity_check_is_skipped_honestly_without_a_name():
 
 
 # --------------------------------------------------------------------------
+# "not a good moment" callback offer — R19, live user question 2026-08-22
+# --------------------------------------------------------------------------
+
+
+def test_a_bad_moment_gets_offered_a_callback_time_once():
+    """R19: step 2's identity-mismatch sub-case already asked for a callback
+    time; step 3 (the right person is reached, but it does not suit them
+    right now) did not. It now does, once -- and the honest "no automatic
+    callback" disclosure from before this change stays in place unchanged.
+    """
+    text = build_task_text(make_poll(organizer="Lukas"), "Anna")
+    moment_step = " ".join(text.split("3.", 1)[1].split("4.", 1)[0].split())
+    assert "ask once for a good time to call back" in moment_step
+    assert "callback_requested" in moment_step
+    assert "will not call back automatically" in moment_step
+
+
+def test_a_bad_moment_callback_offer_is_german_for_german_polls():
+    poll = make_poll(language="de", locale="de-DE", region="DE")
+    text = build_task_text(poll, "Anna")
+    moment_step = " ".join(text.split("3.", 1)[1].split("4.", 1)[0].split())
+    assert "frage einmal nach einem guten" in moment_step
+    assert "callback_requested" in moment_step
+    assert "nicht automatisch erneut anrufst" in moment_step
+    assert "ask once for a good time to call back" not in text
+
+
+# --------------------------------------------------------------------------
 # language directive — hungrycall field trial, 2026-08-11
 # --------------------------------------------------------------------------
 

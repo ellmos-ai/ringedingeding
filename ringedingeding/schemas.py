@@ -27,10 +27,10 @@ honest:
 ``refused``
     True when the person was reached and chose not to answer. A valid outcome.
 ``callback_requested``
-    Only set when ``reachable`` is false because the right person could not
-    come to the phone: a good time to call back, if one was offered. Omitted,
-    never null, when it does not apply — see the schema note on nullable
-    types below.
+    Set when the right person could not come to the phone at all, or was
+    reached but the moment did not suit them: a good time to call back, if
+    one was offered. Omitted, never null, when it does not apply — see the
+    schema note on nullable types below.
 ``note``
     The qualifier a tally would otherwise flatten ("yes, but under 50 euros").
 
@@ -78,10 +78,10 @@ _COMMON_PROPERTIES: dict[str, Any] = {
     "callback_requested": {
         "type": "string",
         "description": (
-            "Only when the right person could not be reached: what they said "
-            "about a good time to call back, in their own words. Leave this "
-            "out entirely when it does not apply — do not send an empty "
-            "string or null for it."
+            "When the right person could not be reached, or was reached but "
+            "the moment did not suit them: what they said about a good time "
+            "to call back, in their own words. Leave this out entirely when "
+            "it does not apply — do not send an empty string or null for it."
         ),
     },
 }
@@ -341,8 +341,10 @@ Rules for this call, in this order:
    "Hello, this is an automated assistant calling on behalf of {organizer}.
    I have one short question." Do not wait to be asked.
 {opening_block}2. {identity_block}
-3. Ask whether now is a good moment. If it is not, say you will not call back
-   automatically and end the call politely.
+3. Ask whether now is a good moment. If it is not, ask once for a good time
+   to call back and record it in callback_requested (leave it out when it
+   does not apply). Say you will not call back automatically on your own,
+   and end the call politely.
 4. {question_block}
 5. If the person does not want to answer, accept it immediately, thank them and
    end the call. Do not persuade, do not ask twice, do not offer reasons.
@@ -367,7 +369,9 @@ Regeln für dieses Gespräch, in dieser Reihenfolge:
    "Guten Tag, hier ist ein automatischer Assistent im Auftrag von {organizer}.
    Ich habe eine kurze Frage." Warte nicht, bis jemand nachfragt.
 {opening_block}2. {identity_block}
-3. Frage, ob es gerade passt. Wenn nicht: sage, dass du nicht automatisch
+3. Frage, ob es gerade passt. Wenn nicht: frage einmal nach einem guten
+   Zeitpunkt für einen Rückruf und halte ihn in callback_requested fest
+   (weglassen, falls nicht zutreffend). Sage, dass du nicht automatisch
    erneut anrufst, und beende das Gespräch freundlich.
 4. {question_block}
 5. Will die Person nicht antworten, akzeptiere das sofort, bedanke dich und
