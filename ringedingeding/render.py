@@ -136,6 +136,23 @@ def render_plan(poll: Poll, requests: Sequence[CallRequest], *, show_payload: bo
 # --------------------------------------------------------------------------
 
 
+def _callback_detail(structured: dict[str, object]) -> str:
+    """R19: surface a requested callback time, whatever bucket the answer
+    landed in -- asking for one is no longer limited to the identity-mismatch
+    case (schemas.py, ``callback_requested``)."""
+    callback = structured.get("callback_requested")
+    if not callback:
+        return ""
+    return f"asked for a callback: {mask_text(str(callback))}"
+
+
+def _detail(base: str, structured: dict[str, object]) -> str:
+    callback = _callback_detail(structured)
+    if not callback:
+        return base
+    return f"{base}; {callback}" if base else callback
+
+
 def _coverage_block(coverage: Coverage) -> list[str]:
     out = [f"Answers  : {coverage.basis} participants"]
     if coverage.caveat:
@@ -144,10 +161,24 @@ def _coverage_block(coverage: Coverage) -> list[str]:
     out.append("Who answered, and who did not:")
     rows = []
     for result in coverage.answered:
-        rows.append([result.label, result.phone_masked, "answered", result.status_label, ""])
+        rows.append(
+            [
+                result.label,
+                result.phone_masked,
+                "answered",
+                result.status_label,
+                _detail("", result.structured),
+            ]
+        )
     for result in coverage.refused:
         rows.append(
-            [result.label, result.phone_masked, "declined to answer", result.status_label, ""]
+            [
+                result.label,
+                result.phone_masked,
+                "declined to answer",
+                result.status_label,
+                _detail("", result.structured),
+            ]
         )
     for result in coverage.unreached:
         rows.append(
@@ -156,7 +187,7 @@ def _coverage_block(coverage: Coverage) -> list[str]:
                 result.phone_masked,
                 "NOT REACHED",
                 result.status_label,
-                mask_text(result.error or ""),
+                _detail(mask_text(result.error or ""), result.structured),
             ]
         )
     for result in coverage.shared_call:
@@ -166,11 +197,19 @@ def _coverage_block(coverage: Coverage) -> list[str]:
                 result.phone_masked,
                 f"shares a call with {result.shares_call_with} - not counted separately",
                 result.status_label,
-                "",
+                _detail("", result.structured),
             ]
         )
     for result in coverage.pending:
-        rows.append([result.label, result.phone_masked, "not called yet", result.status_label, ""])
+        rows.append(
+            [
+                result.label,
+                result.phone_masked,
+                "not called yet",
+                result.status_label,
+                _detail("", result.structured),
+            ]
+        )
     out.append(table(["Name", "Number", "Counts as", "Call status", "Detail"], rows))
     transcribed = coverage.transcribed
     if transcribed:
@@ -180,6 +219,21 @@ def _coverage_block(coverage: Coverage) -> list[str]:
             + ", ".join(result.label for result in transcribed)
             + ". They are in the Markdown report - the categories above are the "
             "voice agent's reading of them."
+        )
+    everybody = (
+        coverage.answered
+        + coverage.refused
+        + coverage.unreached
+        + coverage.pending
+        + coverage.shared_call
+    )
+    asked_for_callback = [r for r in everybody if r.structured.get("callback_requested")]
+    if asked_for_callback:
+        out.append("")
+        out.append(
+            f"{len(asked_for_callback)} asked for a callback: "
+            + ", ".join(result.label for result in asked_for_callback)
+            + ". This is not called back automatically - run with --retry to call them again."
         )
     return out
 
@@ -206,6 +260,34 @@ def _transcript_block(coverage: Coverage) -> list[str]:
         out += [f"### {result.label} ({result.status_label})", "", "```"]
         out += [mask_text(line) for line in result.transcript.splitlines()]
         out += ["```", ""]
+    return out
+
+
+def _callback_block(coverage: Coverage) -> list[str]:
+    """R19: the Markdown table above has no Detail column, so a requested
+    callback time gets its own section instead -- the same information the
+    console report puts in the Detail column (render.py, ``_detail``)."""
+    everybody = (
+        coverage.answered
+        + coverage.refused
+        + coverage.unreached
+        + coverage.pending
+        + coverage.shared_call
+    )
+    asked = [(r, r.structured.get("callback_requested")) for r in everybody]
+    asked = [(r, callback) for r, callback in asked if callback]
+    if not asked:
+        return []
+    out = [
+        "## Asked for a callback",
+        "",
+        "This is not called back automatically - run with `--retry` to call "
+        "them again.",
+        "",
+    ]
+    for result, callback in asked:
+        out.append(f"- **{result.label}**: {mask_text(str(callback))}")
+    out.append("")
     return out
 
 
@@ -463,6 +545,7 @@ def render_markdown(merge: MergeResult) -> str:
         "",
     ]
 
+    out += _callback_block(coverage)
     out += _transcript_block(coverage)
 
     out += [
