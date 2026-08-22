@@ -1084,5 +1084,25 @@
   "vorgelesen, nicht als": {
     "de": "vorgelesen, nicht als",
     "en": "instead of"
+  },
+  "Person(en) teilen sich eine Telefonnummer mit jemand anderem in dieser Runde.": {
+    "de": "Person(en) teilen sich eine Telefonnummer mit jemand anderem in dieser Runde.",
+    "en": "Person(s) share a phone number with someone else in this round."
+  },
+  "Wird NICHT angerufen — geteilte Telefonnummer": {
+    "de": "Wird NICHT angerufen — geteilte Telefonnummer",
+    "en": "Will NOT be called — shared phone number"
+  },
+  "geteilte Nummer": {
+    "de": "geteilte Nummer",
+    "en": "shared number"
+  },
+  "CALL-E kann Anrufe an dieselbe Nummer innerhalb einer Runde zusammenfassen. Die Antwort ließe sich dann keiner der beiden Personen sicher zuordnen — deshalb wird hier niemand angerufen. Gib beiden eine eigene Nummer, oder führe sie in einer Person zusammen.": {
+    "de": "CALL-E kann Anrufe an dieselbe Nummer innerhalb einer Runde zusammenfassen. Die Antwort ließe sich dann keiner der beiden Personen sicher zuordnen — deshalb wird hier niemand angerufen. Gib beiden eine eigene Nummer, oder führe sie in einer Person zusammen.",
+    "en": "CALL-E can fold calls to the same number within one round into one. The answer could then not be told apart for either person, so nobody here is called. Give both a number of their own, or fold them into one person."
+  },
+  "teilt sich einen Anruf mit": {
+    "de": "teilt sich einen Anruf mit",
+    "en": "shares a call with"
   }
 }

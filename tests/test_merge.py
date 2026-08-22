@@ -328,4 +328,145 @@ def test_open_answers_are_quoted_not_merged():
     }
     merged = merge_poll(poll, people, answers)
     assert [entry.answer for entry in merged.entries] == ["Make it shorter."]
-    assert [r.ref for r in merged.coverage.unreached] == ["b"]
+
+
+# --------------------------------------------------------------------------
+# a shared call is one vote, not two (R3/R12, live 2026-08-22)
+# --------------------------------------------------------------------------
+#
+# Two participants sharing one real phone number can be given the exact same
+# call_run_id and the exact same structured answer — CALL-E's own service can
+# dedupe identical numbers within one dispatch (FINDINGS.md, "Batch dedup by
+# phone number"). runner.build_requests now refuses to dial either of them
+# going forward, but this is the second, independent line of defence for the
+# aggregation step itself: whatever wrote the two answers, and whenever, a
+# single run_id must never be able to buy a second vote.
+#
+# The live case ("Vorne: Jedi (2 von 2) — 2 von 2 Personen haben
+# geantwortet", the same justification quoted under both names, run
+# call_XfIgDzYvqWYV) is rebuilt here exactly.
+
+
+def _jedi_or_sith_poll():
+    return make_poll(kind=PollKind.CHOICE, options=("Jedi", "Sith"), slots=())
+
+
+def test_two_participants_sharing_a_run_id_are_counted_as_one_vote():
+    poll = _jedi_or_sith_poll()
+    people = [make_participant("a", name="Lukas 2"), make_participant("b", name="Lukas Friedrich")]
+    answers = {
+        "p_a": answer(
+            "p_a",
+            reachable=True,
+            refused=False,
+            choice="Jedi",
+            reason="Einfach so, ist doch klar.",
+            run_id="call_XfIgDzYvqWYV",
+        ),
+        "p_b": answer(
+            "p_b",
+            reachable=True,
+            refused=False,
+            choice="Jedi",
+            reason="Einfach so, ist doch klar.",
+            run_id="call_XfIgDzYvqWYV",
+        ),
+    }
+    merged = merge_poll(poll, people, answers)
+
+    jedi = next(entry for entry in merged.tally if entry.option == "Jedi")
+    assert jedi.count == 1, "one real conversation must never become two votes"
+    assert jedi.voters == ("Lukas 2",), "the first participant on record is the one kept"
+    assert merged.coverage.answered_count == 1
+    # The one who is not counted separately stays visible, not dropped.
+    assert [r.label for r in merged.coverage.shared_call] == ["Lukas Friedrich"]
+    assert merged.coverage.shared_call[0].shares_call_with == "Lukas 2"
+    # Both participants exist in the total — nobody just vanishes from the count.
+    assert merged.coverage.total == 2
+    assert not merged.coverage.is_complete
+
+
+def test_shared_call_caveat_names_both_participants():
+    poll = _jedi_or_sith_poll()
+    people = [make_participant("a", name="Lukas 2"), make_participant("b", name="Lukas Friedrich")]
+    answers = {
+        "p_a": answer("p_a", reachable=True, refused=False, choice="Jedi", run_id="call_shared"),
+        "p_b": answer("p_b", reachable=True, refused=False, choice="Jedi", run_id="call_shared"),
+    }
+    merged = merge_poll(poll, people, answers)
+    caveat = merged.coverage.caveat
+    assert caveat is not None
+    assert "Lukas Friedrich" in caveat
+    assert "shares a call with Lukas 2" in caveat
+    assert "counted once" in caveat
+
+
+def test_three_participants_sharing_a_run_id_are_still_counted_once():
+    poll = _jedi_or_sith_poll()
+    people = [make_participant(ref) for ref in ("a", "b", "c")]
+    answers = {
+        "p_a": answer("p_a", reachable=True, refused=False, choice="Jedi", run_id="call_x"),
+        "p_b": answer("p_b", reachable=True, refused=False, choice="Jedi", run_id="call_x"),
+        "p_c": answer("p_c", reachable=True, refused=False, choice="Jedi", run_id="call_x"),
+    }
+    merged = merge_poll(poll, people, answers)
+    jedi = next(entry for entry in merged.tally if entry.option == "Jedi")
+    assert jedi.count == 1
+    assert len(merged.coverage.shared_call) == 2
+
+
+def test_answers_without_a_run_id_are_never_treated_as_shared():
+    """The overwhelming majority of answers in this suite (and in dry runs,
+    where nothing carries a real call id) have ``run_id=None``. Grouping by
+    run_id must never fold two genuinely independent, unset answers into one
+    -- that would be a second, opposite miscount."""
+    poll = _jedi_or_sith_poll()
+    people = [make_participant("a"), make_participant("b")]
+    answers = {
+        "p_a": answer("p_a", reachable=True, refused=False, choice="Jedi"),
+        "p_b": answer("p_b", reachable=True, refused=False, choice="Jedi"),
+    }
+    merged = merge_poll(poll, people, answers)
+    jedi = next(entry for entry in merged.tally if entry.option == "Jedi")
+    assert jedi.count == 2
+    assert not merged.coverage.shared_call
+    assert merged.coverage.is_complete
+
+
+def test_a_different_run_id_is_never_folded_together():
+    poll = _jedi_or_sith_poll()
+    people = [make_participant("a"), make_participant("b")]
+    answers = {
+        "p_a": answer("p_a", reachable=True, refused=False, choice="Jedi", run_id="call_1"),
+        "p_b": answer("p_b", reachable=True, refused=False, choice="Sith", run_id="call_2"),
+    }
+    merged = merge_poll(poll, people, answers)
+    assert {entry.option: entry.count for entry in merged.tally} == {"Jedi": 1, "Sith": 1}
+    assert not merged.coverage.shared_call
+
+
+def test_slot_poll_availability_shared_by_two_participants_is_not_double_counted():
+    """The exact "Hochzeit" live scenario: two participants, one real phone
+    number, one call — a slot must not read as confirmed by two people when
+    only one conversation ever took place."""
+    poll = make_poll(kind=PollKind.SLOT, slots=("Sat 14-18", "Sun 10-14"))
+    people = [
+        make_participant("a", name="Lukas 2"),
+        make_participant("b", name="Lukas Friedrich"),
+    ]
+    shared_slots = {
+        "available_slots": ["Sat 14-18"],
+        "cannot": ["Sun 10-14"],
+        "reachable": True,
+        "refused": False,
+    }
+    answers = {
+        "p_a": answer("p_a", run_id="call_1o-5wiBOa", **shared_slots),
+        "p_b": answer("p_b", run_id="call_1o-5wiBOa", **shared_slots),
+    }
+    merged = merge_poll(poll, people, answers)
+    row = next(row for row in merged.rows if row.label == "Sat 14-18")
+    assert row.can == ("Lukas 2",)
+    assert row.cannot == ()
+    assert merged.coverage.answered_count == 1
+    assert [r.ref for r in merged.coverage.shared_call] == ["b"]

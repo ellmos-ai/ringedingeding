@@ -48,6 +48,12 @@ class RunReport:
     rejected: list[tuple[Participant, str]] = field(default_factory=list)
     """Failed validation and never dialed."""
 
+    ambiguous: list[tuple[Participant, str]] = field(default_factory=list)
+    """Shares a phone number with another participant due this run, so any
+    answer from that number could not be told apart between them. Never
+    dialed, and recorded as ``FAILED`` rather than silently mapped to either
+    (measured 2026-08-22 — see FINDINGS.md, "Batch dedup by phone number")."""
+
     aborted: bool = False
 
     @property
@@ -69,10 +75,15 @@ def build_requests(
     opening: Sequence[str] = (),
     closing: Sequence[str] = (),
     urgency: str = "",
-) -> tuple[list[CallRequest], list[Participant], list[tuple[Participant, str]]]:
+) -> tuple[
+    list[CallRequest],
+    list[Participant],
+    list[tuple[Participant, str]],
+    list[tuple[Participant, str]],
+]:
     """Prepare one :class:`CallRequest` per participant that still needs a call.
 
-    Returns ``(requests, skipped, rejected)``.
+    Returns ``(requests, skipped, rejected, ambiguous)``.
     """
     answers = existing or {}
     recipient_schema = recipient_result_schema(poll)
@@ -81,18 +92,54 @@ def build_requests(
     requests: list[CallRequest] = []
     skipped: list[Participant] = []
     rejected: list[tuple[Participant, str]] = []
+    ambiguous: list[tuple[Participant, str]] = []
 
+    due: list[Participant] = []
     for participant in participants:
         answer = answers.get(participant.id)
         if answer is not None and answer.call_status is not CallStatus.PENDING and not retry:
             skipped.append(participant)
             continue
+        due.append(participant)
+
+    # Measured 2026-08-22, live (poll "Hochzeit", two participants on one
+    # real number): CALL-E's batch endpoint can fold recipients that share a
+    # phone number into a single physical call while still returning one
+    # recipient entry per request, so the length-mismatch guard in
+    # CalleBatchTransport (which only fires when the counts disagree) never
+    # sees a problem — the same structured answer, the same transcript and
+    # the same run_id were written for both participants. See FINDINGS.md,
+    # "Batch dedup by phone number". Caught here instead, before any request
+    # is even built, and for every transport, not only the batch one —
+    # whether the same collapsing happens under ``--serial`` (a separate
+    # ``POST /v1/calls`` per participant) is unmeasured and not assumed safe.
+    sharers: dict[str, list[Participant]] = {}
+    for participant in due:
+        sharers.setdefault(participant.phone_e164, []).append(participant)
+
+    for participant in due:
         try:
             # Defence in depth: validated on construction, checked again here
             # because this is the last point before a number could be dialed.
             normalize_e164(participant.phone_e164)
         except InvalidPhoneNumber as error:
             rejected.append((participant, str(error)))
+            continue
+
+        peers = [p for p in sharers[participant.phone_e164] if p.id != participant.id]
+        if peers:
+            other = ", ".join(p.ref for p in peers)
+            ambiguous.append(
+                (
+                    participant,
+                    f"shares this phone number with {other} in this same run; "
+                    "CALL-E's own service can dedupe identical numbers within one "
+                    "dispatch, so an answer from that number cannot be told apart "
+                    "between them and is attributed to neither (measured "
+                    "2026-08-22 — see FINDINGS.md). Give them distinct numbers, "
+                    "or fold them into one participant, before calling again.",
+                )
+            )
             continue
 
         requests.append(
@@ -111,7 +158,7 @@ def build_requests(
                 idempotency_key=idempotency_key(poll.id, participant.id),
             )
         )
-    return requests, skipped, rejected
+    return requests, skipped, rejected, ambiguous
 
 
 def run_poll(
@@ -131,7 +178,7 @@ def run_poll(
     """Place the outstanding calls of ``poll`` and store what comes back."""
     participants = store.participants(poll.id)
     by_id = {participant.id: participant for participant in participants}
-    requests, skipped, rejected = build_requests(
+    requests, skipped, rejected, ambiguous = build_requests(
         poll,
         participants,
         existing=store.answers(poll.id),
@@ -141,7 +188,9 @@ def run_poll(
         closing=closing,
         urgency=urgency,
     )
-    report = RunReport(poll=poll, requests=requests, skipped=skipped, rejected=rejected)
+    report = RunReport(
+        poll=poll, requests=requests, skipped=skipped, rejected=rejected, ambiguous=ambiguous
+    )
 
     for participant, reason in rejected:
         store.record_answer(
@@ -153,6 +202,21 @@ def run_poll(
             )
         )
         on_event("rejected", ref=participant.ref, reason=reason)
+
+    for participant, reason in ambiguous:
+        # FAILED, not SKIPPED: this is not "not attempted yet" (Bucket.PENDING,
+        # "not called yet" in the report) but a definite "not reached, and
+        # will not be retried automatically" (Bucket.UNREACHED, "NOT REACHED")
+        # — the shared number will not stop being shared on its own.
+        store.record_answer(
+            Answer(
+                participant_id=participant.id,
+                call_status=CallStatus.FAILED,
+                received_at=utc_now(),
+                error=reason,
+            )
+        )
+        on_event("ambiguous", ref=participant.ref, reason=reason)
 
     if not requests:
         on_event("nothing_to_do", skipped=len(skipped))

@@ -17,7 +17,7 @@ into ``unknown``, not into ``cannot``. Anything else would fabricate data.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .models import Answer, Bucket, CallStatus, Participant, Poll, PollKind
@@ -60,6 +60,16 @@ class ParticipantResult:
 
     error: str | None = None
 
+    run_id: str | None = None
+    """The call this answer came from. Two participants sharing one non-null
+    ``run_id`` did not have two separate conversations — see
+    :data:`Coverage.shared_call`."""
+
+    shares_call_with: str = ""
+    """Set only on an entry moved into :data:`Coverage.shared_call`: the label
+    of the participant whose answer from the same call is the one actually
+    counted."""
+
     @property
     def label(self) -> str:
         return self.name or self.ref
@@ -78,9 +88,25 @@ class Coverage:
     unreached: tuple[ParticipantResult, ...] = ()
     pending: tuple[ParticipantResult, ...] = ()
 
+    shared_call: tuple[ParticipantResult, ...] = ()
+    """Answered, but the call itself was already counted under a different
+    participant who carries the same non-null ``run_id`` — several
+    participant records pointing at one real conversation (measured
+    2026-08-22: CALL-E can dedupe recipients that share a phone number within
+    one dispatch; see FINDINGS.md, "Batch dedup by phone number"). Never
+    folded into :data:`answered`: one conversation is counted once, no matter
+    how many participant records point at it, and never silently — the
+    caveat below always names who is affected."""
+
     @property
     def total(self) -> int:
-        return len(self.answered) + len(self.refused) + len(self.unreached) + len(self.pending)
+        return (
+            len(self.answered)
+            + len(self.refused)
+            + len(self.unreached)
+            + len(self.pending)
+            + len(self.shared_call)
+        )
 
     @property
     def answered_count(self) -> int:
@@ -94,7 +120,7 @@ class Coverage:
     @property
     def missing(self) -> tuple[ParticipantResult, ...]:
         """Everyone who is not in the aggregate, in reporting order."""
-        return self.refused + self.unreached + self.pending
+        return self.refused + self.unreached + self.pending + self.shared_call
 
     @property
     def transcribed(self) -> tuple[ParticipantResult, ...]:
@@ -103,7 +129,9 @@ class Coverage:
         Not restricted to the people who answered: a voicemail or a refusal has
         a transcript too, and that is often the one worth reading.
         """
-        everybody = self.answered + self.refused + self.unreached + self.pending
+        everybody = (
+            self.answered + self.refused + self.unreached + self.pending + self.shared_call
+        )
         return tuple(result for result in everybody if result.transcript.strip())
 
     @property
@@ -123,6 +151,14 @@ class Coverage:
             parts.append(f"not reached: {detail}")
         if self.refused:
             parts.append("declined to answer: " + ", ".join(r.label for r in self.refused))
+        if self.shared_call:
+            detail = ", ".join(
+                f"{result.label} (shares a call with {result.shares_call_with})"
+                for result in self.shared_call
+            )
+            parts.append(
+                f"share a call with someone already counted, so counted once: {detail}"
+            )
         if self.pending:
             parts.append("not called yet: " + ", ".join(r.label for r in self.pending))
         return (
@@ -148,13 +184,34 @@ def _classify(participants: Sequence[Participant], answers: dict[str, Answer]) -
             structured=dict(answer.structured or {}),
             transcript=answer.transcript or "",
             error=answer.error,
+            run_id=answer.run_id,
         )
         groups[result.bucket].append(result)
+
+    # Two participants never get to keep two separate votes over one real
+    # conversation (measured 2026-08-22 — see FINDINGS.md, "Batch dedup by
+    # phone number", and Coverage.shared_call above). The first participant
+    # in poll order who carries a given run_id is the one counted; every
+    # later participant with the same run_id moves out of the aggregate and
+    # into shared_call, naming who they are duplicating.
+    answered: list[ParticipantResult] = []
+    shared_call: list[ParticipantResult] = []
+    holder_by_run_id: dict[str, ParticipantResult] = {}
+    for result in groups[Bucket.ANSWERED]:
+        holder = holder_by_run_id.get(result.run_id) if result.run_id else None
+        if holder is not None:
+            shared_call.append(replace(result, shares_call_with=holder.label))
+            continue
+        if result.run_id:
+            holder_by_run_id[result.run_id] = result
+        answered.append(result)
+
     return Coverage(
-        answered=tuple(groups[Bucket.ANSWERED]),
+        answered=tuple(answered),
         refused=tuple(groups[Bucket.REFUSED]),
         unreached=tuple(groups[Bucket.UNREACHED]),
         pending=tuple(groups[Bucket.PENDING]),
+        shared_call=tuple(shared_call),
     )
 
 

@@ -536,6 +536,9 @@ class Preview:
     requests: tuple[CallRequest, ...] = ()
     skipped: tuple[Participant, ...] = ()
     rejected: tuple[tuple[Participant, str], ...] = ()
+    ambiguous: tuple[tuple[Participant, str], ...] = ()
+    """Excluded because they share a phone number with another participant of
+    this run — see :mod:`ringedingeding.runner`."""
     uncallable: tuple[Contact, ...] = ()
 
     @property
@@ -566,7 +569,7 @@ def preview(
     store: Store, projects: ProjectStore, project: Project, poll: Poll, *, retry: bool = False
 ) -> Preview:
     greeting, closing = wording(projects, project)
-    requests, skipped, rejected = build_requests(
+    requests, skipped, rejected, ambiguous = build_requests(
         poll,
         store.participants(poll.id),
         existing=store.answers(poll.id),
@@ -580,6 +583,7 @@ def preview(
         requests=tuple(requests),
         skipped=tuple(skipped),
         rejected=tuple(rejected),
+        ambiguous=tuple(ambiguous),
         uncallable=tuple(uncallable(projects.invitees(project.id))),
     )
 
@@ -754,7 +758,11 @@ class Board:
 
     @property
     def unreached(self) -> tuple[ParticipantResult, ...]:
-        return self.coverage.unreached + self.coverage.pending
+        # Includes shared_call: a participant whose vote was folded into a
+        # peer's (measured 2026-08-22, FINDINGS.md "Batch dedup by phone
+        # number") is not "answered" for the board either — it must stay
+        # visible, not disappear from the count entirely.
+        return self.coverage.unreached + self.coverage.pending + self.coverage.shared_call
 
     @property
     def best(self) -> SlotView | None:
@@ -801,7 +809,11 @@ class AdvisorBoard:
 
     @property
     def unreached(self) -> tuple[ParticipantResult, ...]:
-        return self.coverage.unreached + self.coverage.pending
+        # Includes shared_call: a participant whose vote was folded into a
+        # peer's (measured 2026-08-22, FINDINGS.md "Batch dedup by phone
+        # number") is not "answered" for the board either — it must stay
+        # visible, not disappear from the count entirely.
+        return self.coverage.unreached + self.coverage.pending + self.coverage.shared_call
 
 
 def _labels(value: Any) -> list[str]:

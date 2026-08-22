@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 
-from ringedingeding.models import Answer, CallStatus
+from ringedingeding.models import Answer, Bucket, CallStatus
 from ringedingeding.runner import build_requests, run_poll
 from ringedingeding.transports.base import CallOutcome, CallTransport
 
@@ -78,8 +78,8 @@ def test_retry_calls_them_again(store):
 def test_idempotency_key_is_stable_across_runs(store):
     poll = _poll_with_people(store, 2)
     people = store.participants(poll.id)
-    first, _, _ = build_requests(poll, people)
-    second, _, _ = build_requests(poll, people)
+    first, _, _, _ = build_requests(poll, people)
+    second, _, _, _ = build_requests(poll, people)
     assert [r.idempotency_key for r in first] == [r.idempotency_key for r in second]
     assert len({r.idempotency_key for r in first}) == 2
 
@@ -146,13 +146,13 @@ def test_serial_run_keeps_input_order(store):
 
 def test_names_can_be_withheld_from_the_call(store):
     poll = _poll_with_people(store, 1)
-    requests, _, _ = build_requests(poll, store.participants(poll.id), include_names=False)
+    requests, _, _, _ = build_requests(poll, store.participants(poll.id), include_names=False)
     assert "P0" not in requests[0].task_text
 
 
 def test_request_payload_masks_the_number_by_default(store):
     poll = _poll_with_people(store, 1)
-    requests, _, _ = build_requests(poll, store.participants(poll.id))
+    requests, _, _, _ = build_requests(poll, store.participants(poll.id))
     payload = requests[0].payload()
     assert payload["recipients"][0]["phones"] == ["+15*****00"]
     # ... and carries no personal data in the metadata
@@ -161,7 +161,7 @@ def test_request_payload_masks_the_number_by_default(store):
 
 def test_request_payload_can_produce_the_real_number_for_dialing(store):
     poll = _poll_with_people(store, 1)
-    requests, _, _ = build_requests(poll, store.participants(poll.id))
+    requests, _, _, _ = build_requests(poll, store.participants(poll.id))
     payload = requests[0].payload(redact_phone=False)
     assert payload["recipients"][0]["phones"] == ["+15555550100"]
 
@@ -173,3 +173,106 @@ def test_nothing_to_do_is_not_an_error(store):
     report = run_poll(store, poll, RecordingTransport())
     assert report.placed == 0
     assert not report.aborted
+
+
+# --------------------------------------------------------------------------
+# two participants, one phone number
+# --------------------------------------------------------------------------
+#
+# Measured live 2026-08-22 (poll "Hochzeit"): two participants sharing one
+# real phone number both ended up with state=done and the SAME structured
+# answer, the SAME transcript and the SAME call_run_id — one conversation
+# was silently attributed to two identities. CALL-E's batch endpoint returns
+# one recipient entry per request even when it has collapsed two identical
+# numbers into a single physical call, so the existing length-mismatch guard
+# in CalleBatchTransport ("refusing to map answers by position") never
+# fires. See FINDINGS.md, "Batch dedup by phone number".
+
+
+def _poll_with_a_shared_number(store):
+    poll = store.create_poll(question="Q", kind="open", organizer="Lukas")
+    store.add_participant(poll.id, name="Lukas 2", phone="+491795310194")
+    store.add_participant(poll.id, name="Lukas Friedrich", phone="+491795310194")
+    store.add_participant(poll.id, name="Simon", phone="+15555550199")
+    return poll
+
+
+def test_build_requests_refuses_participants_that_share_a_phone_number(store):
+    poll = _poll_with_a_shared_number(store)
+    people = store.participants(poll.id)
+    requests, skipped, rejected, ambiguous = build_requests(poll, people)
+
+    # Only the participant with a number nobody else in this run has is dialed.
+    assert [r.participant.name for r in requests] == ["Simon"]
+    assert not skipped
+    assert not rejected
+    assert {p.name for p, _reason in ambiguous} == {"Lukas 2", "Lukas Friedrich"}
+    # Each explanation names the peer(s) it is ambiguous against by ref, not
+    # just "somebody" — the operator has to be able to fix the actual collision.
+    refs_by_name = {p.name: p.ref for p in people}
+    reason_by_name = {p.name: reason for p, reason in ambiguous}
+    assert refs_by_name["Lukas Friedrich"] in reason_by_name["Lukas 2"]
+    assert refs_by_name["Lukas 2"] in reason_by_name["Lukas Friedrich"]
+
+
+def test_build_requests_does_not_flag_a_number_shared_with_an_already_answered_person(store):
+    """Only participants about to be dialled *in this run* can collide.
+
+    Somebody whose answer is already on record is not a live ambiguity —
+    only one call would actually go out this time.
+    """
+    poll = _poll_with_a_shared_number(store)
+    people = store.participants(poll.id)
+    already_answered = next(p for p in people if p.name == "Lukas 2")
+    store.record_answer(
+        Answer(participant_id=already_answered.id, call_status=CallStatus.NO_ANSWER)
+    )
+
+    requests, skipped, _rejected, ambiguous = build_requests(
+        poll, store.participants(poll.id), existing=store.answers(poll.id)
+    )
+    assert [p.ref for p in skipped] == [already_answered.ref]
+    assert not ambiguous
+    assert {r.participant.name for r in requests} == {"Lukas Friedrich", "Simon"}
+
+
+def test_run_poll_never_dials_participants_sharing_a_phone_number(store):
+    poll = _poll_with_a_shared_number(store)
+    simon = next(p for p in store.participants(poll.id) if p.name == "Simon")
+    transport = RecordingTransport()
+    report = run_poll(store, poll, transport)
+
+    assert transport.seen == [simon.ref]
+    assert {p.name for p, _reason in report.ambiguous} == {"Lukas 2", "Lukas Friedrich"}
+
+
+def test_run_poll_records_shared_phone_participants_as_not_reached_not_pending(store):
+    """FAILED (-> Bucket.UNREACHED, "NOT REACHED"), never SKIPPED (->
+    Bucket.PENDING, "not called yet") — the shared number will not stop
+    being shared on its own, so this is not "not attempted yet"."""
+    poll = _poll_with_a_shared_number(store)
+    run_poll(store, poll, RecordingTransport())
+
+    answers = store.answers(poll.id)
+    people = {p.id: p.name for p in store.participants(poll.id)}
+    for participant_id, answer in answers.items():
+        if people[participant_id] == "Simon":
+            assert answer.call_status is CallStatus.COMPLETED
+            continue
+        assert answer.call_status is CallStatus.FAILED
+        assert answer.run_id is None
+        assert answer.error and "shares this phone number" in answer.error
+        assert answer.bucket is Bucket.UNREACHED
+
+
+def test_two_participants_sharing_a_number_never_get_the_same_run_id_or_answer(store):
+    """The direct regression test for the live finding: no answer is ever
+    written twice under two different participant identities."""
+    poll = _poll_with_a_shared_number(store)
+    run_poll(store, poll, RecordingTransport())
+
+    answers = list(store.answers(poll.id).values())
+    run_ids = [a.run_id for a in answers if a.run_id is not None]
+    assert len(run_ids) == len(set(run_ids)), "no two participants may share a run_id"
+    structured_by_status = [a.structured for a in answers if a.call_status is CallStatus.FAILED]
+    assert all(s == {} for s in structured_by_status)

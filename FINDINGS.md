@@ -437,6 +437,73 @@ da niemand sonst die Achse hätte nutzen können.
   `stance="support"`) und prüft: keine „Tendency: support (2 of 2)"-Zeile mehr, beide
   wörtlichen Antworten stehen stattdessen in der Schlagzeile.
 
+## 13. Batch-Dedup nach Telefonnummer — jetzt gemessen, nicht mehr offen ✅
+
+> **Herkunft:** Live-Endabnahme des Operators/Team-Lead, 2026-08-22 (E-4/E-5). Zwei
+> unabhängige Runden desselben Projekts betroffen; Diagnose und Fix unten sind
+> codegelesen und testgedeckt (Live-Szenario als Regressionstest nachgebaut), nicht
+> selbst live nachgemessen — derselbe Bau-Agent hat wie in den Abschnitten oben keinen
+> eigenen Anruf ausgeführt.
+
+Abschnitt 10 und der Punkt „Weiterhin ungeprüft" unten hielten offen, was der Dienst
+mit zwei identischen Empfängernummern in einem Batch-Request macht — beobachtet war
+bis dahin nur die Code-Reaktion auf eine *mengenmäßig* abweichende Antwortliste.
+Am 2026-08-22 wurde das live gemessen, zweimal in derselben Endabnahme:
+
+- **Verfügbarkeitsrunde „Hochzeit" (13:02Z):** Zwei Teilnehmer (`p_4fc2300c7d` „Lukas 2",
+  `p_5604d14f81` „Lukas Friedrich Friedrich Geiger") mit **derselben** realen
+  Telefonnummer. Beide Teilnehmer-Datensätze bekamen `state=done`,
+  `call_run_id=call_1o-5wiBOa-_FqJWyTzoWng` (identisch) und **byte-identisches**
+  `structured_json`/`raw_text` — eine einzige Antwort wurde zwei Identitäten
+  zugeschrieben.
+- **Advisor-/Roundtable-Runde (13:23Z), dieselben zwei Teilnehmer:** derselbe Effekt,
+  ein Run (`call_fv09vuex…`), ein identisches `FAILED`-Ergebnis doppelt gebucht.
+
+**Der Dienst dedupliziert identische Zielnummern, ohne die Antwortlisten-Länge zu
+ändern.** Genau das lässt die bestehende Schutzmechanik in
+`transports/calle.py::CalleBatchTransport.place_many` leerlaufen: Sie prüft nur
+`len(recipients) != len(requests)` und „refusing to map answers by position" greift
+folglich nicht — die Länge stimmte (2 Requests, 2 Recipient-Einträge), nur der
+*Inhalt* beider Einträge war identisch, weil nur ein physisches Gespräch stattfand.
+Eine reine Längenprüfung kann diesen Fall grundsätzlich nicht fangen.
+
+**Warum „identische `run_id`" allein kein brauchbares Erkennungsmerkmal ist:** In
+`CalleBatchTransport` trägt *jeder* Teilnehmer eines Batches ohnehin dieselbe `run_id`
+(= die eine `call_id` des Batch-Requests, siehe `_outcome_from(run_id=call_id)`) — das
+gilt für jeden Batch mit mehreren Empfängern, auch für völlig unauffällige. Als
+alleiniges Erkennungsmerkmal würde es jede Mehrpersonen-Runde fälschlich als
+Kollision melden. Das tatsächlich beobachtbare, unabhängige Signal ist die **geteilte
+Telefonnummer der Teilnehmer selbst** — das ist bereits vor dem Absetzen des Requests
+bekannt, ganz ohne die (weiterhin unbewiesenen) Interna des Dienstes zu unterstellen.
+
+**Fix — die Prüfung sitzt vor dem Wählen, nicht in der Antwortauswertung, und gilt für
+jeden Transport:** `runner.py::build_requests` gruppiert die Teilnehmer, die in diesem
+Lauf tatsächlich angerufen würden, nach `phone_e164`. Für jede Nummer, die mehr als
+einer dieser Personen gehört, wird **für keine von ihnen** ein `CallRequest` gebaut —
+weder für `CalleBatchTransport` noch für den seriellen `CalleTransport` (ob derselbe
+Effekt auch bei getrennten `POST /v1/calls`-Aufrufen auftritt, ist unbewiesen und daher
+sicherheitshalber mitgesichert, nicht nur im gemessenen Batch-Pfad). Jede betroffene
+Person bekommt stattdessen sofort einen `Answer` mit `call_status=FAILED` (→
+`Bucket.UNREACHED`, „NOT REACHED" im Bericht — bewusst **nicht** `SKIPPED`/
+`Bucket.PENDING`/„not called yet", weil die geteilte Nummer sich nicht von selbst
+löst) und einer Fehlermeldung, die die andere Person namentlich (per Ref) benennt.
+Kein Anruf wird für sie ausgelöst — auch kein Geld für einen Anruf ausgegeben, dessen
+Antwort ohnehin verworfen werden müsste. Die bestehende Längenprüfung in
+`CalleBatchTransport` bleibt unverändert als zweite Verteidigungslinie für den
+weiterhin ungeprüften Fall einer *tatsächlich* abweichenden Antwortliste.
+
+- **Regressionstests:** `tests/test_runner.py`, Abschnitt „two participants, one phone
+  number" — baut das Live-Szenario nach (zwei Personen auf einer Nummer, eine dritte
+  mit eigener Nummer): nur die dritte wird angerufen, beide anderen laufen nie durch
+  einen Transport, landen mit `FAILED`/`Bucket.UNREACHED` und nennen sich gegenseitig
+  in der Fehlermeldung; kein `run_id` wird von zwei Teilnehmern geteilt.
+- **Berichtsseite (R12, Konsens aus dupliziertem Mapping):** Auch mit diesem Fix bleiben
+  in der Datenbank bereits gespeicherte Altfälle (die beiden Runden oben, DB-Stand
+  2026-08-22) stehen — `merge.py` behandelt Antworten mit identischer, nicht-leerer
+  `run_id` seither als **eine** gezählte Stimme mit sichtbarem Warnhinweis statt als
+  zwei, unabhängig davon, wann/wie die Doppelung entstand. Siehe unten,
+  „Geteilter Anruf wird nicht doppelt gezählt".
+
 ## Weiterhin ungeprüft
 
 - **Parallelität.** Ob mehrere Anrufe gleichzeitig laufen, ist offen. „concurrency
@@ -447,8 +514,10 @@ da niemand sonst die Achse hätte nutzen können.
   mehr als einen Eintrag zeigt — im beobachteten Ablehnungsfall war es trotz „bis zu
   3× Nachwahl" genau einer.
 - Ob REST- und MCP-Weg dasselbe Kontingent teilen.
-- **Batch-Dispatch mit zwei identischen Empfängernummern in einem Live-Request**
-  (Testdesign 2026-08-11 für Punkt E): ob der Dienst das als zwei getrennte
-  Anrufe behandelt oder die Empfängerliste dedupliziert/kürzt, ist unbeobachtet —
-  nur die Code-Reaktion auf eine mengenmäßig abweichende Antwortliste ist bekannt
-  (siehe Abschnitt 10 oben).
+- ~~Batch-Dispatch mit zwei identischen Empfängernummern in einem Live-Request~~ —
+  **gemessen 2026-08-22, siehe Abschnitt 13.** Der Dienst dedupliziert; der Code
+  verhindert seit dem Fix, dass beide Teilnehmer je einen Request bekommen.
+- Ob dieselbe Dedup-Kollaps auch bei getrennten seriellen `POST /v1/calls`-Aufrufen
+  auftritt (statt einem gemeinsamen Batch-Request) — nicht gemessen, `runner.py`
+  behandelt beide Transporte vorsorglich gleich, ohne dass das für den seriellen
+  Pfad belegt wäre.

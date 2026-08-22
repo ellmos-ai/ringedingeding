@@ -38,9 +38,16 @@ def make_participant(ref: str, phone: str = "+15555550100", name: str | None = N
     )
 
 
-def answer(participant_id: str, status: CallStatus = CallStatus.COMPLETED, **structured) -> Answer:
+def answer(
+    participant_id: str,
+    status: CallStatus = CallStatus.COMPLETED,
+    *,
+    run_id: str | None = None,
+    **structured,
+) -> Answer:
     return Answer(
         participant_id=participant_id,
         call_status=status,
         structured=structured,
+        run_id=run_id,
     )

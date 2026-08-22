@@ -21,7 +21,7 @@
     <h2>{{ t('Alle Antworten und Gründe') }}</h2>
     <div class="answer-grid">{% for answer in board.merge.entries %}<article class="answer-card"><span class="badge">{{ t(answer.stance) }}</span><h3>{{ answer.name }}</h3><p>{{ answer.answer }}</p>{% if answer.reasons %}<p class="small"><strong>{{ t('Warum:') }}</strong> {{ answer.reasons|join('; ') }}</p>{% endif %}{% if answer.concerns %}<p class="small"><strong>{{ t('Bedenken:') }}</strong> {{ answer.concerns|join('; ') }}</p>{% endif %}</article>{% endfor %}</div>
   {% endif %}
-  {% if board.unreached or board.uncallable %}<details class="optional"><summary>{{ t('Nicht erreichte Personen') }}</summary><ul>{% for item in board.unreached %}<li>{{ item.label }} — {{ item.status_label }}</li>{% endfor %}{% for contact in board.uncallable %}<li>{{ contact.name }} — {{ t('keine Telefonnummer') }}</li>{% endfor %}</ul></details>{% endif %}
+  {% if board.unreached or board.uncallable %}<details class="optional"><summary>{{ t('Nicht erreichte Personen') }}</summary><ul>{% for item in board.unreached %}<li>{{ item.label }} — {% if item.shares_call_with %}{{ t('teilt sich einen Anruf mit') }} {{ item.shares_call_with }}{% else %}{{ item.status_label }}{% endif %}</li>{% endfor %}{% for contact in board.uncallable %}<li>{{ contact.name }} — {{ t('keine Telefonnummer') }}</li>{% endfor %}</ul></details>{% endif %}
 {% endif %}
 <p><a class="next" href="/projects/{{ project.id }}/preview">{{ t('Zurück zum Auftrag') }} →</a></p>
 {% endblock %}

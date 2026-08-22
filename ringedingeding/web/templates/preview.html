@@ -9,9 +9,26 @@
     <ul class="small">
       {% if preview.skipped %}<li>{{ preview.skipped|length }} {{ t('Person(en) haben schon geantwortet.') }}</li>{% endif %}
       {% if preview.uncallable %}<li>{{ preview.uncallable|length }} {{ t('Person(en) haben keine Telefonnummer.') }}</li>{% endif %}
+      {% if preview.ambiguous %}<li>{{ preview.ambiguous|length }} {{ t('Person(en) teilen sich eine Telefonnummer mit jemand anderem in dieser Runde.') }}</li>{% endif %}
       <li>{{ t('Sonst: unter „Personen“ jemanden auswählen.') }}</li>
     </ul>
   </div>
+{% endif %}
+
+{% if preview.ambiguous %}
+<div class="card warn-card">
+  <h2>{{ t('Wird NICHT angerufen — geteilte Telefonnummer') }}</h2>
+  <p class="muted small">
+    {{ t('CALL-E kann Anrufe an dieselbe Nummer innerhalb einer Runde zusammenfassen. Die Antwort ließe sich dann keiner der beiden Personen sicher zuordnen — deshalb wird hier niemand angerufen. Gib beiden eine eigene Nummer, oder führe sie in einer Person zusammen.') }}
+  </p>
+  <ul class="list">
+    {% for participant, reason in preview.ambiguous %}
+      <li><strong>{{ participant.name }}</strong>
+          <span class="muted small">{{ participant.phone_masked }}</span>
+          <span class="badge warn">{{ t('geteilte Nummer') }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
 {% endif %}
 
 <div class="card">
