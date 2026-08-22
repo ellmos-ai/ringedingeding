@@ -395,6 +395,17 @@ pre.speech { max-height: 320px; overflow-y: auto; }
 .caller.failed .mark { color: var(--cannot); font-weight: 700; }
 .caller.failed { border-color: var(--cannot); background: #fdf7f7; }
 .caller.waiting { opacity: 0.65; }
+/* A simulated round's "answered"/"calling" rows must never look like the
+   real thing (R4, live finding 2026-08-22) — dashed border and the warning
+   colour instead of the solid, "can" green/accent blue a real call earns. */
+.callers.simulated .caller.answered,
+.callers.simulated .caller.calling {
+  border-style: dashed; border-color: var(--warn); background: #fdf6e6;
+}
+.callers.simulated .caller.answered .mark,
+.callers.simulated .caller.calling .mark {
+  color: var(--warn); animation: none;
+}
 
 @keyframes ring { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
 @media (prefers-reduced-motion: reduce) { .caller.calling .mark { animation: none; } }

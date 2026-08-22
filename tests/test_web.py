@@ -321,6 +321,82 @@ def test_the_live_panel_is_complete_without_the_stream(client):
     assert "niemand da" in panel.text
 
 
+def test_a_rehearsal_never_claims_real_calls_are_running(client):
+    """Live finding, 2026-08-22: R4. A rehearsal must be unmistakable, not
+    just labelled -- the "Echte Anrufe laufen" banner and the same "✓" a
+    real call earns must never appear on a simulated round."""
+    project_id = make_demo(client)
+    client.post(f"/projects/{project_id}/run", data={"mode": "rehearsal"})
+    wait_for_round(client, project_id)
+
+    panel = client.get(f"/projects/{project_id}/live/panel")
+    assert panel.status_code == 200
+    assert "SIMULATION" in panel.text
+    assert "Echte Anrufe laufen" not in panel.text
+    assert "callers simulated" in panel.text
+    # The panel is a rehearsal, so "answered" rows must use the dedicated
+    # simulated mark, never the real one.
+    assert "caller answered" in panel.text
+    assert 'aria-hidden="true">✓' not in panel.text
+
+
+def test_simulated_poll_outranks_a_live_job_flag_in_the_live_panel():
+    """Direct regression test for the exact race behind R4: a job object
+    can say ``live=True`` (it only remembers the mode the round was
+    *started* with) while the poll it is running against is, at that
+    moment, still marked ``simulated`` (R5's clearing step has not run
+    yet, or simply has not been reached). Whichever banner wins, it must
+    never be the one that claims a real call happened."""
+    from fastapi.templating import Jinja2Templates
+
+    from ringedingeding.web.app import HERE
+    from ringedingeding.web.ui import LiveRow, avatar_colour, status_word
+
+    templates = Jinja2Templates(directory=str(HERE / "templates"))
+    poll = _minimal_simulated_poll()
+
+    class FakeLiveJob:
+        error: str | None = None
+
+        @property
+        def live(self) -> bool:
+            return True
+
+    row = LiveRow(
+        ref="a", name="Anna", contact_id=None, initials="AN", has_photo=False,
+        state="answered", detail="hat geantwortet",
+    )
+    html = templates.get_template("_live_panel.html").render(
+        request=None,
+        project=None,
+        poll=poll,
+        rows=[row],
+        job=FakeLiveJob(),
+        speech=[],
+        round_kind="availability",
+        avatar_colour=avatar_colour,
+        status_word=lambda status: status_word(status, "de"),
+        t=lambda text, **values: text,
+    )
+
+    assert "SIMULATION" in html
+    assert "Echte Anrufe laufen" not in html
+    assert 'aria-hidden="true">✓' not in html
+    assert "∼" in html
+
+
+def _minimal_simulated_poll():
+    from ringedingeding.models import Poll, PollKind
+
+    return Poll(
+        id="poll_test",
+        question="Q",
+        kind=PollKind.SLOT,
+        organizer="Lukas",
+        simulated=True,
+    )
+
+
 def test_the_stream_sends_a_panel_and_then_closes(client):
     project_id = make_demo(client)
     client.post(f"/projects/{project_id}/run", data={"mode": "script"})
