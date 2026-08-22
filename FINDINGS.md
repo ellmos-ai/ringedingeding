@@ -476,27 +476,45 @@ Kollision melden. Das tatsächlich beobachtbare, unabhängige Signal ist die **g
 Telefonnummer der Teilnehmer selbst** — das ist bereits vor dem Absetzen des Requests
 bekannt, ganz ohne die (weiterhin unbewiesenen) Interna des Dienstes zu unterstellen.
 
-**Fix — die Prüfung sitzt vor dem Wählen, nicht in der Antwortauswertung, und gilt für
-jeden Transport:** `runner.py::build_requests` gruppiert die Teilnehmer, die in diesem
-Lauf tatsächlich angerufen würden, nach `phone_e164`. Für jede Nummer, die mehr als
-einer dieser Personen gehört, wird **für keine von ihnen** ein `CallRequest` gebaut —
-weder für `CalleBatchTransport` noch für den seriellen `CalleTransport` (ob derselbe
-Effekt auch bei getrennten `POST /v1/calls`-Aufrufen auftritt, ist unbewiesen und daher
-sicherheitshalber mitgesichert, nicht nur im gemessenen Batch-Pfad). Jede betroffene
-Person bekommt stattdessen sofort einen `Answer` mit `call_status=FAILED` (→
-`Bucket.UNREACHED`, „NOT REACHED" im Bericht — bewusst **nicht** `SKIPPED`/
-`Bucket.PENDING`/„not called yet", weil die geteilte Nummer sich nicht von selbst
-löst) und einer Fehlermeldung, die die andere Person namentlich (per Ref) benennt.
-Kein Anruf wird für sie ausgelöst — auch kein Geld für einen Anruf ausgegeben, dessen
-Antwort ohnehin verworfen werden müsste. Die bestehende Längenprüfung in
+**Fix (Erstfassung 2026-08-22, R3) — die Prüfung saß vor dem Wählen, transportunabhängig:**
+`runner.py::build_requests` gruppierte die Teilnehmer, die in diesem Lauf tatsächlich
+angerufen würden, nach `phone_e164`. Für jede Nummer, die mehr als einer dieser Personen
+gehörte, wurde **für keine von ihnen** ein `CallRequest` gebaut — auch nicht für den
+seriellen `CalleTransport`, sicherheitshalber, obwohl dort pro Person ein eigener
+`POST /v1/calls` läuft und die Zuordnung schon durch die getrennten Requests eindeutig
+ist. Jede betroffene Person bekam sofort einen `Answer` mit `call_status=FAILED`.
+
+**Korrektur (R17, live nachgemessen 2026-08-22, `poll_7cebbd1226`/`poll_3aa3e96828`):**
+Der RT-4-Retest bestätigte den Kern (Block greift präventiv, ehrliche 0-von-2-Meldung,
+kein erfundener Konsens), zeigte aber zwei Folgeprobleme der transportunabhängigen
+Platzierung: (1) `--serial` wurde ebenfalls geblockt, obwohl dort — wie oben schon
+vermerkt — gar keine Kollision entstehen kann, womit der legitime Haushalts-Fall (zwei
+Personen, ein Festnetz) gar nicht mehr bedienbar war; (2) weil der Block sofort ein
+terminales `FAILED` schrieb, meldete ein Folgelauf „nothing to do (use --retry)", obwohl
+`--retry` daran nichts änderte — eine in sich widersprüchliche Sackgasse. Die Prüfung
+sitzt seither **ausschließlich** in `transports/calle.py::CalleBatchTransport.place_many`
+— dem einzigen Ort, an dem zwei Empfänger tatsächlich im selben `POST /v1/calls`-Body
+landen können. `runner.py::build_requests` kennt Telefonkollisionen seit R17 gar nicht
+mehr (wieder ein 3-Tupel statt des R3-4-Tupels); `CalleTransport` (`--serial`) ruft
+jeden Request unverändert einzeln auf. Der `--retry`-Sackgassen-Fund löst sich als
+direkte Folge mit auf: da `build_requests()` Kollisions-Teilnehmer nicht mehr vorab aus
+`due` herausfiltert, nimmt ein Retry sie wieder auf, und `store.record_answer()` (ein
+UPSERT) überschreibt den alten `FAILED`-Eintrag beim nächsten echten Versuch von
+selbst — kein separater Reset-Schritt nötig. Die bestehende Längenprüfung in
 `CalleBatchTransport` bleibt unverändert als zweite Verteidigungslinie für den
 weiterhin ungeprüften Fall einer *tatsächlich* abweichenden Antwortliste.
 
-- **Regressionstests:** `tests/test_runner.py`, Abschnitt „two participants, one phone
-  number" — baut das Live-Szenario nach (zwei Personen auf einer Nummer, eine dritte
-  mit eigener Nummer): nur die dritte wird angerufen, beide anderen laufen nie durch
-  einen Transport, landen mit `FAILED`/`Bucket.UNREACHED` und nennen sich gegenseitig
-  in der Fehlermeldung; kein `run_id` wird von zwei Teilnehmern geteilt.
+- **Regressionstests (R17-Stand):** `tests/test_calle_batch_transport.py` (neu, ohne
+  Netzwerkzugriff, `_request`/`_sleep` gemockt wie in `test_polling.py`) — volle
+  Kollision zweier Teilnehmer blockt beide vor jedem Netzwerkaufruf mit gegenseitiger
+  Ref-Nennung in der Fehlermeldung; eine Teil-Kollision (2 von 3) lässt den dritten,
+  nicht betroffenen Teilnehmer unverändert in einem 1er-Batch durchlaufen; ein Batch
+  ohne Kollision ist unbeeinflusst. `tests/test_runner.py`, Abschnitt „two participants,
+  one phone number" (umgebaut) — ein serieller/`place_one`-Fanout (was `--serial`
+  verwendet) ruft beide Teilnehmer mit getrennten `run_id`s und getrennten Antworten an;
+  ein `--retry`-Lauf gegen einen zuvor kollisionsbedingt `FAILED` markierten Teilnehmer
+  ruft ihn erneut an und überschreibt die alte Antwort, während ein Lauf ohne `--retry`
+  ihn korrekt unangetastet lässt.
 - **Berichtsseite (R12, Konsens aus dupliziertem Mapping):** Auch mit diesem Fix bleiben
   in der Datenbank bereits gespeicherte Altfälle (die beiden Runden oben, DB-Stand
   2026-08-22) stehen — `merge.py` behandelt Antworten mit identischer, nicht-leerer

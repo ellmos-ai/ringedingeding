@@ -1265,3 +1265,61 @@ R8/R10/R11 (design package, handled separately), R9 (project deletion —
 feature). R14, a compliance cross-reference finding, appeared in `AUFGABEN.txt`
 partway through this session (added outside this work) and was left untouched —
 not part of this brief.
+
+## 36. R17 follow-up — collision guard moved from runner.py to the batch
+transport — 2026-08-22
+
+The live retest of the R3/R12 package (`poll_7cebbd1226`, `poll_3aa3e96828`)
+confirmed the collision block worked, but also showed it applied too broadly:
+`runner.py::build_requests` refused a colliding pair for *every* transport,
+including `--serial`, where a separate `POST /v1/calls` per participant makes
+the attribution unambiguous and the block has no reason to exist. It also had
+a side effect: because the block wrote a terminal `FAILED` answer before any
+request was ever built, a follow-up run reported "nothing to do (use
+--retry)" while `--retry` changed nothing — a self-contradictory dead end.
+
+Fix: the guard moved out of `runner.py` (which no longer knows about phone
+collisions at all — `build_requests()` is back to a 3-tuple) and into
+`transports/calle.py::CalleBatchTransport.place_many()`, the one place a
+collision can actually occur (two recipients landing in the same
+`POST /v1/calls` body). `CalleTransport` (`--serial`) is untouched and simply
+dials every participant it is given, one request each. Removing the block
+from `build_requests()` also closes the `--retry` dead end as a direct
+consequence: a colliding participant's stale `FAILED` answer is no longer
+excluded from `due` on a retry, and `store.record_answer()`'s UPSERT
+overwrites it the moment a fresh attempt (successful or not) comes back.
+
+Executed locally, without an account, network or telephone side effect:
+
+```text
+python -m pytest -q
+exit=0 (534 passed; 533 before this change)
+
+python -m ruff check .
+All checks passed!
+
+python -m pyflakes ringedingeding/runner.py ringedingeding/service.py \
+  ringedingeding/cli.py ringedingeding/transports/calle.py
+(no output — clean)
+```
+
+New test file `tests/test_calle_batch_transport.py` (3 tests, no network —
+`CalleBatchTransport._request`/`_sleep` are monkeypatched, same idiom as
+`tests/test_polling.py`): a fully colliding batch of two never reaches the
+network and both come back `FAILED` with the peer named in the error; a
+partial collision (2 of 3 share a number) excludes the colliding pair from
+the `POST` body while the third participant is still dialed normally in a
+batch of one; a batch with no collision is unaffected.
+
+`tests/test_runner.py`, "two participants, one phone number" section rebuilt
+(net −2 tests, 5 → 3): `build_requests()` no longer filters anything;
+`RecordingTransport` (which fans out one `place_one()` per request, the same
+shape `--serial` uses) dials both colliding participants with separate
+`run_id`s and separate `COMPLETED` answers; a `--retry` run against a
+participant left with a simulated collision-`FAILED` answer dials them again
+and overwrites it with a fresh answer, while a run *without* `--retry`
+correctly leaves that stale answer alone.
+
+`AUFGABEN.txt` R17 updated to `ERLEDIGT` (gitignored, not part of any commit).
+Pushed to `origin/main`. Awaiting the operator's live retest RT-4c (2 serial
+calls to the same shared number).
