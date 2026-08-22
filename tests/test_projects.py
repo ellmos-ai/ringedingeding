@@ -245,6 +245,81 @@ def test_times_are_normalised(projects):
     assert slots[0].end_time == "17:05"
 
 
+# --------------------------------------------------------------------------
+# chronological order, regardless of input order (R6, Nutzer-Vorgabe live 2026-08-22)
+# --------------------------------------------------------------------------
+#
+# "JEDEN Tag einzeln abfragen ... bei zwei Zeitraeumen am selben Tag geordnet
+# fragen (erst frueherer, dann spaeterer Zeitraum) — UNABHAENGIG von der
+# Eingabereihenfolge in der Maske." The voice agent reads poll.slots
+# in order, so this is where the order it hears has to be decided.
+
+
+def test_slots_come_back_grouped_by_day_regardless_of_input_order(projects):
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    slots = projects.replace_slots(
+        project,
+        [
+            # Second day entered first, on purpose.
+            {"day_date": "2026-08-09", "start_time": "10:00", "end_time": "14:00"},
+            {"day_date": "2026-08-08", "start_time": "14:00", "end_time": "18:00"},
+        ],
+    )
+    assert [s.day_date for s in slots] == ["2026-08-08", "2026-08-09"]
+    assert [s.position for s in slots] == [0, 1]
+
+
+def test_two_windows_on_one_day_are_ordered_earlier_first_regardless_of_input_order(
+    projects,
+):
+    """The exact R6 scenario: the later time window was typed in first."""
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    slots = projects.replace_slots(
+        project,
+        [
+            {"day_date": "2026-08-08", "start_time": "18:00", "end_time": "21:00"},
+            {"day_date": "2026-08-08", "start_time": "15:00", "end_time": "17:00"},
+        ],
+    )
+    assert [s.start_time for s in slots] == ["15:00", "18:00"]
+
+
+def test_chronological_order_is_stored_not_just_returned(projects):
+    """The sort has to survive a fetch, not just the one call that built it —
+    every downstream reader (voice prompt, calendar, plan preview) shares
+    this one stored order."""
+    project = projects.create_project(occasion="Essen", organizer="Lukas")
+    projects.replace_slots(
+        project,
+        [
+            {"day_date": "2026-08-09", "start_time": "10:00", "end_time": "14:00"},
+            {"day_date": "2026-08-08", "start_time": "18:00", "end_time": "21:00"},
+            {"day_date": "2026-08-08", "start_time": "15:00", "end_time": "17:00"},
+        ],
+    )
+    refetched = projects.slots(project.id)
+    assert [(s.day_date, s.start_time) for s in refetched] == [
+        ("2026-08-08", "15:00"),
+        ("2026-08-08", "18:00"),
+        ("2026-08-09", "10:00"),
+    ]
+
+
+def test_whole_day_slots_are_also_ordered_by_date(projects):
+    project = projects.create_project(
+        occasion="Essen", organizer="Lukas", date_kind=DateKind.WHOLE_DAY
+    )
+    slots = projects.replace_slots(
+        project,
+        [
+            {"day_date": "2026-08-10", "all_day": True},
+            {"day_date": "2026-08-08", "all_day": True},
+            {"day_date": "2026-08-09", "all_day": True},
+        ],
+    )
+    assert [s.day_date for s in slots] == ["2026-08-08", "2026-08-09", "2026-08-10"]
+
+
 # -- criteria ---------------------------------------------------------------
 
 

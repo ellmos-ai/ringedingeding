@@ -243,10 +243,19 @@ def aggregate_result_schema(poll: Poll) -> dict[str, Any]:
 def _question_block_en(poll: Poll) -> str:
     if poll.kind is PollKind.SLOT and poll.has_window:
         slots = "; ".join(poll.slots)
+        # Nutzer-Vorgabe, live 2026-08-22 (R6): the list itself is already
+        # in the right order (Project.replace_slots sorts it chronologically,
+        # day by day, earlier time window before the later one, regardless
+        # of the order it was typed into the form in — see projects.py). The
+        # instruction below spells that order out explicitly rather than
+        # relying on it being followed just because the list happens to be
+        # sorted that way.
         return (
             f'Ask: "{poll.question}"\n'
-            f"Go through these proposed slots one by one and ask for each whether "
-            f"it works: {slots}.\n"
+            f"Go through these proposed slots one at a time, in exactly this "
+            f"order, never several at once: {slots}.\n"
+            "Finish one day — all of its time windows, earliest first — before "
+            "moving on to the next day. "
             "Record every slot that works and every slot that does not. "
             "Do not assume a slot works just because they did not mention it."
         )
@@ -277,9 +286,19 @@ def _question_block_en(poll: Poll) -> str:
 def _question_block_de(poll: Poll) -> str:
     if poll.kind is PollKind.SLOT and poll.has_window:
         slots = "; ".join(poll.slots)
+        # Nutzer-Vorgabe, live 2026-08-22 (R6): Die Liste selbst ist schon in
+        # der richtigen Reihenfolge (Project.replace_slots sortiert
+        # chronologisch, Tag für Tag, frueheres Zeitfenster vor dem
+        # spaeteren — unabhaengig von der Eingabereihenfolge in der Maske,
+        # siehe projects.py). Die Anweisung unten macht diese Reihenfolge
+        # zusaetzlich explizit, statt sich allein darauf zu verlassen, dass
+        # sie befolgt wird, nur weil die Liste zufaellig so sortiert ist.
         return (
             f'Stelle die Frage: "{poll.question}"\n'
-            f"Gehe diese Vorschläge einzeln durch und frage zu jedem, ob er passt: {slots}.\n"
+            f"Gehe diese Vorschläge einzeln durch, in genau dieser Reihenfolge, "
+            f"nie mehrere gleichzeitig: {slots}.\n"
+            "Schließe einen Tag — alle seine Zeitfenster, das früheste zuerst — "
+            "ab, bevor du zum nächsten Tag übergehst. "
             "Halte fest, welche Zeiten passen und welche nicht. Nimm nicht an, "
             "dass eine Zeit passt, nur weil sie nicht erwähnt wurde."
         )

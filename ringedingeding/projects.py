@@ -35,6 +35,7 @@ import json
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
+from dataclasses import replace as dataclass_replace
 from datetime import date, time
 from typing import Any
 
@@ -501,6 +502,23 @@ def _parse_date(value: str | None) -> date | None:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+def _chronological_slot_key(slot: Slot) -> tuple[int, date, int, str]:
+    """Day first, then time of day — never the order a slot happened to be
+    typed into the mask in (R6, live 2026-08-22). A concrete calendar date
+    always sorts before a recurring weekday-only slot (``weekday`` set,
+    ``day_date`` unset — not reachable from today's UI, see the "six kinds
+    of date" note at the top of this module, but kept sortable rather than
+    crashing on it), and both sort before a slot with neither, which should
+    not occur but must not raise either.
+    """
+    day = _parse_date(slot.day_date)
+    if day is not None:
+        return (0, day, 0, slot.start_time or "")
+    if slot.weekday is not None:
+        return (1, date.min, int(slot.weekday), slot.start_time or "")
+    return (2, date.min, 0, slot.start_time or "")
 
 
 def _weekday_name(day: date, language: str) -> str:
@@ -1008,10 +1026,19 @@ class ProjectStore:
         Replacing rather than patching keeps the labels and the ordering in one
         transaction. Answers already given are keyed by label, so a slot that
         survives the replacement keeps its answers.
+
+        The stored order is chronological, not input order (measured live
+        2026-08-22 — Nutzer-Vorgabe R6): the voice agent has to ask about each
+        day on its own, and about two time windows on the same day earlier
+        one first, regardless of the order the mask happened to receive them
+        in. Sorting once here — the only place a candidate list is written —
+        means every downstream reader (the voice prompt in ``schemas.py``,
+        the calendar, the plan preview) inherits the same order for free,
+        instead of each having to re-derive or re-sort it.
         """
         self.connection.execute("DELETE FROM project_slot WHERE project_id = ?", (project.id,))
         slots: list[Slot] = []
-        for position, spec in enumerate(specs):
+        for spec in specs:
             all_day = bool(spec.get("all_day"))
             start_time = _clean_time(spec.get("start_time")) if not all_day else None
             end_time = _clean_time(spec.get("end_time")) if not all_day else None
@@ -1033,7 +1060,7 @@ class ProjectStore:
                 id=spec.get("id") or new_id("slot"),
                 project_id=project.id,
                 label=label,
-                position=position,
+                position=0,  # assigned below, after chronological sorting
                 day_date=spec.get("day_date"),
                 end_date=spec.get("end_date"),
                 weekday=spec.get("weekday"),
@@ -1042,6 +1069,9 @@ class ProjectStore:
                 all_day=all_day,
             )
             slots.append(slot)
+
+        slots.sort(key=_chronological_slot_key)
+        slots = [dataclass_replace(slot, position=index) for index, slot in enumerate(slots)]
 
         labels = [slot.label for slot in slots]
         duplicates = {label for label in labels if labels.count(label) > 1}

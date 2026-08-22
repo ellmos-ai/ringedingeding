@@ -65,6 +65,42 @@ def answer(store, poll, ref, *, status=CallStatus.COMPLETED, **structured):
     )
 
 
+# -- the voice prompt asks about dates in chronological order (R6) ----------
+
+
+def test_the_voice_prompt_lists_dates_chronologically_not_as_entered(store, projects):
+    """End-to-end for R6: the days go in on purpose out of order (second
+    day, then first day, and the first day's later time window before its
+    earlier one) — exactly the shape the live finding described. The task
+    text CALL-E actually receives has to come out sorted regardless, since
+    that text is the only lever this project has over the conversation."""
+    project = service.create_project(
+        projects, occasion="Familienessen", organizer="Lukas", language="de"
+    )
+    ids = [projects.create_contact(name="Anna", phone="+19995550101").id]
+    specs = service.day_slot_specs(
+        project,
+        days=["2026-08-09", "2026-08-08"],  # second day first
+        overrides={
+            "2026-08-08": [("18:00", "21:00"), ("15:00", "17:00")],  # later window first
+            "2026-08-09": [("10:00", "12:00")],
+        },
+    )
+    service.set_dates(store, projects, project, specs)
+    service.set_invitees(store, projects, project, ids)
+    poll = service.availability_round(store, projects, project)
+
+    assert poll.slots == (
+        "Sa 08.08. 15:00-17:00",
+        "Sa 08.08. 18:00-21:00",
+        "So 09.08. 10:00-12:00",
+    )
+    from ringedingeding.schemas import build_task_text
+
+    task_text = build_task_text(poll, "Anna")
+    assert task_text.index("15:00") < task_text.index("18:00") < task_text.index("10:00")
+
+
 # -- guest list and rounds --------------------------------------------------
 
 
