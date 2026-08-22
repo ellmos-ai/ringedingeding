@@ -222,6 +222,21 @@ def test_a_refused_answer_can_still_be_replaced_by_another_refusal(store):
     assert kept.raw_text == "second refusal"
 
 
+# --------------------------------------------------------------------------
+# R20(b) -- the idempotency key needs the attempt count to differ on retry.
+# --------------------------------------------------------------------------
+
+
+def test_mark_attempted_increments_the_attempt_counter(store):
+    poll = store.create_poll(question="Q", kind="open", organizer="L")
+    participant = store.add_participant(poll.id, name="Anna", phone="+15555550100")
+    assert participant.attempt_count == 0
+    store.mark_attempted(participant.id, "run_1")
+    assert store.participants(poll.id)[0].attempt_count == 1
+    store.mark_attempted(participant.id, "run_2")
+    assert store.participants(poll.id)[0].attempt_count == 2
+
+
 def test_clear_answers_resets_participants(store):
     poll = store.create_poll(question="Q", kind="open", organizer="L")
     participant = store.add_participant(poll.id, name="Anna", phone="+15555550100")
