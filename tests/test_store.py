@@ -319,6 +319,11 @@ def test_a_database_from_an_older_version_is_upgraded_not_rejected(tmp_path):
         assert loaded.call_status is CallStatus.COMPLETED
         assert loaded.raw_text == "summary"
         assert loaded.transcript == ""
+        # this fixture's participant has attempted_at=NULL (never actually
+        # dialled under the old schema), so the migration correctly leaves
+        # attempt_count at its fresh-column default of 0 -- see the dedicated
+        # migration test below for the attempted_at IS NOT NULL case.
+        assert upgraded.participants("poll_old")[0].attempt_count == 0
         # and the new column is usable from here on
         upgraded.record_answer(
             Answer(
@@ -328,6 +333,57 @@ def test_a_database_from_an_older_version_is_upgraded_not_rejected(tmp_path):
             )
         )
         assert upgraded.answers("poll_old")["p_old"].transcript == "[00:01] BOT: Hello."
+
+
+def test_migrating_in_an_already_attempted_participant_does_not_reuse_their_key(tmp_path):
+    """R20b amendment, live incident 2026-08-22: the migration that adds
+    attempt_count defaults it to 0 for every row, which is correct for a
+    participant nobody has dialled yet -- but a participant migrated in
+    from an older database who was already attempted under the old,
+    attempt-blind key scheme would then have their *next* request recompute
+    attempt=1, the exact key already used (and already rejected live with
+    HTTP 409 idempotency_conflict). attempted_at IS NOT NULL is evidence of
+    that prior attempt and must seed attempt_count=1 instead, so the next
+    key is a fresh one.
+    """
+    import sqlite3
+
+    from ringedingeding.safety import idempotency_key
+
+    path = tmp_path / "already_attempted.db"
+    old = sqlite3.connect(str(path))
+    old.executescript(
+        """
+        CREATE TABLE poll (id TEXT PRIMARY KEY, question TEXT NOT NULL,
+            kind TEXT NOT NULL, organizer TEXT NOT NULL,
+            language TEXT NOT NULL DEFAULT 'en', region TEXT NOT NULL DEFAULT 'US',
+            locale TEXT NOT NULL DEFAULT 'en-US', options_json TEXT NOT NULL DEFAULT '[]',
+            window_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open');
+        CREATE TABLE participant (id TEXT PRIMARY KEY, poll_id TEXT NOT NULL,
+            ref TEXT NOT NULL, name TEXT NOT NULL, phone_e164 TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'pending', call_run_id TEXT, attempted_at TEXT,
+            UNIQUE (poll_id, ref));
+        CREATE TABLE answer (participant_id TEXT PRIMARY KEY, call_status TEXT NOT NULL,
+            structured_json TEXT NOT NULL DEFAULT '{}', raw_text TEXT NOT NULL DEFAULT '',
+            received_at TEXT NOT NULL, run_id TEXT, error TEXT);
+        INSERT INTO poll VALUES
+            ('poll_old','Q','open','L','en','US','en-US','[]','[]','2026-01-01','open');
+        INSERT INTO participant VALUES
+            ('p_ben','poll_old','ben','Ben','+15555550100','done','run_first','2026-01-01');
+        INSERT INTO answer VALUES
+            ('p_ben','FAILED','{}','','2026-01-01',NULL,'idempotency_conflict');
+        """
+    )
+    old.commit()
+    old.close()
+
+    stale_key = idempotency_key("poll_old", "p_ben", attempt=1)
+    with Store(path) as upgraded:
+        participant = upgraded.participants("poll_old")[0]
+        assert participant.attempt_count == 1
+        next_key = idempotency_key("poll_old", "p_ben", attempt=participant.attempt_count + 1)
+        assert next_key != stale_key
 
 
 def test_an_in_flight_status_is_not_mistaken_for_a_failure():

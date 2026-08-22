@@ -143,6 +143,24 @@ class Store:
                 self.connection.execute(
                     f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
                 )
+                if table == "participant" and column == "attempt_count":
+                    # R20b amendment (2026-08-22): DEFAULT 0 is correct for a
+                    # participant nobody has ever dialled, but a participant
+                    # migrated in from a database written before this column
+                    # existed may already have been attempted under the old,
+                    # attempt-blind key scheme. Leaving them at 0 would make
+                    # the very next request recompute attempt=1 -- the exact
+                    # key that already produced a live HTTP 409
+                    # idempotency_conflict (measured: idempotency_key(poll_id,
+                    # participant_id, attempt=1) reproduces both colliding
+                    # keys from the incident exactly). attempted_at IS NOT
+                    # NULL is evidence a real attempt already happened under
+                    # that key, so it is counted; nobody ever attempted stays
+                    # at 0, unaffected.
+                    self.connection.execute(
+                        "UPDATE participant SET attempt_count = 1"
+                        " WHERE attempted_at IS NOT NULL"
+                    )
 
     # -- lifecycle ----------------------------------------------------------
 
