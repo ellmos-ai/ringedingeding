@@ -151,6 +151,22 @@ def test_the_language_picker_marks_the_language_that_is_actually_shown(client):
     )
 
 
+def test_the_date_kind_limit_hint_is_german_in_the_german_ui(client):
+    """R1, live endabnahme 2026-08-22: the date-kind hint on the "new chain"
+    form (Terminart, nur beim Terminfinden) showed up in English while the
+    rest of the page was German. Also checks it says plainly that the limit
+    belongs to this input form, not to a promise of more questions later."""
+    german = client.get("/").text
+    assert "Diese Eingabemaske bietet aktuell nur Tagestermine und ganze Tage an" in german
+    assert "das ist eine Grenze der Maske selbst" in german
+    assert "This input form currently only offers" not in german
+
+    english = client.get("/language/en?next=/").text
+    assert "This input form currently only offers timed dates and whole days" in english
+    assert "that is a limit of the form itself" in english
+    assert "Diese Eingabemaske bietet aktuell nur" not in english
+
+
 def test_the_whole_flow_works_offline_from_a_fixture(client):
     project_id = make_demo(client)
 
