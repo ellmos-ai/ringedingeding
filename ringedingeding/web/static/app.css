@@ -116,6 +116,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible {
 .button:hover { background: var(--soft); }
 .muted-card { background: var(--soft); }
 .error-card { border-color: var(--cannot); }
+.warn-card { border-color: var(--warn); background: #fdf6e6; }
 .live-card { border-color: var(--cannot); border-width: 2px; background: #fffafa; }
 
 label { display: block; margin: 10px 0; font-size: 0.9rem; color: var(--muted); }

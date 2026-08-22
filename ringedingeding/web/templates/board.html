@@ -21,7 +21,7 @@
   <strong>{{ board.answered_count }} {{ t('von') }} {{ board.total_count }}</strong> {{ t('haben geantwortet.') }}
   {% if board.unreached %}
     {{ t('Nicht erreicht:') }}
-    {% for person in board.unreached %}{{ person.name }} ({{ status_word(person.status) }}){% if not loop.last %}, {% endif %}{% endfor %}.
+    {% for person in board.unreached %}{{ person.name }} ({% if person.shares_call_with %}{{ t('teilt sich einen Anruf mit') }} {{ person.shares_call_with }}{% else %}{{ status_word(person.status) }}{% endif %}){% if not loop.last %}, {% endif %}{% endfor %}.
   {% endif %}
   {% if board.coverage.refused %}
     {{ t('Wollte(n) nicht antworten:') }}

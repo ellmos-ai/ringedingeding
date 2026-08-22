@@ -159,6 +159,16 @@ def _coverage_block(coverage: Coverage) -> list[str]:
                 mask_text(result.error or ""),
             ]
         )
+    for result in coverage.shared_call:
+        rows.append(
+            [
+                result.label,
+                result.phone_masked,
+                f"shares a call with {result.shares_call_with} - not counted separately",
+                result.status_label,
+                "",
+            ]
+        )
     for result in coverage.pending:
         rows.append([result.label, result.phone_masked, "not called yet", result.status_label, ""])
     out.append(table(["Name", "Number", "Counts as", "Call status", "Detail"], rows))
@@ -434,6 +444,15 @@ def render_markdown(merge: MergeResult) -> str:
                 *[
                     [r.label, r.phone_masked, "**not reached**", r.status_label]
                     for r in coverage.unreached
+                ],
+                *[
+                    [
+                        r.label,
+                        r.phone_masked,
+                        f"**shares a call with {r.shares_call_with}** - not counted separately",
+                        r.status_label,
+                    ]
+                    for r in coverage.shared_call
                 ],
                 *[
                     [r.label, r.phone_masked, "not called yet", r.status_label]

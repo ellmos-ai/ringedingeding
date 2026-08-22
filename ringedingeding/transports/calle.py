@@ -40,6 +40,16 @@ Measured, and therefore relied upon here:
 * a recipient without ``result.transcript`` carries the conversation in
   ``attempts[].transcript_turns`` instead — a list of turn dictionaries, not
   a ready-made string (FINDINGS.md section 9, same date).
+* **two recipients with the same phone number in one batch are collapsed by
+  the service into one physical call, but the ``recipients`` array still
+  comes back with one entry per request** — so the length-mismatch guard
+  below never fires, and without a separate check both participants would
+  silently receive the same answer (measured 2026-08-22, live: poll
+  "Hochzeit", ``synthetic-call-collision-a`` written for two different
+  participants; see FINDINGS.md, "Batch dedup by phone number"). This module
+  never sees such a pair any more: :func:`ringedingeding.runner.build_requests`
+  now refuses to build a request for either of them before this transport is
+  ever called, for every transport, not only this one.
 
 Still **not** measured, and therefore kept open rather than assumed:
 
@@ -298,8 +308,9 @@ class CalleBatchTransport(CalleTransport):
     """One ``POST /v1/calls`` carrying every recipient of the poll.
 
     This is the shape the API documents for multi-recipient tasks and the reason
-    this project fits CALL-E rather than fighting it. Untested against a real
-    account — see the module docstring.
+    this project fits CALL-E rather than fighting it. This is also the transport
+    the project/web UI always uses (FINDINGS.md section 10) and the one that ran
+    live 2026-08-22 — see the module docstring for what that measured.
     """
 
     name = "calle-batch"
