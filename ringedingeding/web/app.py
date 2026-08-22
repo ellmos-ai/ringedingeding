@@ -73,6 +73,8 @@ from ..service import (
     day_slot_specs,
     decide,
     default_invitation_text,
+    email_invitees,
+    invitation_eml,
     invitation_round,
     preview,
     resync_contact,
@@ -883,6 +885,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 invitation_preview = preview(
                     context.store, context.projects, project, existing
                 )
+            emailees = email_invitees(context.projects, project, body=text)
             return page(
                 request,
                 "invite.html",
@@ -892,6 +895,7 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                 text=text,
                 invitation=existing,
                 invitation_preview=invitation_preview,
+                email_invitees=emailees,
                 has_fixture=bool(project.fixture_name),
                 api_key=api_key_present(),
                 step="invite",
@@ -907,6 +911,38 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
             invitation_round(context.store, context.projects, project, text=text)
             context.projects.set_state(project_id, ProjectState.INVITED)
             return back(project_id, "invite")
+        finally:
+            context.close()
+
+    @app.get("/projects/{project_id}/invite/email/{contact_id}.eml")
+    def invite_email_eml(project_id: str, contact_id: str) -> Response:
+        """A locally rendered .eml with the decided slot attached as .ics —
+        R7's e-mail channel. Nothing is sent from here; the file is handed to
+        the browser to open in the person's own mail client."""
+        context = ctx()
+        try:
+            project = _project(context, project_id)
+            view = board(context.store, context.projects, project)
+            decided = view.decided_slot
+            existing = invitation_round(context.store, context.projects, project, create=False)
+            body = existing.question if existing else default_invitation_text(
+                project, decided.slot if decided else None
+            )
+            try:
+                eml = invitation_eml(
+                    context.projects,
+                    project,
+                    contact_id,
+                    body=body,
+                    decided_slot=decided.slot if decided else None,
+                )
+            except (KeyError, ValueError) as error:
+                raise HTTPException(status_code=404, detail=str(error)) from None
+            return Response(
+                eml,
+                media_type="message/rfc822",
+                headers={"Content-Disposition": f'attachment; filename="{contact_id}.eml"'},
+            )
         finally:
             context.close()
 

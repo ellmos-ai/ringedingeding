@@ -466,6 +466,15 @@ details.optional > summary {
 details.optional > summary::marker { color: var(--muted); }
 details.optional > summary:hover { color: var(--accent); }
 
+/* The invitation's channel picker (R7): each channel is its own collapsible
+   card so picking one does not hide the others — a person can use both. */
+details.channel-picker > summary {
+  cursor: pointer; font-weight: 700; font-size: 1.15rem; list-style-position: outside;
+}
+details.channel-picker > summary:hover { color: var(--accent); }
+details.channel-picker .channel-body { margin-top: 14px; }
+details.channel-picker .live-card { padding: 16px; border: 1px solid var(--cannot); border-radius: 10px; background: #fffafa; margin-top: 14px; }
+
 @media (max-width: 700px) {
   .tagline { display: none; }
   .top { align-items: center; flex-wrap: wrap; padding-inline: 18px; }

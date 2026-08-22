@@ -191,6 +191,100 @@ def test_the_whole_flow_works_offline_from_a_fixture(client):
     assert "Wir haben einen Termin gefunden" in invite.text
 
 
+def test_the_invitation_offers_a_working_email_channel_alongside_the_call(client, db):
+    """R7, live 2026-08-22: the invitation phase used to offer exactly one
+    channel (a call) with no way to pick anything else, and no e-mail path
+    at all. This is the fix, end to end through the real routes.
+
+    Built by hand rather than from the bundled "family-dinner" fixture: a
+    fixture's slots are bare labels with no ``day_date`` (they exist to
+    demonstrate the flow, not to carry a real calendar date), so a decided
+    fixture slot cannot carry an .ics either -- see
+    test_a_dateless_fixture_decision_downloads_an_eml_without_an_ics below
+    for that case, deliberately covered on its own.
+    """
+    created = client.post(
+        "/projects",
+        data={"occasion": "Hochzeit", "organizer": "Lukas", "date_kind": "day_slots"},
+        follow_redirects=False,
+    )
+    project_id = created.headers["location"].split("/")[2]
+    client.post(
+        f"/projects/{project_id}/dates",
+        data={"date_kind": "day_slots", "day": ["2026-09-30"], "start": ["18:00"], "end": ["21:00"]},
+    )
+    client.post(
+        "/contacts",
+        data={"name": "Anna", "phone": "+19995550101", "email": "anna@example.org"},
+    )
+    with Store(db) as store:
+        projects = ProjectStore(store)
+        anna = next(c for c in projects.contacts() if c.name == "Anna")
+        slot = projects.slots(project_id)[0]
+    client.post(f"/projects/{project_id}/people", data={"contact": [anna.id]})
+    client.post(f"/projects/{project_id}/decide", data={"slot_id": slot.id})
+
+    invite = client.get(f"/projects/{project_id}/invite")
+    assert invite.status_code == 200
+    # The channel picker offers both, not just the call — R7 (c).
+    assert "Per Anruf" in invite.text
+    assert "Per E-Mail" in invite.text
+    assert f"/projects/{project_id}/invite/email/{anna.id}.eml" in invite.text
+    assert "mailto:anna%40example.org" in invite.text
+    # Masked in the visible list, exactly like a phone number would be.
+    assert "anna@example.org" not in invite.text
+    assert not RAW_NUMBER.findall(invite.text)
+
+    download = client.get(f"/projects/{project_id}/invite/email/{anna.id}.eml")
+    assert download.status_code == 200
+    assert download.headers["content-type"].startswith("message/rfc822")
+
+    from email import message_from_bytes, policy
+
+    message = message_from_bytes(download.content, policy=policy.default)
+    assert message["To"].endswith("<anna@example.org>")
+    attachments = list(message.iter_attachments())
+    assert len(attachments) == 1
+    assert attachments[0].get_content_type() == "text/calendar"
+
+
+def test_a_dateless_fixture_decision_downloads_an_eml_without_an_ics(client, db):
+    """The bundled demo fixtures build their slots as bare labels with no
+    ``day_date`` (seed_from_fixture keeps the fixture's own wording verbatim
+    so scripted answers keep matching it) -- there is no real calendar date
+    to attach. The .eml route must not crash on that; it just carries no
+    calendar file, same as when nothing has been decided yet."""
+    project_id = make_demo(client)
+    client.post(f"/projects/{project_id}/run", data={"mode": "script"})
+    wait_for_round(client, project_id)
+    ids = slot_ids(client.get(f"/projects/{project_id}/board").text)
+    client.post(f"/projects/{project_id}/decide", data={"slot_id": ids[0]})
+
+    with Store(db) as store:
+        projects = ProjectStore(store)
+        anna = next(c for c in projects.contacts() if c.name == "Anna")
+    client.post(f"/contacts/{anna.id}", data={"name": "Anna", "email": "anna@example.org"})
+
+    download = client.get(f"/projects/{project_id}/invite/email/{anna.id}.eml")
+    assert download.status_code == 200
+
+    from email import message_from_bytes, policy
+
+    message = message_from_bytes(download.content, policy=policy.default)
+    assert list(message.iter_attachments()) == []
+
+
+def test_email_download_for_a_contact_without_an_email_is_a_404(client):
+    project_id = make_demo(client)
+    client.post(f"/projects/{project_id}/run", data={"mode": "script"})
+    wait_for_round(client, project_id)
+    ids = slot_ids(client.get(f"/projects/{project_id}/board").text)
+    client.post(f"/projects/{project_id}/decide", data={"slot_id": ids[0]})
+
+    response = client.get(f"/projects/{project_id}/invite/email/no-such-contact.eml")
+    assert response.status_code == 404
+
+
 def test_creating_a_project_by_hand_and_calling_nobody(client):
     created = client.post(
         "/projects",

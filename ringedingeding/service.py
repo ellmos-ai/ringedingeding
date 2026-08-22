@@ -22,7 +22,9 @@ from datetime import date
 from typing import Any
 
 from .activity import ActivityLine
+from .calendar_export import CalendarEntry, render_ics
 from .fixtures import Fixture, load_fixture, placeholder_numbers, resolve_fixture
+from .mail_export import mailto_link, render_invitation_eml
 from .merge import Coverage, MergeResult, ParticipantResult, merge_poll
 from .models import Participant, Poll, PollKind
 from .projects import (
@@ -521,6 +523,94 @@ def invitation_round(
     )
     sync_participants(store, poll, projects.invitees(project.id))
     return poll
+
+
+# --------------------------------------------------------------------------
+# 9b. the invitation's second channel: e-mail (R7, live 2026-08-22)
+# --------------------------------------------------------------------------
+#
+# Live finding: the invitation phase offered exactly one distribution
+# channel (a call) and no way to choose otherwise, even for somebody who
+# only has an e-mail address on file. Nothing here sends mail — it renders
+# a mailto: link and a downloadable .eml, both left for the person to send
+# themselves. See mail_export.py for why (no SMTP, no organizer address on
+# file to send *from*, "genügt als erster Schritt" from the operator).
+
+
+@dataclass(frozen=True)
+class EmailInvitee:
+    """One invitee reachable by e-mail, and the message ready to go to them."""
+
+    contact_id: str
+    name: str
+    email_masked: str
+    mailto: str
+
+
+def invitation_email_subject(project: Project) -> str:
+    occasion = project.occasion.rstrip(" .!?")
+    return f"Einladung: {occasion}" if project.is_german else f"Invitation: {occasion}"
+
+
+def email_invitees(projects: ProjectStore, project: Project, *, body: str) -> list[EmailInvitee]:
+    """Everybody invited who has an e-mail address — the phone-only counterpart
+    of :func:`build_requests`'s participant list, but nothing here is ever
+    dialed, sent or stored; it is recomputed fresh on every page view."""
+    subject = invitation_email_subject(project)
+    out: list[EmailInvitee] = []
+    for invitee in projects.invitees(project.id):
+        contact = invitee.contact
+        if contact is None or not contact.email:
+            continue
+        out.append(
+            EmailInvitee(
+                contact_id=contact.id,
+                name=contact.name,
+                email_masked=contact.email_masked,
+                mailto=mailto_link(to_email=contact.email, subject=subject, body=body),
+            )
+        )
+    return out
+
+
+def invitation_eml(
+    projects: ProjectStore,
+    project: Project,
+    contact_id: str,
+    *,
+    body: str,
+    decided_slot: Slot | None,
+) -> bytes:
+    """One invitee's invitation as a downloadable ``.eml``, the decided slot
+    attached as an ``.ics`` when there is one to attach."""
+    contact = projects.contact(contact_id)
+    if not contact.email:
+        raise ValueError(f"{contact.name} has no e-mail address on file")
+
+    ics_bytes = None
+    if decided_slot is not None and decided_slot.day_date:
+        entry = CalendarEntry(
+            project_id=project.id,
+            project_title=project.occasion,
+            slot_id=decided_slot.id,
+            label=decided_slot.label,
+            day_date=decided_slot.day_date,
+            end_date=decided_slot.end_date,
+            start_time=decided_slot.start_time,
+            end_time=decided_slot.end_time,
+            all_day=decided_slot.all_day,
+            decided=True,
+        )
+        ics_bytes = render_ics([entry])
+
+    return render_invitation_eml(
+        to_email=contact.email,
+        to_name=contact.name,
+        subject=invitation_email_subject(project),
+        body=body,
+        ics_bytes=ics_bytes,
+        ics_filename=f"{project.id}.ics",
+    )
 
 
 # --------------------------------------------------------------------------

@@ -1108,5 +1108,41 @@
   "SIMULATION": {
     "de": "SIMULATION",
     "en": "SIMULATION"
+  },
+  ".eml herunterladen": {
+    "de": ".eml herunterladen",
+    "en": "Download .eml"
+  },
+  "Lokal erzeugt, es wird nichts automatisch verschickt: ein mailto-Link öffnet das eigene Mailprogramm mit vorausgefülltem Text; die .eml-Datei enthält denselben Text plus den festgelegten Termin als Kalenderanhang (.ics) und lässt sich im Mailprogramm als Entwurf öffnen.": {
+    "de": "Lokal erzeugt, es wird nichts automatisch verschickt: ein mailto-Link öffnet das eigene Mailprogramm mit vorausgefülltem Text; die .eml-Datei enthält denselben Text plus den festgelegten Termin als Kalenderanhang (.ics) und lässt sich im Mailprogramm als Entwurf öffnen.",
+    "en": "Generated locally, nothing is sent automatically: a mailto link opens your own mail app with the text pre-filled; the .eml file carries the same text plus the decided date as a calendar attachment (.ics) and can be opened in a mail app as a draft."
+  },
+  "Mail öffnen": {
+    "de": "Mail öffnen",
+    "en": "Open mail"
+  },
+  "Niemand in dieser Runde hat eine E-Mail-Adresse hinterlegt.": {
+    "de": "Niemand in dieser Runde hat eine E-Mail-Adresse hinterlegt.",
+    "en": "Nobody in this round has an e-mail address on file."
+  },
+  "Per Anruf": {
+    "de": "Per Anruf",
+    "en": "By call"
+  },
+  "Per E-Mail": {
+    "de": "Per E-Mail",
+    "en": "By e-mail"
+  },
+  "Zu den Kontakten": {
+    "de": "Zu den Kontakten",
+    "en": "Go to contacts"
+  },
+  "Zwei Wege stehen zur Wahl, pro Person auch gemischt — wer eine Telefonnummer hat, kann angerufen werden, wer eine E-Mail-Adresse hat, kann eine E-Mail bekommen. Ein automatischer dritter Weg, der beides selbst entscheidet, kommt später.": {
+    "de": "Zwei Wege stehen zur Wahl, pro Person auch gemischt — wer eine Telefonnummer hat, kann angerufen werden, wer eine E-Mail-Adresse hat, kann eine E-Mail bekommen. Ein automatischer dritter Weg, der beides selbst entscheidet, kommt später.",
+    "en": "Two paths are available, mixed per person if needed — anyone with a phone number can be called, anyone with an e-mail address can be e-mailed. An automatic third path that decides between them on its own is a later step."
+  },
+  "Übernimm zuerst oben den Einladungstext.": {
+    "de": "Übernimm zuerst oben den Einladungstext.",
+    "en": "Adopt the invitation text above first."
   }
 }
