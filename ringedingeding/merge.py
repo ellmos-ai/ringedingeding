@@ -168,6 +168,24 @@ class Coverage:
         )
 
 
+# Live finding, RT-4c 2026-08-22 (R18): a completed call whose identity
+# check failed carries no transport-level error at all. The conservative
+# Bucket.UNREACHED classification (see Answer.bucket) is correct and does
+# not change here -- but a blank Detail column next to "COMPLETED" reads as
+# a data gap, not as the deliberate identity-gate refusal it actually is.
+#
+# Only synthesized when a transcript is present: a COMPLETED call can also
+# land in Bucket.UNREACHED because the structured result never arrived at
+# all (see the Answer.bucket docstring) -- a different, non-identity
+# failure mode this module cannot tell apart from an identity refusal
+# without a transcript to point at, so it says nothing rather than guess.
+_UNCONFIRMED_IDENTITY_DETAIL = (
+    "call completed and the conversation went ahead, but the answer was "
+    "not counted — the intended person's identity was never confirmed. "
+    "See the transcript for what was actually said."
+)
+
+
 def _classify(participants: Sequence[Participant], answers: dict[str, Answer]) -> Coverage:
     groups: dict[Bucket, list[ParticipantResult]] = {bucket: [] for bucket in Bucket}
     for participant in participants:
@@ -175,6 +193,14 @@ def _classify(participants: Sequence[Participant], answers: dict[str, Answer]) -
             participant.id,
             Answer(participant_id=participant.id, call_status=CallStatus.PENDING),
         )
+        error = answer.error
+        if (
+            error is None
+            and answer.call_status is CallStatus.COMPLETED
+            and (answer.structured or {}).get("reachable") is not True
+            and (answer.transcript or "").strip()
+        ):
+            error = _UNCONFIRMED_IDENTITY_DETAIL
         result = ParticipantResult(
             ref=participant.ref,
             name=participant.name,
@@ -183,7 +209,7 @@ def _classify(participants: Sequence[Participant], answers: dict[str, Answer]) -
             status=answer.call_status,
             structured=dict(answer.structured or {}),
             transcript=answer.transcript or "",
-            error=answer.error,
+            error=error,
             run_id=answer.run_id,
         )
         groups[result.bucket].append(result)

@@ -127,6 +127,67 @@ def test_a_completed_call_with_no_structured_result_at_all_counts_as_unreached()
 
 
 # --------------------------------------------------------------------------
+# R18(b) — RT-4c 2026-08-22: "not reached" with an empty Detail column is
+# misleading when a transcript exists and the call was never in trouble.
+# --------------------------------------------------------------------------
+
+
+def test_unconfirmed_identity_with_a_transcript_explains_why_it_was_not_counted():
+    """A completed call, a real transcript, but the agent never confirmed it
+    was speaking to the right person: the Detail column must say that,
+    instead of sitting blank next to "COMPLETED"."""
+    poll = make_poll()
+    people = [make_participant("a")]
+    answers = {
+        "p_a": Answer(
+            participant_id="p_a",
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False},
+            transcript="[00:03] BOT: Hallo? [00:05] USER: Ja, hallo?",
+        )
+    }
+    coverage = merge_poll(poll, people, answers).coverage
+    assert [r.ref for r in coverage.unreached] == ["a"]
+    detail = coverage.unreached[0].error
+    assert detail is not None
+    assert "identity" in detail
+    assert "never confirmed" in detail
+    assert "transcript" in detail
+
+
+def test_missing_structured_result_gets_no_fabricated_identity_reason():
+    """The "structured result never arrived" case (no transcript either) is
+    a different, non-identity failure mode -- it must stay unexplained
+    rather than be mislabelled as an identity refusal that never happened.
+    """
+    poll = make_poll()
+    people = [make_participant("a")]
+    answers = {"p_a": Answer(participant_id="p_a", call_status=CallStatus.COMPLETED)}
+    coverage = merge_poll(poll, people, answers).coverage
+    assert [r.ref for r in coverage.unreached] == ["a"]
+    assert coverage.unreached[0].error is None
+
+
+def test_a_real_transport_error_is_never_overwritten_by_the_identity_detail():
+    """An existing ``Answer.error`` (a genuine transport-level failure) takes
+    priority and must never be clobbered by the synthesized identity
+    explanation, even if the two conditions happen to coincide."""
+    poll = make_poll()
+    people = [make_participant("a")]
+    answers = {
+        "p_a": Answer(
+            participant_id="p_a",
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False},
+            transcript="[00:03] BOT: Hallo?",
+            error="something else went wrong with this specific call",
+        )
+    }
+    coverage = merge_poll(poll, people, answers).coverage
+    assert coverage.unreached[0].error == "something else went wrong with this specific call"
+
+
+# --------------------------------------------------------------------------
 # slot polls
 # --------------------------------------------------------------------------
 
