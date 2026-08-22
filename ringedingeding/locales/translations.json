@@ -671,9 +671,6 @@
   "Weiter zur Einladung": {
     "en": "Continue to invitation"
   },
-  "Weitere Terminarten bleiben im Datenmodell offen; diese Oberfläche bietet derzeit Tagestermine und ganze Tage.": {
-    "en": "The data model remains open to more date types; this interface currently offers timed dates and whole days."
-  },
   "Wen möchtest du fragen?": {
     "en": "Who would you like to ask?"
   },
@@ -1144,5 +1141,9 @@
   "Übernimm zuerst oben den Einladungstext.": {
     "de": "Übernimm zuerst oben den Einladungstext.",
     "en": "Adopt the invitation text above first."
+  },
+  "Diese Eingabemaske bietet aktuell nur Tagestermine und ganze Tage an — das ist eine Grenze der Maske selbst, keine angekündigte spätere Nachfrage. Das Datenmodell könnte technisch weitere Terminarten tragen; dafür müsste aber erst diese Maske erweitert werden.": {
+    "de": "Diese Eingabemaske bietet aktuell nur Tagestermine und ganze Tage an — das ist eine Grenze der Maske selbst, keine angekündigte spätere Nachfrage. Das Datenmodell könnte technisch weitere Terminarten tragen; dafür müsste aber erst diese Maske erweitert werden.",
+    "en": "This input form currently only offers timed dates and whole days — that is a limit of the form itself, not an announced follow-up question. The data model could technically carry other date types, but this form would first have to be extended for that."
   }
 }
