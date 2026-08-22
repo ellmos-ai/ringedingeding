@@ -84,6 +84,29 @@ def test_idempotency_key_is_stable_across_runs(store):
     assert len({r.idempotency_key for r in first}) == 2
 
 
+def test_retry_uses_a_different_idempotency_key_after_a_failed_attempt(store):
+    """R20b, live incident 2026-08-22: a retry reused the first attempt's
+    idempotency key with a changed request body (a goal-text edit had
+    landed in between), and CALL-E answered both with HTTP 409
+    idempotency_conflict instead of placing a fresh call. Once an attempt
+    has actually happened (Store.mark_attempted bumps attempt_count), the
+    next request for the same participant must carry a different key."""
+    poll = _poll_with_people(store, 1)
+    participant = store.participants(poll.id)[0]
+
+    first_requests, _, _ = build_requests(poll, [participant])
+    first_key = first_requests[0].idempotency_key
+
+    store.record_answer(Answer(participant_id=participant.id, call_status=CallStatus.FAILED))
+    store.mark_attempted(participant.id, "run_first_attempt")
+
+    retried_participant = store.participants(poll.id)[0]
+    retry_requests, _, _ = build_requests(
+        poll, [retried_participant], existing=store.answers(poll.id), retry=True
+    )
+    assert retry_requests[0].idempotency_key != first_key
+
+
 def test_a_failing_call_does_not_abort_the_poll(store):
     poll = _poll_with_people(store, 3)
     report = run_poll(store, poll, ExplodingTransport())

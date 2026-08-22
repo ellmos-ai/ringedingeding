@@ -117,7 +117,9 @@ def build_requests(
                 ),
                 recipient_schema=recipient_schema,
                 aggregate_schema=aggregate_schema,
-                idempotency_key=idempotency_key(poll.id, participant.id),
+                idempotency_key=idempotency_key(
+                    poll.id, participant.id, attempt=participant.attempt_count + 1
+                ),
             )
         )
     return requests, skipped, rejected

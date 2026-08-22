@@ -166,6 +166,16 @@ class Participant:
     attempted_at: str | None = None
     contact_id: str | None = None
     """The address-book entry this participant came from, when there was one."""
+    attempt_count: int = 0
+    """How many calls have already been placed for this participant.
+
+    Fed into ``safety.idempotency_key`` (measured 2026-08-22, R20b): the
+    key was deterministic on ``(poll_id, participant_id)`` alone, so a
+    retry after the task text changed reused the exact key from the first
+    attempt with a now-different request body -- CALL-E answered with
+    ``idempotency_conflict`` (HTTP 409) for both, rather than placing a
+    fresh call. Incremented by ``Store.mark_attempted``, once per outcome,
+    never by hand."""
 
     def __post_init__(self) -> None:
         # Validate on construction: an invalid number must never reach a dialer.

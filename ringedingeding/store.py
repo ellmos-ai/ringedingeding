@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS participant (
     attempted_at TEXT,
     -- Back-reference to the address book, when the poll came from a project.
     contact_id   TEXT,
+    -- Fed into the idempotency key so a retry never reuses a stale one (R20b).
+    attempt_count INTEGER NOT NULL DEFAULT 0,
     UNIQUE (poll_id, ref)
 );
 
@@ -96,6 +98,7 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("poll", "round_kind", "TEXT"),
     ("poll", "simulated", "INTEGER NOT NULL DEFAULT 0"),
     ("participant", "contact_id", "TEXT"),
+    ("participant", "attempt_count", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 
@@ -356,8 +359,17 @@ class Store:
         self.connection.commit()
 
     def mark_attempted(self, participant_id: str, run_id: str | None = None) -> None:
+        """Record that a call was placed, and count it (R20b).
+
+        ``attempt_count`` is incremented here, exactly once per outcome --
+        after the attempt that already happened, not before -- so the next
+        idempotency key (``safety.idempotency_key``, read from this same
+        column when the next request is built) is guaranteed to differ from
+        this one's.
+        """
         self.connection.execute(
-            "UPDATE participant SET attempted_at = ?, call_run_id = ? WHERE id = ?",
+            "UPDATE participant SET attempted_at = ?, call_run_id = ?,"
+            " attempt_count = attempt_count + 1 WHERE id = ?",
             (utc_now(), run_id, participant_id),
         )
         self.connection.commit()
@@ -481,6 +493,7 @@ def _participant_from_row(row: sqlite3.Row) -> Participant:
         call_run_id=row["call_run_id"],
         attempted_at=row["attempted_at"],
         contact_id=row["contact_id"] if "contact_id" in keys else None,
+        attempt_count=row["attempt_count"] if "attempt_count" in keys else 0,
     )
 
 
