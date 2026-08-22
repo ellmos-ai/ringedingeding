@@ -1152,3 +1152,116 @@ gained 1 (the `VOICEMAIL` + structured combination) — 20 new tests, 375 + 20 =
 No fixtures under `ringedingeding/fixtures/*.json` were touched. No file outside this
 repository was written. `git status` before the commit below showed only the files listed
 in the commit itself.
+
+## 35. Endabnahme follow-up fixes — 2026-08-22 (R1, R3, R4, R5, R6, R7, R12)
+
+> **Herkunft:** All seven findings fixed here were relayed by the operator from the
+> 2026-08-22 live endabnahme (E-4/E-5, poll "Hochzeit" and an advisor round; DB
+> excerpts and exact wording quoted in `AUFGABEN.txt`). Nothing in this session dialed
+> a real number, registered an account, or touched `CALLE_API_KEY` — every change
+> below was built and tested against the operator's relayed DB rows and wording,
+> the same "measured, not assumed" discipline as the sections above. See
+> `FINDINGS.md` section 13 for the R3 dedup measurement writeup.
+
+**R3 — two participants sharing one phone number could receive the same
+answer.** `runner.py::build_requests` now groups the participants due to be dialed
+in a run by `phone_e164`; anyone sharing a number with another due participant gets
+no `CallRequest` built at all (any transport, not only the measured batch path) and
+is recorded `CallStatus.FAILED` immediately, with the peer named by ref in the error.
+Reasoning for using phone-number collision rather than run_id equality as the guard
+— and why the latter would misfire on every ordinary multi-recipient batch — is
+written out in `FINDINGS.md` section 13.
+
+**R12 — a shared call could still be counted as two independent votes/answers.**
+`merge.py::_classify` now keeps only the first participant (in poll order) for
+each distinct non-null `run_id` among `Bucket.ANSWERED` results; every later
+participant with the same `run_id` moves into a new `Coverage.shared_call` tuple,
+carrying who they are duplicating, and surfaces in the report caveat and the
+"who answered" tables instead of silently inflating a tally. This also corrects
+the two already-stored live rounds (Hochzeit, the advisor round) without touching
+their database rows — it is purely a reporting-time fix.
+
+**R4 — a simulated round could show "Echte Anrufe laufen".** The rehearsal and
+live banners in `_live_panel.html` were two independent `{% if %}` blocks;
+`job.live` reflects only the mode a round was *started* with, never whether the
+poll it targets is still `simulated`. `poll.simulated` now wins unconditionally
+(`elif`, not a second `if`); the banner is prefixed "SIMULATION"; `answered`/
+`calling` rows on a simulated round render a distinct dimmed mark ("∼") instead
+of the real "✓"/"☎".
+
+**R5 — going live after a rehearsal reused the rehearsal's stale answers.**
+`invitation_round`/`availability_round`/`roundtable_round` are idempotent by
+design (one poll per round, reused on every call), but `run_round` never checked
+whether the reused poll was still `simulated`. `run_round` now clears a
+`simulated` poll's answers and unmarks it the moment a live transport is about to
+run against it (after the placeholder-number refusal, so a blocked run leaves the
+rehearsal data untouched) — the same effect as the existing "Erfundene Antworten
+verwerfen" (`/reset`) button, applied automatically once the operator has typed
+the live confirmation phrase.
+
+**R6 — two time windows on one day were asked about in entry order, not
+chronological order.** `ProjectStore.replace_slots` now sorts every candidate
+list (day ascending, then start time ascending) before assigning `position` and
+building labels, regardless of the order the specs arrived in. All three callers
+(`set_dates`, the per-day exception route, `proof.py`) share this one method, so
+the calendar, the plan preview and the voice prompt (`poll.slots` is filled
+straight from the sorted labels) inherit the same order. `schemas.py`'s slot
+question block also states the order explicitly rather than relying only on list
+order. Golden task-text files regenerated with the existing
+`tests/goldens/regenerate.py` and reviewed — the diff was exactly the intended
+wording change, no other golden touched.
+
+**R7 — the invitation phase had no channel choice and no e-mail path.**
+`invite.html` now offers two independently expandable channel cards (native
+`<details>`, no JavaScript) instead of a decorative "coming later" list. New
+`ringedingeding/mail_export.py` (standard-library only, no SMTP, sends nothing)
+renders a `mailto:` link and a downloadable `.eml` (the decided slot attached as
+`.ics` via the existing `calendar_export.render_ics`, not duplicated) for anyone
+with an e-mail address on file. No `From` header is set — this project collects
+no organizer e-mail address to send *from*. `Contact.email_masked` mirrors
+`phone_masked`; the page itself never shows a raw address, only the functional
+`mailto:`/`.eml` links do, matching the phone-number convention.
+
+**R1 — a hint on the "new chain" form was seen in English inside the German
+UI.** The translation mechanism (`translator.py::t`'s fallback to the German key
+text when no `"de"` entry exists) rendered correctly in a direct check with the
+default cookie, so the live sighting most likely came from a stale UI-language
+cookie in that browser session rather than a code defect — this could not be
+reproduced and is reported as such, not claimed as a fixed root cause. The
+wording itself genuinely needed the requested clarification regardless (make
+plain the limit belongs to the input form, not to a promised later question), so
+that is done, plus a regression test pinning both languages.
+
+Executed locally, without an account, network or telephone side effect, after
+every commit and again at the end of the session:
+
+```text
+python -m pytest -q
+exit=0 (533 tests; baseline at session start was 498; 35 new tests)
+
+python -m ruff check ringedingeding tests
+All checks passed!
+
+git status
+nothing to commit, working tree clean (AUFGABEN.txt excluded — gitignored,
+local task register, updated but never committed)
+```
+
+Test count by area, against the 498-test baseline: `tests/test_runner.py` gained 5
+(R3, "two participants, one phone number"), `tests/test_merge.py` gained 6 (R12,
+"a shared call is one vote, not two"), `tests/test_service.py` gained 7 (2 for R5,
+1 for R6, 4 for R7), `tests/test_web.py` gained 6 (2 for R4, 3 for R7, 1 for R1),
+`tests/test_projects.py` gained 4 (R6, chronological ordering), and the new
+`tests/test_mail_export.py` added 7 (R7, the standalone mail-rendering module) —
+5 + 6 + 7 + 6 + 4 + 7 = 35, 498 + 35 = 533.
+
+Six commits, one per finding except R3/R12 (committed together — R12 is the
+direct report-side consequence of the same live measurement as R3):
+`57e7fe3` (R3/R12), `6eb084d` (R5), `7075458` (R4), `3d104dc` (R6), `608a925`
+(R7), `9ca0531` (R1). All pushed to `origin/main`.
+
+Out of scope on explicit instruction, untouched: R2 (more date types — feature),
+R8/R10/R11 (design package, handled separately), R9 (project deletion —
+feature). R14, a compliance cross-reference finding, appeared in `AUFGABEN.txt`
+partway through this session (added outside this work) and was left untouched —
+not part of this brief.
