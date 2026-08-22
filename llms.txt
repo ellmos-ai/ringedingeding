@@ -4,7 +4,7 @@
 
 ## System Architecture
 
-- **Core Framework**: Python 3.11+, SQLite (immediate write persistence), FastAPI & Jinja2 (optional local Web UI), Pytest (498 tests).
+- **Core Framework**: Python 3.11+, SQLite (immediate write persistence), FastAPI & Jinja2 (optional local Web UI), Pytest (567 tests).
 - **Voice Platform**: CALL-E / AiRudder API integration via `CalleTransport` and `CalleBatchTransport`.
 - **Execution Pattern**: Multi-participant inquiry with intelligent response aggregation, voting, consensus finding, and schedule reconciliation.
 - **Safety Architecture**: Strict dry-run default, explicit `--live` requirement with typed confirmation phrase (`LIVE_CONFIRMATION_PHRASE`), E.164 phone validation, full number masking in all outputs, and sensitive topic moderation filters.
