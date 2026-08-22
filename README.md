@@ -592,7 +592,9 @@ vote are all reported separately rather than being folded into the tally.
 
 ## Limits
 
-* **No field trial with real, informed participants has taken place.**
+* A field trial with real, informed participants has taken place, more than
+  once — see [How We Tested](#how-we-tested) below for what it covered and
+  what it found.
 * Provider-side concurrency remains unverified (see above).
 * Advisor mode is built; the roundtables for further question types exist but
   are empty.
@@ -612,6 +614,114 @@ socket is opened.
 
 The latest recorded full run passed 371 tests on 2026-08-05 (one existing
 Starlette `TestClient` / `httpx` deprecation warning).
+
+## How We Tested
+
+Every live call this project has ever placed went to one number the author
+controls and consented to receiving calls on. Rather than rewriting a dialled
+number at call time, the author entered that same number directly, more than
+once, as different named contacts — which is also, as it turned out, exactly
+the household case (two names on one landline) that surfaces later in this
+section. The author played every counterpart himself. No test run *in this
+repository* has ever dialled anything; every finding below happened through
+the deployed application, outside this repository, and was relayed back with
+exact database rows and wording (the primary record is `AUFGABEN.txt` and
+`FINDINGS.md`; what this repository itself ran against those relayed facts is
+in `EVIDENCE.md`).
+
+**2026-08-01 — the first live call.** The very first `POST /v1/calls` this
+project ever made established the basics no documentation gave for free:
+progress comes from `activity`, not `status` (which sat on `PREPARING`
+through the whole conversation); the transcript lives in a nested
+`result.transcript` field; a question given in quotes is spoken verbatim,
+character for character; and a free spoken answer is interpreted into a
+category by the voice agent itself, not just recorded.
+
+**2026-08-11(-12) — mailbox, decline, region defaults, and a false
+consensus.** A further live session relayed two more call outcomes that had
+no matching status field on the wire at all — a mailbox pickup that came back
+as a plain, successful `completed` call, and an active decline that came back
+as a generic `failed` with the real reason buried in a message string — both
+now read from the transcript and the failure text instead of trusted status
+codes. The same session, testing region and language together, found a
+German-language poll silently carrying an English-region voice profile into
+its call plan, and a literal `fuer`-style ASCII stand-in for an umlaut read
+aloud exactly as typed. A live Advisor round with two participants giving
+opposite, well-reasoned answers to an either-or question was reported back as
+`Tendency: support (2 of 2)` — the aggregation logic had no notion that
+"support" can mean two different things when there is no shared proposal to
+support, exactly the false-consensus case this project's own README
+explicitly promises never to produce.
+
+**2026-08-22 — a full acceptance walkthrough, then a same-day retest.** An
+availability round and an Advisor/roundtable round were both run live end to
+end. In both, two of the invited contacts shared one real number — and in
+both, the service placed a single physical call and returned it as two
+identical, separately stored answers under two different identities: one
+conversation counted as two people's consent. A screen showing a rehearsal as
+"real calls running", stale rehearsal answers left over the moment a round
+actually went live, and a translation hint seen once in the wrong language
+were reported the same day. Fixes for all of these were written, tested and
+pushed before the session ended. A follow-up live retest the same day
+confirmed the phone-number fix worked exactly as intended — both rounds
+correctly reported zero answers instead of a fabricated one, with an explicit
+warning naming the shared number as the reason — but also showed the fix was
+scoped too broadly, blocking the batch endpoint's household case even where a
+call is placed one person at a time and the mix-up cannot occur; a second,
+narrower fix followed the same day, and a further live retest of that
+correction confirmed it: two separate calls to the same shared number, two
+separate call references, one participant's answer correctly attributed to
+that participant alone.
+
+**What went wrong, and what became of it:**
+
+1. **One physical call, credited to two different people — twice, then
+   over-corrected, then corrected again.** The root cause: the service can
+   fold two recipients that share a phone number into a single real
+   conversation while still returning one answer entry per recipient in its
+   response, so nothing in the response shape itself says a mix-up happened.
+   First found live in an availability round, the same collapse then turned
+   up in an Advisor round, and in the report it fabricated an apparent
+   2-of-2 consensus out of one person's words. Fixed by refusing to build a
+   call for anyone sharing a due number with someone else in the same run,
+   and by refusing to count two stored answers with the identical call
+   reference as two votes. The same-day retest confirmed the block worked —
+   but also confirmed it applied too broadly, silently disabling the one
+   call mode (person at a time) where the collision cannot happen at all.
+   The block now lives only where the collision is actually possible; a
+   live retest of the person-at-a-time path confirmed it dials everyone,
+   unaffected — two separate calls to the shared number, two separate
+   references, no mix-up.
+2. **A rehearsal that looked like it was placing real calls.** Two
+   independent on-screen indicators for "this is a rehearsal" and "this call
+   is live" could be true at the same time, and the live one always won
+   visually. Fixed so the rehearsal state always wins on screen, with a
+   distinct, dimmed marker for its own answered/calling rows so they can
+   never be mistaken for a real result.
+3. **Going live reused a rehearsal's invented answers.** Starting a round
+   for real, after it had been rehearsed, silently kept the rehearsal's
+   stand-in answers instead of asking anyone anything — the screen looked
+   identical to before, nothing new to see. Fixed: a round's rehearsal
+   answers are discarded automatically the moment a live call is actually
+   about to be placed against it.
+4. **A hint text seen in the wrong language once.** A form's help text
+   appeared in English inside an otherwise German interface. Checked
+   directly against the translation mechanism itself, which rendered
+   correctly with a fresh session — the live sighting most likely came from
+   a stale language cookie already open in that browser, not a defect in the
+   translation code, and is reported honestly as unreproduced rather than
+   claimed as a fixed root cause. The wording was clarified regardless,
+   since it genuinely needed to be, and is now pinned by a test in both
+   languages.
+
+**Still open, honestly:** the error text a rejected or failed call carries
+into the operator's own view — why a number was refused, why a transport call
+failed, the wording of the phone-collision block above — is, and always has
+been, English-only project-wide, even inside the German interface.
+Deliberately left alone during this acceptance pass rather than rushed into a
+wider bilingual rework that would have touched several modules at once while
+the rest of the fixes were still landing; tracked as its own, separate piece
+of work.
 
 ## Project layout
 

@@ -319,7 +319,9 @@ sagt, welcher Zahl zu trauen ist.
 
 ## Grenzen
 
-* **Ein Feldversuch mit echten, eingeweihten Teilnehmern hat nicht stattgefunden.**
+* Ein Feldversuch mit echten, eingeweihten Teilnehmern hat stattgefunden, mehr
+  als einmal — siehe [Wie wir getestet haben](#wie-wir-getestet-haben) weiter
+  unten, was er abdeckte und was er fand.
 * Parallelität auf Dienstseite ist ungeprüft (siehe oben).
 * Der Beiratsmodus („was hältst du davon?") ist gebaut; die Rundentische für weitere
   Fragearten existieren und sind leer.
@@ -339,6 +341,131 @@ Nutzlastaufbau je Empfänger, Statusabbildung, Zusammenführung und Berichterste
 prüft jede eingespielte Antwort gegen das Schema, das ein echter Anruf bekommen hätte. Ein
 Fixture, das aus einem echten Anruf nicht hätte hervorgehen können, lässt den Trockenlauf
 scheitern, statt still durchzulaufen.
+
+---
+
+## Wie wir getestet haben
+
+Jeder Live-Anruf, den dieses Projekt je gemacht hat, ging an eine Nummer, die
+dem Autor gehört und in deren Anrufe er eingewilligt hat. Statt eine gewählte
+Nummer erst beim Anruf umzuschreiben, trug der Autor dieselbe Nummer direkt,
+mehrfach, unter verschiedenen Kontaktnamen ein — was sich, wie sich zeigte,
+genau als der Haushalts-Fall (zwei Namen auf einem Festnetzanschluss)
+herausstellte, der weiter unten in diesem Abschnitt eine Rolle spielt. Der
+Autor spielte jede Gegenrolle selbst. Kein Testlauf *in diesem Repository*
+hat je gewählt — jeder Befund unten entstand über die tatsächlich betriebene
+Anwendung, außerhalb dieses Repositorys, und wurde mit genauen
+Datenbankeinträgen und Wortlaut zurückgemeldet (die primäre Quelle sind
+`AUFGABEN.txt` und `FINDINGS.md`; was dieses Repository selbst gegen diese
+zurückgemeldeten Fakten ausgeführt hat, steht in `EVIDENCE.md`).
+
+**2026-08-01 — der erste Live-Anruf.** Der allererste `POST /v1/calls`, den
+dieses Projekt je ausgelöst hat, klärte Grundlegendes, das keine
+Dokumentation umsonst hergab: Fortschritt kommt aus `activity`, nicht aus
+`status` (der die ganze Unterhaltung über auf `PREPARING` stehen blieb); das
+Transkript liegt in einem verschachtelten `result.transcript`-Feld; eine in
+Anführungszeichen gesetzte Frage wird zeichengenau gesprochen; und eine frei
+gesprochene Antwort wird vom Sprachagenten selbst in eine Kategorie
+eingeordnet, nicht nur mitgeschnitten.
+
+**2026-08-11(-12) — Mailbox, Ablehnung, Region-Vorgaben und ein erfundener
+Konsens.** Eine weitere Live-Sitzung meldete zwei Anrufausgänge zurück, für
+die es auf der Leitung gar kein passendes Status-Feld gab — eine
+Mailbox-Annahme, die als schlichter, erfolgreicher `completed`-Anruf
+zurückkam, und eine aktive Ablehnung, die als generisches `failed` mit dem
+eigentlichen Grund versteckt in einem Meldungstext zurückkam — beides wird
+jetzt aus dem Transkript beziehungsweise dem Fehlertext gelesen statt den
+Statuscodes blind zu vertrauen. Dieselbe Sitzung fand, beim gemeinsamen Test
+von Region und Sprache, eine deutschsprachige Runde, die stillschweigend ein
+englisches Regions-Stimmprofil in ihren Anrufplan trug, sowie einen wörtlich
+als „fuer"-artigen ASCII-Ersatz für einen Umlaut vorgelesenen Text — genau
+so gesprochen, wie er geschrieben stand. Eine Live-Beiratsrunde mit zwei
+Teilnehmern, die auf eine Entweder-oder-Frage entgegengesetzte, jeweils
+begründete Antworten gaben, wurde als „Tendency: support (2 of 2)"
+zurückgemeldet — die Aggregationslogik kannte keinen Unterschied zwischen
+zwei Bedeutungen von „support", wenn es keinen gemeinsamen Vorschlag gibt,
+dem beide zustimmen könnten — genau der erfundene Konsens, den das eigene
+Projekt-README ausdrücklich ausschließt.
+
+**2026-08-22 — ein vollständiger Abnahmedurchlauf, dann ein Nachtest am
+selben Tag.** Eine Terminfindungs- und eine Beirats-/Rundentisch-Runde
+liefen beide live Ende zu Ende. In beiden teilten sich zwei der eingeladenen
+Kontakte eine echte Nummer — und in beiden führte der Dienst genau EINEN
+physischen Anruf, lieferte ihn aber als zwei identische, getrennt
+gespeicherte Antworten unter zwei verschiedenen Identitäten zurück: Ein
+Gespräch zählte als die Einwilligung zweier Personen. Eine Anzeige, die eine
+Probe als „echte Anrufe laufen" zeigte, liegen gebliebene Probeantworten im
+Moment des tatsächlichen Live-Starts einer Runde, und ein einmalig in der
+falschen Sprache gesehener Übersetzungshinweis wurden am selben Tag
+gemeldet. Fixes für all das wurden noch am selben Tag geschrieben, getestet
+und gepusht. Ein Live-Nachtest am selben Tag bestätigte, dass der
+Telefonnummer-Fix genau wie beabsichtigt griff — beide Runden meldeten
+korrekt null Antworten statt einer erfundenen, mit einer expliziten Warnung,
+die die geteilte Nummer als Grund nennt — zeigte aber auch, dass der Fix zu
+weit griff und den Batch-Pfad-Haushaltsfall auch dort blockierte, wo je
+Person einzeln gewählt wird und eine Verwechslung gar nicht entstehen kann;
+ein zweiter, engerer Fix folgte am selben Tag, und ein weiterer
+Live-Nachtest dieser Korrektur bestätigte sie: zwei getrennte Anrufe an
+dieselbe geteilte Nummer, zwei getrennte Anrufreferenzen, die Antwort einer
+Person korrekt nur dieser einen Person zugeschrieben.
+
+**Was schiefging, und was daraus wurde:**
+
+1. **Ein physischer Anruf, zwei verschiedenen Personen zugeschrieben —
+   zweimal, dann überkorrigiert, dann erneut korrigiert.** Die
+   Grundursache: Der Dienst kann zwei Empfänger mit derselben
+   Telefonnummer zu einem einzigen echten Gespräch zusammenfassen und
+   trotzdem einen Antwort-Eintrag pro Empfänger in seiner Antwort
+   zurückliefern — an der Form der Antwort selbst ist die Verwechslung
+   nicht erkennbar. Zuerst live in einer Terminfindungsrunde gefunden,
+   tauchte dieselbe Zusammenfassung dann in einer Beiratsrunde auf und
+   erzeugte im Bericht einen scheinbaren 2-von-2-Konsens aus den Worten
+   einer einzigen Person. Behoben, indem für niemanden mehr ein Anruf
+   gebaut wird, der sich in diesem Lauf eine fällige Nummer mit jemand
+   anderem teilt, und indem zwei gespeicherte Antworten mit identischer
+   Anrufreferenz nicht mehr als zwei Stimmen gezählt werden. Der Nachtest
+   am selben Tag bestätigte, dass die Sperre griff — zeigte aber auch,
+   dass sie zu weit griff und ausgerechnet den einen Anrufmodus
+   (Einzelversand je Person) lahmlegte, in dem die Verwechslung gar nicht
+   entstehen kann. Die Sperre sitzt jetzt nur noch dort, wo die
+   Verwechslung tatsächlich möglich ist; ein Live-Nachtest des
+   Einzelversand-Pfads bestätigte, dass er alle unverändert wählt — zwei
+   getrennte Anrufe an die geteilte Nummer, zwei getrennte Referenzen,
+   keine Verwechslung.
+2. **Eine Probe, die aussah, als würden echte Anrufe laufen.** Zwei
+   unabhängige Anzeigen für „das ist eine Probe" und „dieser Anruf ist
+   live" konnten gleichzeitig wahr sein, und die Live-Anzeige gewann
+   optisch immer. Behoben, sodass der Probe-Zustand auf dem Bildschirm
+   immer gewinnt, mit einer eigenen, gedämpften Markierung für ihre
+   beantwortet/wählt-Zeilen, damit sie nie mit einem echten Ergebnis
+   verwechselt werden können.
+3. **Der Übergang auf echt übernahm die erfundenen Antworten der Probe.**
+   Eine Runde tatsächlich zu starten, nachdem sie zuvor geprobt worden
+   war, behielt stillschweigend die erfundenen Probeantworten, statt
+   irgendjemanden zu fragen — der Bildschirm sah aus wie zuvor, nichts
+   Neues zu sehen. Behoben: Die Probeantworten einer Runde werden
+   automatisch verworfen, sobald tatsächlich ein Live-Anruf gegen sie
+   ausgelöst werden soll.
+4. **Ein einmal in der falschen Sprache gesehener Hinweistext.** Der
+   Hilfetext eines Formulars erschien einmal auf Englisch in einer
+   ansonsten deutschen Oberfläche. Direkt gegen den Übersetzungsmechanismus
+   selbst geprüft, der mit einer frischen Sitzung korrekt rendert — die
+   Live-Sichtung stammte am wahrscheinlichsten von einem bereits offenen,
+   veralteten Sprach-Cookie in jenem Browser, nicht von einem Fehler im
+   Übersetzungscode, und wird ehrlich als nicht reproduzierbar gemeldet
+   statt als behobene Grundursache behauptet. Der Wortlaut wurde trotzdem
+   geschärft, weil er es ohnehin brauchte, und ist jetzt mit einem Test
+   für beide Sprachen fixiert.
+
+**Weiterhin offen, ehrlich gesagt:** Der Fehlertext, den ein abgelehnter
+oder fehlgeschlagener Anruf in die eigene Ansicht des Betreibers trägt —
+warum eine Nummer abgelehnt wurde, warum ein Transportanruf scheiterte, der
+Wortlaut der oben beschriebenen Telefonkollisions-Sperre — ist und war
+projektweit schon immer nur englisch, auch innerhalb der deutschen
+Oberfläche. Bei diesem Abnahmedurchlauf bewusst nicht angefasst, statt es in
+einen größeren, mehrere Module gleichzeitig berührenden zweisprachigen
+Umbau zu hetzen, während die übrigen Fixes noch liefen; als eigenständiges,
+separates Arbeitspaket verfolgt.
 
 ## Lizenz
 
