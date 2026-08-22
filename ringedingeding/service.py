@@ -626,9 +626,6 @@ class Preview:
     requests: tuple[CallRequest, ...] = ()
     skipped: tuple[Participant, ...] = ()
     rejected: tuple[tuple[Participant, str], ...] = ()
-    ambiguous: tuple[tuple[Participant, str], ...] = ()
-    """Excluded because they share a phone number with another participant of
-    this run — see :mod:`ringedingeding.runner`."""
     uncallable: tuple[Contact, ...] = ()
 
     @property
@@ -659,7 +656,7 @@ def preview(
     store: Store, projects: ProjectStore, project: Project, poll: Poll, *, retry: bool = False
 ) -> Preview:
     greeting, closing = wording(projects, project)
-    requests, skipped, rejected, ambiguous = build_requests(
+    requests, skipped, rejected = build_requests(
         poll,
         store.participants(poll.id),
         existing=store.answers(poll.id),
@@ -673,7 +670,6 @@ def preview(
         requests=tuple(requests),
         skipped=tuple(skipped),
         rejected=tuple(rejected),
-        ambiguous=tuple(ambiguous),
         uncallable=tuple(uncallable(projects.invitees(project.id))),
     )
 

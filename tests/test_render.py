@@ -53,7 +53,7 @@ def test_markdown_result_never_prints_a_raw_number():
 def test_plan_never_prints_a_raw_number(store):
     poll = store.create_poll(question="Q", kind="open", organizer="Lukas")
     store.add_participant(poll.id, name="Anna", phone=RAW)
-    requests, _, _, _ = build_requests(poll, store.participants(poll.id))
+    requests, _, _ = build_requests(poll, store.participants(poll.id))
     rendered = render_plan(poll, requests, show_payload=True)
     assert RAW not in rendered
     assert "5555550100" not in rendered
@@ -68,7 +68,7 @@ def test_plan_warns_when_region_locale_do_not_match_the_language(store):
         question="Wann passt es?", kind="open", organizer="Lukas",
         language="de", region="US", locale="en-US",
     )
-    requests, _, _, _ = build_requests(poll, store.participants(poll.id))
+    requests, _, _ = build_requests(poll, store.participants(poll.id))
     rendered = render_plan(poll, requests)
     assert "WARNING" in rendered
     assert "de" in rendered and "US" in rendered and "en-US" in rendered
@@ -78,7 +78,7 @@ def test_plan_shows_no_warning_when_region_locale_match(store):
     poll = store.create_poll(
         question="Wann passt es?", kind="open", organizer="Lukas", language="de"
     )
-    requests, _, _, _ = build_requests(poll, store.participants(poll.id))
+    requests, _, _ = build_requests(poll, store.participants(poll.id))
     rendered = render_plan(poll, requests)
     assert "WARNING" not in rendered
 
@@ -88,7 +88,7 @@ def test_plan_shows_the_goal_text_and_the_schema(store):
         question="When can you make it?", kind="slot", organizer="Lukas", slots=["Sat 14-18"]
     )
     store.add_participant(poll.id, name="Anna", phone=RAW)
-    requests, _, _, _ = build_requests(poll, store.participants(poll.id))
+    requests, _, _ = build_requests(poll, store.participants(poll.id))
     rendered = render_plan(poll, requests)
     assert "nothing is dialed" in rendered
     assert "automated" in rendered  # the disclosure sentence

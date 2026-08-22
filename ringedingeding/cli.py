@@ -361,7 +361,7 @@ def cmd_list(args: argparse.Namespace, store: Store) -> int:
 def cmd_plan(args: argparse.Namespace, store: Store) -> int:
     poll, _fixture = _load_poll(store, args)
     participants = store.participants(poll.id)
-    requests, skipped, rejected, ambiguous = build_requests(
+    requests, skipped, rejected = build_requests(
         poll,
         participants,
         existing=store.answers(poll.id),
@@ -375,8 +375,6 @@ def cmd_plan(args: argparse.Namespace, store: Store) -> int:
     if skipped:
         _out(f"Already answered, would not be called again: {len(skipped)}")
     for participant, reason in rejected:
-        _out(f"Would NOT be called - {participant.ref}: {reason}")
-    for participant, reason in ambiguous:
         _out(f"Would NOT be called - {participant.ref}: {reason}")
     _out("")
     _out(f"Estimated cost if run live: ${len(requests) * COST_PER_CALL_USD:.2f} "
@@ -519,7 +517,7 @@ def cmd_demo(args: argparse.Namespace, store: Store) -> int:
         _out("#" * 70)
         _out("")
 
-        requests, _skipped, _rejected, _ambiguous = build_requests(poll, participants)
+        requests, _skipped, _rejected = build_requests(poll, participants)
         _out(render_plan(poll, requests, show_payload=args.show_payload))
 
         transport = FixtureTransport(fixture.outcomes)

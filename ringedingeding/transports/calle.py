@@ -46,10 +46,21 @@ Measured, and therefore relied upon here:
   below never fires, and without a separate check both participants would
   silently receive the same answer (measured 2026-08-22, live: poll
   "Hochzeit", ``synthetic-call-collision-a`` written for two different
-  participants; see FINDINGS.md, "Batch dedup by phone number"). This module
-  never sees such a pair any more: :func:`ringedingeding.runner.build_requests`
-  now refuses to build a request for either of them before this transport is
-  ever called, for every transport, not only this one.
+  participants; see FINDINGS.md, "Batch dedup by phone number").
+  :meth:`CalleBatchTransport.place_many` refuses to put such a pair into the
+  same ``POST /v1/calls`` body in the first place — see the guard at the top
+  of that method. This is scoped to the batch endpoint specifically:
+  ``CalleTransport`` (``--serial``, inherited, not overridden here) sends one
+  request per participant, so each participant's answer is tied to its own
+  ``call_id`` by construction, independent of whether CALL-E's backend treats
+  two calls to the same number as related in some other way. Measured
+  2026-08-22 that a live retest confirmed the batch guard actually fires
+  (poll "Sollen wir am Samstag grillen…", ``synthetic-poll-rt4c-a`` /
+  ``synthetic-poll-rt4c-b``: both blocked, 0 of 2 answered, no fabricated
+  consensus) and that the original version of this guard, sitting in
+  :func:`ringedingeding.runner.build_requests` and applied to every
+  transport regardless of dispatch shape, incorrectly blocked ``--serial``
+  too — a case where the collision does not exist. Moved here in response.
 
 Still **not** measured, and therefore kept open rather than assumed:
 
@@ -328,7 +339,51 @@ class CalleBatchTransport(CalleTransport):
         if cancel is not None and cancel.is_set():
             return
 
-        first = requests[0]
+        # Collision guard, scoped to this one batch dispatch — see the module
+        # docstring, "Batch dedup by phone number". Two participants who
+        # share a number and would land in the SAME POST /v1/calls body
+        # cannot be told apart if the service collapses them into one
+        # physical call while still returning one recipient entry each, so
+        # neither is dialed here. Deliberately *not* applied in
+        # CalleTransport (--serial): a separate POST per participant ties
+        # each answer to its own call_id regardless of what CALL-E does with
+        # the phone number on its end, so that path has no such gap to close.
+        sharers: dict[str, list[CallRequest]] = {}
+        for request in requests:
+            sharers.setdefault(request.participant.phone_e164, []).append(request)
+
+        batch_requests: list[CallRequest] = []
+        for request in requests:
+            peers = [
+                other
+                for other in sharers[request.participant.phone_e164]
+                if other.participant.id != request.participant.id
+            ]
+            if peers:
+                names = ", ".join(other.participant.ref for other in peers)
+                yield CallOutcome(
+                    participant_id=request.participant.id,
+                    status=CallStatus.FAILED,
+                    error=(
+                        f"shares this phone number with {names} within this same "
+                        "batch dispatch; CALL-E's own service can dedupe identical "
+                        "numbers within one POST /v1/calls, so an answer from that "
+                        "number cannot be told apart between them and is "
+                        "attributed to neither (measured 2026-08-22 — see "
+                        "FINDINGS.md). Give them distinct numbers, fold them into "
+                        "one participant, or place this run with --serial instead "
+                        "(one call per person, unambiguous)."
+                    ),
+                )
+                continue
+            batch_requests.append(request)
+
+        if not batch_requests:
+            return
+        if cancel is not None and cancel.is_set():
+            return
+
+        first = batch_requests[0]
         body = first.payload(redact_phone=False)
         body["recipients"] = [
             {
@@ -336,10 +391,10 @@ class CalleBatchTransport(CalleTransport):
                 "region": request.poll.region,
                 "locale": request.poll.locale,
             }
-            for request in requests
+            for request in batch_requests
         ]
         # One batch, one intent, one idempotency key.
-        batch_key = f"{first.idempotency_key}_batch{len(requests)}"
+        batch_key = f"{first.idempotency_key}_batch{len(batch_requests)}"
 
         try:
             created = self._request("POST", "/v1/calls", body=body, idempotency_key=batch_key)
@@ -349,7 +404,7 @@ class CalleBatchTransport(CalleTransport):
             final = self._poll_until_terminal(call_id)
         except Exception as error:
             message = f"{type(error).__name__}: {error}"
-            for request in requests:
+            for request in batch_requests:
                 yield CallOutcome(
                     participant_id=request.participant.id,
                     status=CallStatus.FAILED,
@@ -358,23 +413,23 @@ class CalleBatchTransport(CalleTransport):
             return
 
         recipients = final.get("recipients")
-        if not isinstance(recipients, list) or len(recipients) != len(requests):
+        if not isinstance(recipients, list) or len(recipients) != len(batch_requests):
             # Refuse to guess. A misattributed answer is worse than no answer.
             got = len(recipients) if isinstance(recipients, list) else "none"
-            for request in requests:
+            for request in batch_requests:
                 yield CallOutcome(
                     participant_id=request.participant.id,
                     status=CallStatus.FAILED,
                     error=(
                         f"batch response has {got} recipient entries for "
-                        f"{len(requests)} recipients; refusing to map answers by "
-                        "position. Re-run with --serial."
+                        f"{len(batch_requests)} recipients; refusing to map answers "
+                        "by position. Re-run with --serial."
                     ),
                     run_id=call_id,
                 )
             return
 
-        for request, recipient in zip(requests, recipients, strict=False):
+        for request, recipient in zip(batch_requests, recipients, strict=False):
             yield _outcome_from(
                 participant_id=request.participant.id,
                 call=final,
