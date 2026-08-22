@@ -300,6 +300,115 @@ def test_no_schema_sent_to_calle_ever_contains_a_nullable_union():
 
 
 # --------------------------------------------------------------------------
+# correction call — R21, user idea 2026-08-22
+# --------------------------------------------------------------------------
+
+
+def test_correction_call_asks_identity_first_verbatim():
+    text = build_task_text(
+        make_poll(organizer="Lukas"),
+        "Ben",
+        is_correction=True,
+        previous_structured={"reachable": False, "refused": False, "answer": "Pizza"},
+    )
+    identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
+    assert '"I already called once before. Am I speaking with Ben?"' in identity_step
+    assert "CRITICAL" in identity_step
+    assert "Never skip this question" in identity_step
+
+
+def test_correction_call_confirms_previous_answer_only_after_identity():
+    """Privacy order (R21) as a test, not just as prose: the previous answer
+    must be textually impossible to reach before the identity question --
+    whoever picked up on the first, unconfirmed call must never learn what
+    somebody else may have said."""
+    text = build_task_text(
+        make_poll(kind=PollKind.CHOICE, options=("Grill", "Pizza"), organizer="Lukas"),
+        "Ben",
+        is_correction=True,
+        previous_structured={"reachable": False, "refused": False, "choice": "Pizza"},
+    )
+    identity_index = text.index("Am I speaking with Ben?")
+    answer_index = text.index("you said Pizza")
+    assert identity_index < answer_index
+    assert "Never mention what was said on the earlier call before identity is confirmed" in text
+
+
+def test_correction_call_reads_back_the_previous_choice_answer():
+    text = build_task_text(
+        make_poll(kind=PollKind.CHOICE, options=("Grill", "Pizza"), organizer="Lukas"),
+        "Ben",
+        is_correction=True,
+        previous_structured={"reachable": False, "refused": False, "choice": "Pizza"},
+    )
+    assert '"I forgot to ask earlier — you said Pizza, was that your answer' in text
+    assert "you do not need to ask the question below again" in text
+
+
+def test_correction_call_falls_back_to_asking_fresh_without_an_extractable_answer():
+    """R21 live case: an unconfirmed-identity CHOICE call can leave the
+    optional 'choice' field empty even though the transcript clearly heard
+    an answer (Participant B in synthetic-poll-final, R20 live incident). Nothing is
+    invented from raw_text/transcript -- the call asks the question fresh
+    instead of guessing at a quote."""
+    text = build_task_text(
+        make_poll(kind=PollKind.CHOICE, options=("Grill", "Pizza"), organizer="Lukas"),
+        "Ben",
+        is_correction=True,
+        previous_structured={"reachable": False, "refused": False},
+    )
+    identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
+    assert "I forgot to ask earlier" not in identity_step
+    assert "continue with the question below as normal" in identity_step
+    assert "do not mention a previous call or a previous answer" in identity_step
+
+
+def test_correction_call_falls_back_to_asking_fresh_with_no_previous_structured_at_all():
+    text = build_task_text(make_poll(organizer="Lukas"), "Ben", is_correction=True)
+    identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
+    assert "I already called once before" in identity_step
+    assert "continue with the question below as normal" in identity_step
+
+
+def test_correction_call_keeps_the_normal_mismatch_wording_on_a_no():
+    text = build_task_text(
+        make_poll(organizer="Lukas"), "Ben", is_correction=True,
+        previous_structured={"reachable": False, "refused": False, "answer": "Pizza"},
+    )
+    identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
+    assert "bring Ben to the phone" in identity_step
+    assert "ask for a good time to call back" in identity_step
+    assert "callback_requested" in identity_step
+    assert "reachable stays false" in identity_step
+
+
+def test_correction_call_is_german_for_german_polls():
+    poll = make_poll(
+        language="de", locale="de-DE", region="DE",
+        kind=PollKind.CHOICE, options=("Grillen", "Pizza"),
+    )
+    text = build_task_text(
+        poll, "Ben", is_correction=True,
+        previous_structured={"reachable": False, "refused": False, "choice": "Pizza"},
+    )
+    identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
+    assert '"Ich habe eben schon einmal angerufen. Spreche ich mit Ben?"' in identity_step
+    identity_index = text.index("Spreche ich mit Ben?")
+    answer_index = text.index("du sagtest Pizza")
+    assert identity_index < answer_index
+    assert "Am I speaking with" not in text
+    assert "you said" not in text
+
+
+def test_a_plain_non_correction_call_is_unaffected():
+    """Regression guard: is_correction defaults to False, so every existing
+    call this project already places must render exactly as before."""
+    text = build_task_text(make_poll(organizer="Lukas"), "Ben")
+    assert "I already called once before" not in text
+    assert "I forgot to ask earlier" not in text
+
+
+# --------------------------------------------------------------------------
 # guard: this project's own German prompt building blocks never contain a
 # substitute umlaut — 2026-08-11, checked repo-wide by the operator and
 # clean at the time; this test holds that.
@@ -321,5 +430,28 @@ def test_this_projects_own_german_task_text_never_contains_a_substitute_umlaut()
                 opening=("Schön, dich zu hören.",),
                 closing=("Bis dann.",),
                 urgency="wirklich dringend",
+            )
+            assert find_umlaut_substitutes(text) == []
+
+
+def test_correction_call_german_text_never_contains_a_substitute_umlaut():
+    """R21: the correction preamble is new German prose -- hold it to the
+    same guard as every other German task text."""
+    from ringedingeding.umlaut_check import find_umlaut_substitutes
+
+    for previous_structured in (
+        {"reachable": False, "refused": False, "choice": "A"},
+        {"reachable": False, "refused": False},
+    ):
+        for kind in PollKind:
+            kind_poll = make_poll(
+                language="de", locale="de-DE", region="DE",
+                kind=kind, options=("A", "B"), slots=("Sat 14-18", "Sun 10-14"),
+            )
+            text = build_task_text(
+                kind_poll,
+                "Anna",
+                is_correction=True,
+                previous_structured=previous_structured,
             )
             assert find_umlaut_substitutes(text) == []

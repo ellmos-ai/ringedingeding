@@ -194,12 +194,7 @@ def _classify(participants: Sequence[Participant], answers: dict[str, Answer]) -
             Answer(participant_id=participant.id, call_status=CallStatus.PENDING),
         )
         error = answer.error
-        if (
-            error is None
-            and answer.call_status is CallStatus.COMPLETED
-            and (answer.structured or {}).get("reachable") is not True
-            and (answer.transcript or "").strip()
-        ):
+        if answer.completed_but_identity_unconfirmed:
             error = _UNCONFIRMED_IDENTITY_DETAIL
         result = ParticipantResult(
             ref=participant.ref,

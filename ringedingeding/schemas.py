@@ -94,6 +94,32 @@ def _slot_item(poll: Poll) -> dict[str, Any]:
     return item
 
 
+def _previous_answer_text(poll: Poll, structured: dict[str, Any]) -> str | None:
+    """The previous answer, in the person's own words, for a correction call
+    to read back for confirmation (R21).
+
+    Reads only from ``structured`` -- never from ``raw_text``/``transcript``.
+    Those are free text the voice agent wrote *about* the call, not a
+    guaranteed verbatim quote safe to hand back to the agent for a second
+    call to speak aloud. When the matching structured field is missing or
+    empty (a real live case, R21: an unconfirmed-identity call can leave an
+    *optional* answer field empty even though the transcript clearly heard
+    one, because the agent correctly declined to fill in a field it could
+    not attribute to a confirmed person), this returns ``None`` rather than
+    guess -- the correction call then asks the question fresh instead of
+    reading back a quote that was never safely captured.
+    """
+    if poll.kind is PollKind.CHOICE:
+        text = structured.get("choice") or structured.get(OTHER_CHOICE_FIELD)
+    elif poll.kind is PollKind.OPEN:
+        text = structured.get("answer")
+    else:  # PollKind.SLOT
+        slots = structured.get("available_slots")
+        text = "; ".join(str(item) for item in slots) if isinstance(slots, list) and slots else None
+    text = str(text).strip() if text else ""
+    return text or None
+
+
 def recipient_result_schema(poll: Poll) -> dict[str, Any]:
     """JSON schema the voice agent must fill in per recipient."""
     if poll.kind is PollKind.SLOT:
@@ -423,7 +449,13 @@ def _closing_block(lines: Sequence[str], german: bool) -> str:
     return "\n".join([lead] + [f"   {_quote(line)}" for line in said]) + "\n"
 
 
-def _identity_block(given_name: str | None, german: bool) -> str:
+def _identity_block(
+    given_name: str | None,
+    german: bool,
+    *,
+    is_correction: bool = False,
+    previous_answer: str | None = None,
+) -> str:
     """Confirm identity right after the disclosure, before anything else.
 
     Nutzer-Testdesign 2026-08-11: a call must never be scored as the intended
@@ -441,6 +473,15 @@ def _identity_block(given_name: str | None, german: bool) -> str:
     against. That is a known, deliberate limitation of this gate, not an
     oversight: a caller must choose between the privacy of ``--no-names`` and
     the identity check, it cannot have both at once.
+
+    ``is_correction`` (R21, user idea 2026-08-22): a ``--retry`` of a
+    participant whose last completed call went ahead normally but never got
+    a confirmed identity gets this variant instead. The identity question
+    itself is unchanged, still asked first, still verbatim — what changes is
+    what comes *after* a confirmed "yes": the previous answer, when one
+    could be safely extracted (see ``_previous_answer_text``), is read back
+    for confirmation. Never before identity is confirmed, and never at all
+    on a "no" — see ``_correction_identity_block``.
     """
     if not given_name:
         if german:
@@ -452,6 +493,8 @@ def _identity_block(given_name: str | None, german: bool) -> str:
             "No name was given, so identity cannot be confirmed — proceed "
             "directly to the next question."
         )
+    if is_correction:
+        return _correction_identity_block(given_name, german, previous_answer)
     if german:
         question = _quote(f"Spreche ich mit {given_name}?")
         return (
@@ -479,6 +522,93 @@ def _identity_block(given_name: str | None, german: bool) -> str:
         "without asking the actual question. Without confirmed identity, "
         "reachable stays false — regardless of what the other person says "
         "or answers."
+    )
+
+
+def _correction_identity_block(given_name: str, german: bool, previous_answer: str | None) -> str:
+    """R21 (user idea, 2026-08-22): a ``--retry`` of a completed-but-
+    unconfirmed call, with the "we already spoke" correction preamble.
+
+    PRIVACY ORDER IS THE POINT OF THIS FUNCTION, not a side detail: the
+    identity question is built first, the mismatch branch second, and the
+    previous-answer confirmation — gated on "if it is {given_name}" — last,
+    so it is textually impossible for the previous answer to appear before
+    the identity question in the string this function returns. Whoever
+    picked up on the *first* call, and was never confirmed as the right
+    person, must never learn what somebody else may have said; that is
+    stated to the calling agent explicitly, not just implied by ordering.
+    """
+    if german:
+        identity_question = _quote(f"Ich habe eben schon einmal angerufen. Spreche ich mit {given_name}?")
+        mismatch = (
+            f"Ist es nicht {given_name}: bitte höflich darum, {given_name} "
+            "ans Telefon zu holen. Geht das nicht, frage nach einem guten "
+            "Zeitpunkt für einen Rückruf und halte ihn in callback_requested "
+            "fest (weglassen, falls nicht zutreffend), bedanke dich und "
+            "beende das Gespräch, ohne die eigentliche Frage zu stellen. "
+            "Ohne bestätigte Identität bleibt reachable false — unabhängig "
+            "davon, was die andere Person sagt oder antwortet."
+        )
+        if previous_answer:
+            confirm_question = _quote(
+                f"Ich hatte vergessen zu fragen — du sagtest {previous_answer}, "
+                "war das deine Antwort und bleibt es dabei?"
+            )
+            confirmed_branch = (
+                f"Ist es {given_name}: sage {confirm_question} Bestätigt die "
+                "Person das, halte das als ihre Antwort fest, ohne die Frage "
+                "unten erneut zu stellen. Möchte sie es ändern, oder stimmt "
+                "es nicht mehr, stelle die Frage unten neu und halte die "
+                "neue Antwort fest."
+            )
+        else:
+            confirmed_branch = (
+                f"Ist es {given_name}: fahre wie gewohnt mit der Frage unten "
+                "fort — erwähne keinen früheren Anruf und keine frühere "
+                "Antwort."
+            )
+        return (
+            f"KRITISCH: Frage als Allererstes, noch vor allem anderen, "
+            f"{identity_question} Überspringe diese Frage nie, auch nicht, "
+            "wenn das Gespräch bereits im Gange wirkt oder die Antwort "
+            f"selbstverständlich scheint. {mismatch} {confirmed_branch} "
+            "Nenne niemals, was beim letzten Anruf gesagt wurde, bevor die "
+            "Identität bestätigt ist — das kommt erst danach, nie davor."
+        )
+    identity_question = _quote(f"I already called once before. Am I speaking with {given_name}?")
+    mismatch = (
+        f"If this is not {given_name}: politely ask them to bring "
+        f"{given_name} to the phone. If that is not possible, ask for a "
+        "good time to call back and record it in callback_requested (leave "
+        "it out when it does not apply), thank them and end the call "
+        "without asking the actual question. Without confirmed identity, "
+        "reachable stays false — regardless of what the other person says "
+        "or answers."
+    )
+    if previous_answer:
+        confirm_question = _quote(
+            f"I forgot to ask earlier — you said {previous_answer}, was that "
+            "your answer and does it still hold?"
+        )
+        confirmed_branch = (
+            f"If it is {given_name}: say {confirm_question} If they confirm "
+            "it, record that as their answer and you do not need to ask the "
+            "question below again. If they want to change it, or say it is "
+            "no longer accurate, ask the question below fresh and record "
+            "their new answer instead."
+        )
+    else:
+        confirmed_branch = (
+            f"If it is {given_name}: continue with the question below as "
+            "normal — do not mention a previous call or a previous answer."
+        )
+    return (
+        f"CRITICAL: Ask this before anything else, as your very first "
+        f"question: {identity_question} Never skip this question, even if "
+        "the conversation already feels underway or the answer seems "
+        f"obvious. {mismatch} {confirmed_branch} Never mention what was "
+        "said on the earlier call before identity is confirmed — that "
+        "comes only after, never before."
     )
 
 
@@ -515,6 +645,8 @@ def build_task_text(
     opening: Sequence[str] = (),
     closing: Sequence[str] = (),
     urgency: str = "",
+    is_correction: bool = False,
+    previous_structured: dict[str, Any] | None = None,
 ) -> str:
     """The ``task`` free text sent to CALL-E for one recipient.
 
@@ -525,6 +657,15 @@ def build_task_text(
     ``opening`` and ``closing`` are the organizer's own sentences. They are
     inserted in quotation marks, which is what makes them survive verbatim, and
     they are placed around the fixed rules rather than replacing any of them.
+
+    ``is_correction`` and ``previous_structured`` (R21, user idea
+    2026-08-22): set by ``runner.py::build_requests`` when this call is a
+    ``--retry`` of a participant whose last completed call went ahead
+    normally but never got a confirmed identity. ``previous_structured`` is
+    the *raw* structured result of that earlier call — the field to read
+    back is picked here, per ``poll.kind``, by ``_previous_answer_text``, so
+    that the caller only ever has to hand over what it already has stored,
+    not decide how to phrase it.
     """
     german = str(poll.language).lower().startswith("de")
     template = _RULES_DE if german else _RULES_EN
@@ -532,12 +673,17 @@ def build_task_text(
     # The block sits inside a numbered list, so continuation lines get indented
     # to match. This text is read out loud by an agent; layout is part of it.
     block = "\n   ".join(block.splitlines())
+    previous_answer = (
+        _previous_answer_text(poll, previous_structured or {}) if is_correction else None
+    )
     text = template.format(
         organizer=poll.organizer,
         question_block=block,
         opening_block=_opening_block(opening, german) + _urgency_block(urgency, german),
         closing_block=_closing_block(closing, german),
-        identity_block=_identity_block(given_name, german),
+        identity_block=_identity_block(
+            given_name, german, is_correction=is_correction, previous_answer=previous_answer
+        ),
     )
     if given_name:
         greeting = (

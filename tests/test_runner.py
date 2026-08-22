@@ -364,3 +364,138 @@ def test_retry_re_attempts_a_participant_left_failed_by_a_collision(store):
     after_retry = store.answers(poll.id)
     for participant_id, before in counted_before_retry.items():
         assert after_retry[participant_id] == before
+
+
+# --------------------------------------------------------------------------
+# correction call — R21, user idea 2026-08-22
+# --------------------------------------------------------------------------
+
+
+def test_retry_of_an_unconfirmed_identity_completed_call_becomes_a_correction_call(store):
+    """The exact case R21 exists for: a --retry of a participant whose last
+    attempt was COMPLETED, has a transcript, but never got identity
+    confirmed gets the correction preamble instead of a plain repeat.
+
+    Modelled on the real live case (Ben, synthetic-poll-final, R20 incident):
+    the optional 'choice' field is empty even though the transcript clearly
+    heard an answer twice -- the extraction path must fall back cleanly to
+    'ask fresh' rather than invent a quote from raw_text/transcript.
+    """
+    poll = store.create_poll(
+        question="Grill or pizza?", kind="choice", organizer="Lukas",
+        options=["Grill", "Pizza"],
+    )
+    store.add_participant(poll.id, name="Ben", phone="+15555550100")
+    ben = store.participants(poll.id)[0]
+    store.record_answer(
+        Answer(
+            participant_id=ben.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False, "refused": False},
+            transcript="[00:12] USER: Pizza bestellen. [00:20] USER: Ja, Pizza.",
+        )
+    )
+
+    requests, skipped, _ = build_requests(
+        poll, [ben], existing=store.answers(poll.id), retry=True
+    )
+    assert [r.participant.id for r in requests] == [ben.id]
+    assert skipped == []
+    text = requests[0].task_text
+    assert "I already called once before. Am I speaking with Ben?" in text
+    assert "I forgot to ask earlier" not in text
+    assert "continue with the question below as normal" in text
+
+
+def test_retry_of_an_unconfirmed_identity_call_reads_back_an_extractable_answer(store):
+    poll = store.create_poll(
+        question="Grill or pizza?", kind="choice", organizer="Lukas",
+        options=["Grill", "Pizza"],
+    )
+    store.add_participant(poll.id, name="Ben", phone="+15555550100")
+    ben = store.participants(poll.id)[0]
+    store.record_answer(
+        Answer(
+            participant_id=ben.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False, "refused": False, "choice": "Pizza"},
+            transcript="[00:12] USER: Pizza bitte.",
+        )
+    )
+
+    requests, _, _ = build_requests(poll, [ben], existing=store.answers(poll.id), retry=True)
+    text = requests[0].task_text
+    assert "I already called once before. Am I speaking with Ben?" in text
+    assert "I forgot to ask earlier — you said Pizza" in text
+    identity_index = text.index("Am I speaking with Ben?")
+    answer_index = text.index("you said Pizza")
+    assert identity_index < answer_index
+
+
+def test_a_plain_no_answer_retry_is_not_a_correction_call(store):
+    """The correction preamble is specific to COMPLETED-but-unconfirmed --
+    a NO_ANSWER retry is an ordinary retry, not a correction call."""
+    poll = _poll_with_people(store, 1)
+    participant = store.participants(poll.id)[0]
+    store.record_answer(Answer(participant_id=participant.id, call_status=CallStatus.NO_ANSWER))
+
+    requests, _, _ = build_requests(
+        poll, [participant], existing=store.answers(poll.id), retry=True
+    )
+    assert "I already called once before" not in requests[0].task_text
+
+
+def test_a_completed_confirmed_answer_is_never_offered_a_correction_call(store):
+    """A COMPLETED call with a confirmed identity is a counted answer -- it
+    is skipped by --retry entirely (R20c), so it can never reach the
+    correction-call branch either. Pinned here so the two guards cannot
+    silently drift apart."""
+    poll = store.create_poll(
+        question="Grill or pizza?", kind="choice", organizer="Lukas",
+        options=["Grill", "Pizza"],
+    )
+    store.add_participant(poll.id, name="Ben", phone="+15555550100")
+    ben = store.participants(poll.id)[0]
+    store.record_answer(
+        Answer(
+            participant_id=ben.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "choice": "Pizza"},
+            transcript="[00:12] USER: Pizza.",
+        )
+    )
+
+    requests, skipped, _ = build_requests(
+        poll, [ben], existing=store.answers(poll.id), retry=True
+    )
+    assert requests == []
+    assert [p.id for p in skipped] == [ben.id]
+
+
+def test_a_correction_call_runs_end_to_end_through_run_poll(store):
+    """Wiring check: the correction call is not just a task-text detail --
+    it goes through run_poll like any other request and produces a real,
+    counted answer when the confirmation succeeds."""
+    poll = store.create_poll(
+        question="How do you feel about it?", kind="open", organizer="Lukas",
+    )
+    store.add_participant(poll.id, name="Ben", phone="+15555550100")
+    ben = store.participants(poll.id)[0]
+    store.record_answer(
+        Answer(
+            participant_id=ben.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False, "refused": False, "answer": "It works for me."},
+            transcript="[00:12] USER: It works for me.",
+        )
+    )
+
+    transport = RecordingTransport(
+        structured={"reachable": True, "refused": False, "answer": "It works for me.", "stance": "support"}
+    )
+    report = run_poll(store, poll, transport, retry=True)
+    assert ben.ref in transport.seen
+    assert report.placed == 1
+    fresh = store.answers(poll.id)[ben.id]
+    assert fresh.bucket is Bucket.ANSWERED
+    assert fresh.structured.get("answer") == "It works for me."

@@ -296,3 +296,25 @@ class Answer:
         if self.structured.get("refused") is True:
             return Bucket.REFUSED
         return Bucket.ANSWERED
+
+    @property
+    def completed_but_identity_unconfirmed(self) -> bool:
+        """True when the call finished, produced a transcript, but the agent
+        never confirmed it was speaking to the intended person.
+
+        This is the "probably the right person, unconfirmed" case (R18/R21):
+        the conservative ``Bucket.UNREACHED`` classification above is still
+        correct and unaffected by this property -- it exists so that
+        ``merge.py`` (the report's Detail column) and ``runner.py`` (whether
+        a ``--retry`` becomes a correction call, R21) share exactly one
+        definition of this case rather than two that could quietly drift
+        apart. An existing transport-level ``error`` always takes priority
+        and disqualifies this: that is a different, more concrete failure,
+        not an identity refusal.
+        """
+        return (
+            self.error is None
+            and self.call_status is CallStatus.COMPLETED
+            and self.structured.get("reachable") is not True
+            and bool(self.transcript.strip())
+        )

@@ -132,6 +132,47 @@ def test_a_completed_call_with_no_structured_result_at_all_counts_as_unreached()
 # --------------------------------------------------------------------------
 
 
+def test_completed_but_identity_unconfirmed_property_matches_the_detail_case():
+    """R21 (user idea, 2026-08-22): merge.py's Detail-column synthesis and
+    runner.py's correction-call gate both key off this one Answer property
+    now instead of two copies of the same three-way condition -- pinning it
+    directly guards against the two ever drifting apart again."""
+    unconfirmed = Answer(
+        participant_id="p_a",
+        call_status=CallStatus.COMPLETED,
+        structured={"reachable": False},
+        transcript="[00:03] BOT: Hallo?",
+    )
+    assert unconfirmed.completed_but_identity_unconfirmed is True
+
+    confirmed = Answer(
+        participant_id="p_a",
+        call_status=CallStatus.COMPLETED,
+        structured={"reachable": True, "refused": False},
+        transcript="[00:03] BOT: Hallo?",
+    )
+    assert confirmed.completed_but_identity_unconfirmed is False
+
+    no_transcript = Answer(
+        participant_id="p_a",
+        call_status=CallStatus.COMPLETED,
+        structured={"reachable": False},
+    )
+    assert no_transcript.completed_but_identity_unconfirmed is False
+
+    not_completed = Answer(participant_id="p_a", call_status=CallStatus.NO_ANSWER)
+    assert not_completed.completed_but_identity_unconfirmed is False
+
+    real_error_takes_priority = Answer(
+        participant_id="p_a",
+        call_status=CallStatus.COMPLETED,
+        structured={"reachable": False},
+        transcript="[00:03] BOT: Hallo?",
+        error="something else went wrong",
+    )
+    assert real_error_takes_priority.completed_but_identity_unconfirmed is False
+
+
 def test_unconfirmed_identity_with_a_transcript_explains_why_it_was_not_counted():
     """A completed call, a real transcript, but the agent never confirmed it
     was speaking to the right person: the Detail column must say that,

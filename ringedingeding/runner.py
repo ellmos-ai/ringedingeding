@@ -88,6 +88,7 @@ def build_requests(
     rejected: list[tuple[Participant, str]] = []
 
     due: list[Participant] = []
+    correction_structured: dict[str, dict[str, Any]] = {}
     for participant in participants:
         answer = answers.get(participant.id)
         if answer is None:
@@ -105,6 +106,14 @@ def build_requests(
             continue
         if answer.call_status is CallStatus.PENDING or retry:
             due.append(participant)
+            if answer.completed_but_identity_unconfirmed:
+                # R21 (user idea, 2026-08-22): this can only be reached via
+                # the retry branch above -- the property requires
+                # call_status COMPLETED, which never coincides with the
+                # PENDING branch of the "or" it shares this block with.
+                # Recorded per participant so the second loop below can turn
+                # it into a correction call instead of a plain repeat.
+                correction_structured[participant.id] = answer.structured
         else:
             skipped.append(participant)
 
@@ -117,6 +126,7 @@ def build_requests(
             rejected.append((participant, str(error)))
             continue
 
+        previous_structured = correction_structured.get(participant.id)
         requests.append(
             CallRequest(
                 poll=poll,
@@ -127,6 +137,8 @@ def build_requests(
                     opening=opening,
                     closing=closing,
                     urgency=urgency,
+                    is_correction=previous_structured is not None,
+                    previous_structured=previous_structured,
                 ),
                 recipient_schema=recipient_schema,
                 aggregate_schema=aggregate_schema,
