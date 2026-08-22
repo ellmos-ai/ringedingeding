@@ -2,25 +2,39 @@
    whole panel over the event stream, so a reconnecting page is never half
    updated. #}
 {% if poll.simulated %}
+{# Live finding, 2026-08-22: a round still marked simulated (invented
+   answers, run_ids "rehearsal_*") showed "Echte Anrufe laufen" and success
+   checkmarks right alongside the rehearsal notice, because the two banners
+   used to be independent `if`s -- job.live only reflects the mode the
+   round was STARTED with, never whether the round is still a rehearsal.
+   poll.simulated wins unconditionally here: as long as it is true, nothing
+   on this page may claim a real call happened, no matter what job.live
+   says. #}
 <div class="banner rehearsal">
-  {{ t('Erfundene Antworten — es wurde nicht telefoniert.') }}
+  <strong>{{ t('SIMULATION') }}</strong> — {{ t('Erfundene Antworten — es wurde nicht telefoniert.') }}
 </div>
-{% endif %}
-{% if job and job.live %}
+{% elif job and job.live %}
 <div class="banner live">{{ t('Echte Anrufe laufen.') }}</div>
 {% endif %}
 {% if job and job.error %}
 <div class="banner error">{{ job.error }}</div>
 {% endif %}
 
-<ul class="callers">
+<ul class="callers{% if poll.simulated %} simulated{% endif %}">
   {% for row in rows %}
   <li class="caller {{ row.state }}">
     {# The symbols carry the distinction of ABLAUF.md section 2: "?" means
        nothing is known, "✕" means somebody said no. They are not
-       interchangeable. #}
+       interchangeable. A simulated row gets its own, dimmer mark ("∼") for
+       every state a real call could also reach ("calling"/"answered") --
+       it must never be confusable with the real, non-reversible "✓"/"☎" a
+       live call earns (same live finding as above). States that mean "no
+       real answer either way" (declined/absent/failed/none) stay as they
+       are: a rehearsal invents those too, on purpose, to show what an
+       unreached person looks like -- but it never invents a false success. #}
     <span class="mark" aria-hidden="true">
-      {%- if row.state == 'calling' %}☎
+      {%- if poll.simulated and row.state in ('calling', 'answered') %}∼
+      {%- elif row.state == 'calling' %}☎
       {%- elif row.state == 'answered' %}✓
       {%- elif row.state == 'declined' %}✕
       {%- elif row.state == 'absent' %}?

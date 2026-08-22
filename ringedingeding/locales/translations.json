@@ -1104,5 +1104,9 @@
   "teilt sich einen Anruf mit": {
     "de": "teilt sich einen Anruf mit",
     "en": "shares a call with"
+  },
+  "SIMULATION": {
+    "de": "SIMULATION",
+    "en": "SIMULATION"
   }
 }
