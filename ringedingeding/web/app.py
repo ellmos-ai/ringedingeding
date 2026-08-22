@@ -936,8 +936,18 @@ def create_app(db_path: str | Path = DEFAULT_DB_PATH) -> FastAPI:
                     body=body,
                     decided_slot=decided.slot if decided else None,
                 )
-            except (KeyError, ValueError) as error:
-                raise HTTPException(status_code=404, detail=str(error)) from None
+            except KeyError:
+                # Zusatzauflage DE/EN-Paritaet: die Ausnahme selbst bleibt
+                # englisch (interne Konvention in service.py/projects.py,
+                # wie InvalidPhoneNumber & Co.), aber die HTTP-Antwort an
+                # dieser Grenze folgt derselben Konvention wie "Projekt
+                # nicht gefunden" oben — deutsch, nicht der rohe Ausnahmetext.
+                raise HTTPException(status_code=404, detail="Kontakt nicht gefunden") from None
+            except ValueError:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Für diesen Kontakt ist keine E-Mail-Adresse hinterlegt.",
+                ) from None
             return Response(
                 eml,
                 media_type="message/rfc822",
