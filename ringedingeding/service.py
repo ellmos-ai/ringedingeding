@@ -666,6 +666,22 @@ def run_round(
     """
     if transport.is_live:
         refuse_placeholder_numbers(store, poll)
+        if poll.simulated:
+            # Measured live 2026-08-22: starting a real round for a project
+            # that had already been rehearsed reused the rehearsal's poll --
+            # every participant already "had an answer" (the invented one),
+            # so build_requests skipped all of them, run_poll placed nothing,
+            # and the operator saw the same old checkmarks come back with no
+            # new round and no real call ever placed. Going live is already
+            # gated behind the typed confirmation phrase above this call, so
+            # by the time a transport gets here the operator has explicitly
+            # chosen real answers over invented ones -- the same choice the
+            # "Erfundene Antworten verwerfen" button (the /reset route) makes
+            # by hand. Applied automatically here so going live always means
+            # a fresh round, never a replay of made-up ticks.
+            store.clear_answers(poll.id)
+            store.set_poll_simulated(poll.id, False)
+            poll = store.get_poll(poll.id)
     if transport.name == RehearsalTransport.name and not poll.simulated:
         # Marked before the first invented answer is written, not after: a
         # crash halfway through must not leave made-up answers in a round that
