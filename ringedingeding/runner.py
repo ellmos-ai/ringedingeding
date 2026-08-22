@@ -21,7 +21,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import Answer, CallStatus, Participant, Poll
+from .models import Answer, Bucket, CallStatus, Participant, Poll
 from .phone import InvalidPhoneNumber, normalize_e164
 from .safety import idempotency_key
 from .schemas import aggregate_result_schema, build_task_text, recipient_result_schema
@@ -90,10 +90,23 @@ def build_requests(
     due: list[Participant] = []
     for participant in participants:
         answer = answers.get(participant.id)
-        if answer is not None and answer.call_status is not CallStatus.PENDING and not retry:
+        if answer is None:
+            due.append(participant)
+            continue
+        if answer.bucket in (Bucket.ANSWERED, Bucket.REFUSED):
+            # A counted answer is never re-dialed, --retry or not (R20c,
+            # live incident 2026-08-22): a retry batch included a
+            # participant who already held a valid, counted answer, and
+            # its idempotency-key collision with that unwanted extra
+            # request cost the participant their stored answer (see
+            # Store.record_answer). --retry exists to reach the people who
+            # were not counted, never to re-open somebody already counted.
             skipped.append(participant)
             continue
-        due.append(participant)
+        if answer.call_status is CallStatus.PENDING or retry:
+            due.append(participant)
+        else:
+            skipped.append(participant)
 
     for participant in due:
         try:

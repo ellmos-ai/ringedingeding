@@ -75,6 +75,42 @@ def test_retry_calls_them_again(store):
     assert first.ref in transport.seen
 
 
+def test_retry_never_re_dials_someone_who_already_has_a_counted_answer(store):
+    """R20c, live incident 2026-08-22: a retry batch included a participant
+    (Ben) who already held a valid, counted COMPLETED answer alongside one
+    who genuinely needed retrying (Anna). --retry exists to reach the
+    people who were not counted, never to re-open someone already counted
+    -- the exact scope --retry's own help text and this project's report
+    promise ("counted once") depend on."""
+    poll = _poll_with_people(store, 2)
+    ben, anna = store.participants(poll.id)
+    store.record_answer(
+        Answer(
+            participant_id=ben.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "answer": "Pizza"},
+        )
+    )
+    store.record_answer(
+        Answer(participant_id=anna.id, call_status=CallStatus.FAILED, error="idempotency_conflict")
+    )
+
+    people = store.participants(poll.id)
+    requests, skipped, _ = build_requests(
+        poll, people, existing=store.answers(poll.id), retry=True
+    )
+    assert [r.participant.id for r in requests] == [anna.id]
+    assert [p.id for p in skipped] == [ben.id]
+
+    transport = RecordingTransport()
+    report = run_poll(store, poll, transport, retry=True)
+    assert ben.ref not in transport.seen
+    assert anna.ref in transport.seen
+    assert report.skipped and report.skipped[0].id == ben.id
+    # And the counted answer itself is untouched by the retry run.
+    assert store.answers(poll.id)[ben.id].structured.get("answer") == "Pizza"
+
+
 def test_idempotency_key_is_stable_across_runs(store):
     poll = _poll_with_people(store, 2)
     people = store.participants(poll.id)
@@ -276,6 +312,13 @@ def test_retry_re_attempts_a_participant_left_failed_by_a_collision(store):
     block leaves behind (FAILED, no run_id, a "shares this phone number"
     reason) and confirms retry=True makes run_poll dispatch that
     participant again, with a fresh answer overwriting the stale one.
+
+    Amended for R20(c) (live incident 2026-08-22): the first run also
+    hands Simon and Lukas Friedrich real, counted COMPLETED answers, and
+    the retry run must leave both of those alone -- --retry re-dials only
+    the participant who was not counted, never someone already counted,
+    which is the exact scope this test now pins alongside the original
+    dead-end fix.
     """
     poll = _poll_with_a_shared_number(store)
     lukas2 = next(p for p in store.participants(poll.id) if p.name == "Lukas 2")
@@ -297,13 +340,27 @@ def test_retry_re_attempts_a_participant_left_failed_by_a_collision(store):
     assert lukas2.ref in [p.ref for p in report.skipped]
     stale = store.answers(poll.id)[lukas2.id]
     assert stale.call_status is CallStatus.FAILED
+    # Simon and Lukas Friedrich were due (no answer yet) and got real,
+    # counted answers from this first run.
+    counted_before_retry = {
+        pid: answer
+        for pid, answer in store.answers(poll.id).items()
+        if pid != lukas2.id
+    }
+    assert all(a.bucket is Bucket.ANSWERED for a in counted_before_retry.values())
 
-    # With --retry: genuinely attempted again, not silently left FAILED.
+    # With --retry: only the uncounted participant is genuinely attempted
+    # again -- not the two who already have a counted answer (R20c).
     transport = RecordingTransport()
     report = run_poll(store, poll, transport, retry=True)
     assert lukas2.ref in transport.seen
-    assert report.placed == 3
+    assert report.placed == 1
+    assert transport.seen == [lukas2.ref]
 
     fresh = store.answers(poll.id)[lukas2.id]
     assert fresh.call_status is CallStatus.COMPLETED
     assert fresh.run_id == f"run_{lukas2.ref}"
+    # And the two already-counted answers are untouched.
+    after_retry = store.answers(poll.id)
+    for participant_id, before in counted_before_retry.items():
+        assert after_retry[participant_id] == before
