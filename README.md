@@ -730,7 +730,10 @@ entirely, even though the instruction already stood in the text.
    conversation happened, but the answer was withheld for lack of a
    confirmed identity. The lesson, worth stating plainly: an instruction
    being present in the text is not the same as an instruction a model
-   treats as non-negotiable.
+   treats as non-negotiable. A day later, a retry of that exact contact
+   placed a correction call instead of a plain repeat — identity confirmed
+   first, the question asked fresh only after a confirmed yes — and the
+   round it belonged to ended with every participant counted.
 
 **Still open, honestly:** the error text a rejected or failed call carries
 into the operator's own view — why a number was refused, why a transport call

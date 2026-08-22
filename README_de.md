@@ -477,6 +477,11 @@ vollständig übersprungen wurde, obwohl die Anweisung bereits im Text stand.
    bestätigter Identität nicht gezählt wurde. Die Lehre, offen
    ausgesprochen: Eine Anweisung, die im Text steht, ist nicht dasselbe
    wie eine Anweisung, die ein Modell als nicht verhandelbar behandelt.
+   Einen Tag später löste ein Wiederholungsversuch bei genau diesem
+   Kontakt einen Korrekturanruf statt einer bloßen Wiederholung aus —
+   zuerst die Identität bestätigt, die Frage erst danach, nach einem
+   bestätigten Ja, neu gestellt — und die Runde, zu der er gehörte,
+   endete mit einer gezählten Antwort für jeden Teilnehmer.
 
 **Weiterhin offen, ehrlich gesagt:** Der Fehlertext, den ein abgelehnter
 oder fehlgeschlagener Anruf in die eigene Ansicht des Betreibers trägt —
