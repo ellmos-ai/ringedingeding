@@ -12,6 +12,7 @@ from ringedingeding import service
 from ringedingeding.models import CallStatus, PollKind
 from ringedingeding.projects import ProjectMode, ProjectStore, RoundKind
 from ringedingeding.safety import LiveCallBlocked, SensitiveContent
+from ringedingeding.transports.base import CallOutcome, CallTransport
 from ringedingeding.transports.rehearsal import RehearsalTransport
 
 
@@ -256,6 +257,116 @@ def test_a_rehearsal_is_reproducible_and_schema_valid(store, projects):
     assert first == second
     # And no answer failed schema validation on the way in.
     assert all(a.error is None for a in _by_ref(store, poll).values())
+
+
+class RecordingLiveTransport(CallTransport):
+    """A stand-in for the real CALL-E transport: claims to be live, so
+    ``run_round`` treats it like one, but never touches a network."""
+
+    name = "recording-live"
+    is_live = True
+
+    def __init__(self):
+        self.seen: list[str] = []
+
+    def place_one(self, request):
+        self.seen.append(request.participant.ref)
+        return CallOutcome(
+            participant_id=request.participant.id,
+            status=CallStatus.COMPLETED,
+            structured={
+                "reachable": True,
+                "refused": False,
+                "available_slots": [],
+                "cannot": [],
+            },
+            run_id=f"live_{request.participant.ref}",
+        )
+
+
+def _build_with_real_numbers(store, projects):
+    """Like ``build()``, but with phone numbers that are not on the bundled-
+    fixture placeholder list — needed for anything that goes through a
+    transport with ``is_live = True``, since ``refuse_placeholder_numbers``
+    would otherwise block every one of ``build()``'s example numbers on
+    purpose (a demo poll must never turn into a real call by accident)."""
+    project = service.create_project(
+        projects, occasion="Familienessen", organizer="Lukas", language="de"
+    )
+    ids = [
+        projects.create_contact(name=name, phone=phone).id
+        for name, phone in (
+            ("Anna", "+19995550101"),
+            ("Ben", "+19995550102"),
+            ("Clara", "+19995550103"),
+            ("David", "+19995550104"),
+        )
+    ]
+    specs = service.day_slot_specs(
+        project,
+        days=["2026-08-08", "2026-08-09"],
+        default_times=[("14:00", "18:00")],
+    )
+    service.set_dates(store, projects, project, specs)
+    service.set_invitees(store, projects, project, ids)
+    return project
+
+
+def test_going_live_discards_a_rehearsals_answers_first(store, projects):
+    """Live finding, 2026-08-22: a project that had already been rehearsed
+    reused the rehearsal's poll unchanged when run for real -- every
+    participant already "had an answer" (the invented one), so
+    build_requests skipped all of them, nothing was ever dialed, and the
+    operator saw the same old checkmarks come back instead of a fresh
+    round. Going live is already gated behind the typed confirmation
+    phrase (see make_transport), so by the time a transport reaches
+    run_round the operator has explicitly chosen real answers over
+    invented ones -- the same choice the "Erfundene Antworten verwerfen"
+    button (the /reset route) makes by hand. run_round now makes that
+    choice automatically."""
+    project = _build_with_real_numbers(store, projects)
+    poll = service.availability_round(store, projects, project)
+    service.run_round(store, projects, project, poll, RehearsalTransport(seed=project.id))
+
+    rehearsed = store.get_poll(poll.id)
+    assert rehearsed.simulated is True
+    assert store.answers(poll.id), "sanity: the rehearsal has to write something"
+
+    # Fetched fresh, exactly like the real "run" request does (web/jobs.py
+    # re-reads the poll from the database for every job) -- a stale
+    # in-memory Poll snapshot from before the rehearsal would trivially
+    # still say simulated=False and defeat the very check being tested here.
+    live = RecordingLiveTransport()
+    service.run_round(store, projects, project, rehearsed, live)
+
+    refreshed = store.get_poll(poll.id)
+    assert refreshed.simulated is False, "no round may keep claiming to be a rehearsal after going live"
+    people = store.participants(poll.id)
+    assert set(live.seen) == {p.ref for p in people}, "everybody must actually be dialed, not skipped as 'already answered'"
+    live_answers = store.answers(poll.id)
+    assert len(live_answers) == len(people)
+    assert all((a.run_id or "").startswith("live_") for a in live_answers.values()), (
+        "no invented answer from the rehearsal may survive into the live round"
+    )
+
+
+def test_going_live_on_a_round_that_was_never_rehearsed_is_unaffected(store, projects):
+    """The new clear-on-go-live step must be a no-op for the ordinary case:
+    a round that has real answers already (not simulated) keeps them."""
+    project = _build_with_real_numbers(store, projects)
+    poll = service.availability_round(store, projects, project)
+    first_live = RecordingLiveTransport()
+    service.run_round(store, projects, project, poll, first_live)
+    assert store.get_poll(poll.id).simulated is False
+    first_run_ids = {a.participant_id: a.run_id for a in store.answers(poll.id).values()}
+
+    # Nobody is left PENDING, so a second live run must not re-dial anyone
+    # or wipe the answers that are already real.
+    second_live = RecordingLiveTransport()
+    service.run_round(store, projects, project, poll, second_live)
+    assert second_live.seen == []
+    second_run_ids = {a.participant_id: a.run_id for a in store.answers(poll.id).values()}
+    assert first_run_ids == second_run_ids
 
 
 def test_a_rehearsal_produces_people_who_were_not_reached(store, projects):
