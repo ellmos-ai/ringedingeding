@@ -9,7 +9,7 @@ from __future__ import annotations
 from conftest import answer, make_participant, make_poll
 
 from ringedingeding.merge import merge_poll
-from ringedingeding.models import Answer, CallStatus, PollKind
+from ringedingeding.models import Answer, Bucket, CallStatus, PollKind
 
 # --------------------------------------------------------------------------
 # coverage: the non-negotiable part
@@ -194,6 +194,35 @@ def test_unconfirmed_identity_with_a_transcript_explains_why_it_was_not_counted(
     assert "identity" in detail
     assert "never confirmed" in detail
     assert "transcript" in detail
+
+
+def test_unconfirmed_identity_detail_reads_as_probably_right_not_as_a_failure():
+    """R21(b) (user idea, 2026-08-22): a normal conversation that just never
+    got identity confirmed is a much weaker signal of trouble than the old
+    wording implied ("the answer was not counted", read as a plain
+    failure). The Detail column now names the user's own heuristic --
+    wrong numbers usually correct themselves within seconds, so a call that
+    went ahead to the end is itself a sign this was probably the right
+    person -- while the count itself stays exactly as conservative as
+    before (still Bucket.UNREACHED, still excluded from every aggregate)."""
+    poll = make_poll()
+    people = [make_participant("a")]
+    answers = {
+        "p_a": Answer(
+            participant_id="p_a",
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False},
+            transcript="[00:03] BOT: Hallo? [00:05] USER: Ja, hallo?",
+        )
+    }
+    coverage = merge_poll(poll, people, answers).coverage
+    detail = coverage.unreached[0].error
+    assert detail is not None
+    assert "probably the right person" in detail
+    assert "went normally" in detail
+    # the counting itself is untouched by the wording change
+    assert coverage.answered == ()
+    assert coverage.unreached[0].bucket is Bucket.UNREACHED
 
 
 def test_missing_structured_result_gets_no_fabricated_identity_reason():

@@ -179,10 +179,22 @@ class Coverage:
 # all (see the Answer.bucket docstring) -- a different, non-identity
 # failure mode this module cannot tell apart from an identity refusal
 # without a transcript to point at, so it says nothing rather than guess.
+#
+# Reworded for R21(b) (user idea, 2026-08-22): the original wording read as
+# a plain failure ("the answer was not counted"). The user's own heuristic
+# is that a wrong-number call usually corrects itself within seconds --
+# a name given back, a stutter, somebody handing the phone over, a hang-up
+# -- so a conversation that went ahead normally to the end is itself a
+# strong (if unconfirmed) signal this was the right person. The Detail
+# column now says so, while the counting stays exactly as conservative as
+# before: this is still Bucket.UNREACHED, still excluded from every
+# aggregate, until a correction call (see runner.py's is_correction /
+# schemas.py's _correction_identity_block, R21a) actually confirms identity.
 _UNCONFIRMED_IDENTITY_DETAIL = (
-    "call completed and the conversation went ahead, but the answer was "
-    "not counted — the intended person's identity was never confirmed. "
-    "See the transcript for what was actually said."
+    "call completed and the conversation went normally, so this is "
+    "probably the right person — but the identity question was never "
+    "confirmed, so the answer is not counted. See the transcript for what "
+    "was actually said."
 )
 
 
