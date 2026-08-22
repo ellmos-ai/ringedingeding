@@ -146,6 +146,26 @@ def test_identity_is_confirmed_right_after_the_disclosure():
     assert "Führe das gesamte Gespräch" not in text
 
 
+def test_identity_question_is_marked_critical_and_never_skip():
+    """R18 (RT-4c live finding, 2026-08-22): a live call skipped the identity
+    question entirely even though it already stood textually in the goal --
+    the same lesson as hungrycall's E38 (an instruction present in the text
+    was skipped live regardless). The instruction is now explicitly ordered,
+    marked CRITICAL, and carries an explicit "never skip" clause, instead of
+    reading as one "first ask ..." instruction among several."""
+    text = build_task_text(make_poll(organizer="Lukas"), "Anna")
+    identity_step = text.split("2.", 1)[1].split("3.", 1)[0]
+    assert "CRITICAL" in identity_step
+    assert "before anything else" in identity_step
+    assert "Never skip this question" in identity_step
+
+    poll = make_poll(language="de", locale="de-DE", region="DE")
+    text_de = build_task_text(poll, "Anna")
+    identity_step_de = text_de.split("2.", 1)[1].split("3.", 1)[0]
+    assert "KRITISCH" in identity_step_de
+    assert "Überspringe diese Frage nie" in identity_step_de
+
+
 def test_identity_question_is_german_for_german_polls():
     poll = make_poll(language="de", locale="de-DE", region="DE")
     text = build_task_text(poll, "Anna")
