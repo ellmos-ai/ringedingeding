@@ -187,3 +187,44 @@ def test_a_transcript_is_masked_in_the_report():
     rendered = render_markdown(merge_poll(poll, people, answers))
     assert "5555550100" not in rendered
     assert "Call me on" in rendered
+
+
+# --------------------------------------------------------------------------
+# R19(b) — RT-4c 2026-08-22 follow-up: a requested callback (schemas.py,
+# ``callback_requested``) was collected but never shown anywhere.
+# --------------------------------------------------------------------------
+
+
+def _callback_scenario():
+    poll = make_poll()
+    people = [make_participant("anna", RAW)]
+    answers = {
+        "p_anna": answer(
+            "p_anna",
+            reachable=False,
+            refused=False,
+            callback_requested="Tuesday afternoon works better",
+        ),
+    }
+    return merge_poll(poll, people, answers)
+
+
+def test_console_report_shows_the_requested_callback_time_and_a_retry_hint():
+    rendered = render_result(_callback_scenario())
+    assert "Tuesday afternoon works better" in rendered
+    assert "asked for a callback" in rendered
+    assert "--retry" in rendered
+
+
+def test_markdown_report_lists_the_requested_callback_time_and_a_retry_hint():
+    rendered = render_markdown(_callback_scenario())
+    assert "## Asked for a callback" in rendered
+    assert "Tuesday afternoon works better" in rendered
+    assert "--retry" in rendered
+
+
+def test_a_report_without_any_callback_request_has_no_empty_section():
+    rendered = render_result(_slot_scenario())
+    assert "asked for a callback" not in rendered
+    rendered_md = render_markdown(_slot_scenario())
+    assert "## Asked for a callback" not in rendered_md
