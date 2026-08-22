@@ -507,6 +507,69 @@ def test_the_invitation_says_that_not_everybody_could_make_it(store, projects):
     assert poll.id != service.availability_round(store, projects, project).id
 
 
+def test_email_invitees_only_lists_people_with_an_address_on_file(store, projects):
+    """R7, live 2026-08-22: the invitation used to have exactly one channel
+    (a call). This is the e-mail channel's participant list — everybody
+    invited who can actually be reached this way, masked for display."""
+    project = service.create_project(projects, occasion="Hochzeit", organizer="Lukas")
+    with_email = projects.create_contact(name="Anna", phone="+19995550101", email="anna@example.org")
+    call_only = projects.create_contact(name="Ben", phone="+19995550102")
+    service.set_invitees(store, projects, project, [with_email.id, call_only.id])
+
+    listed = service.email_invitees(projects, project, body="Bist du dabei?")
+    assert [person.name for person in listed] == ["Anna"]
+    assert listed[0].contact_id == with_email.id
+    assert "anna@example.org" not in listed[0].email_masked
+    assert listed[0].mailto.startswith("mailto:anna%40example.org?")
+
+
+def test_invitation_eml_attaches_the_decided_slot(store, projects):
+    project = build(store, projects, with_uncallable=False)
+    anna_contact = next(c for c in projects.contacts() if c.name == "Anna")
+    projects.set_channel(anna_contact.id, "email", "anna@example.org")
+    slot = projects.slots(project.id)[0]
+    service.decide(projects, project, slot.id)
+
+    eml = service.invitation_eml(
+        projects, project, anna_contact.id, body="Bist du dabei?", decided_slot=slot
+    )
+
+    from email import message_from_bytes, policy
+
+    message = message_from_bytes(eml, policy=policy.default)
+    assert message["To"].endswith("<anna@example.org>")
+    attachments = list(message.iter_attachments())
+    assert len(attachments) == 1
+    assert attachments[0].get_content_type() == "text/calendar"
+    assert slot.label in attachments[0].get_content()
+
+
+def test_invitation_eml_without_a_decided_slot_has_no_attachment(store, projects):
+    """The invitation phase can be reached in principle before a date is
+    decided (see the "Es ist noch kein Termin festgelegt" branch in
+    invite.html) -- the .eml route must not crash for that case, it must
+    simply send no calendar file."""
+    project = build(store, projects, with_uncallable=False)
+    anna_contact = next(c for c in projects.contacts() if c.name == "Anna")
+    projects.set_channel(anna_contact.id, "email", "anna@example.org")
+
+    eml = service.invitation_eml(
+        projects, project, anna_contact.id, body="Bist du dabei?", decided_slot=None
+    )
+
+    from email import message_from_bytes, policy
+
+    message = message_from_bytes(eml, policy=policy.default)
+    assert list(message.iter_attachments()) == []
+
+
+def test_invitation_eml_refuses_a_contact_without_an_email(store, projects):
+    project = build(store, projects, with_uncallable=False)
+    ben = next(c for c in projects.contacts() if c.name == "Ben")
+    with pytest.raises(ValueError, match="no e-mail address"):
+        service.invitation_eml(projects, project, ben.id, body="Text", decided_slot=None)
+
+
 def test_deciding_on_a_foreign_slot_is_refused(store, projects):
     project = build(store, projects)
     with pytest.raises(ValueError, match="not a candidate"):

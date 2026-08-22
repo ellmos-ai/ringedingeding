@@ -28,18 +28,14 @@
 </form>
 
 <h2>{{ t('Wie sollen die anderen informiert werden?') }}</h2>
-<div class="card">
-  <ul class="channels">
-    <li><strong>{{ t('Telefon') }}</strong> — {{ t('gebaut, siehe unten.') }}</li>
-    <li class="greyed">{{ t('Nur E-Mail — späterer zweiter Kanal.') }}</li>
-    <li class="greyed">{{ t('Telefon, sonst E-Mail — spätere Ausbaustufe.') }}</li>
-    <li>{{ t('Ich informiere selbst — dann hier einfach nichts starten.') }}</li>
-  </ul>
-</div>
+<p class="muted small">
+  {{ t('Zwei Wege stehen zur Wahl, pro Person auch gemischt — wer eine Telefonnummer hat, kann angerufen werden, wer eine E-Mail-Adresse hat, kann eine E-Mail bekommen. Ein automatischer dritter Weg, der beides selbst entscheidet, kommt später.') }}
+</p>
 
-{% if invitation and invitation_preview %}
-<h2>{{ t('Anrufen') }}</h2>
-<div class="card">
+<details class="card channel-picker" open>
+  <summary>{{ t('Per Anruf') }}</summary>
+  {% if invitation and invitation_preview %}
+  <div class="channel-body">
   <p>
     {{ invitation_preview.call_count }} {{ t('Person(en) würden informiert') }}
     {%- if invitation_preview.skipped %}, {{ invitation_preview.skipped|length }} {{ t('wurde(n) schon erreicht') }}{% endif %}.
@@ -64,39 +60,68 @@
     <button type="submit">{{ t('Hinterlegte Antworten abspielen') }}</button>
   </form>
   {% endif %}
-</div>
 
-<div class="card live-card">
-  <h3>{{ t('Echt anrufen') }}</h3>
+  <div class="live-card">
+    <h3>{{ t('Echt anrufen') }}</h3>
+    <p>
+      {{ invitation_preview.call_count }} {{ t('Anrufe, etwa') }}
+      ${{ '%.2f'|format(invitation_preview.cost_usd) }}.
+    </p>
+    {% if not api_key %}
+    <p class="warn-line">
+      {{ t('Kein API-Schlüssel eingerichtet.') }}
+      <a href="/settings">{{ t('Jetzt in den Einstellungen hinterlegen') }} →</a>
+    </p>
+    {% endif %}
+    <form method="post" action="/projects/{{ project.id }}/run" class="row">
+      <input type="hidden" name="mode" value="live">
+      <input type="hidden" name="round_kind" value="invitation">
+      <label class="grow">
+        {{ t('Tippe') }} <code>{{ live_phrase }}</code>:
+        <input type="text" name="confirmation" autocomplete="off">
+      </label>
+      <button type="submit" class="danger" {% if not api_key %}disabled{% endif %}>
+        {{ t('Einladung telefonisch verschicken') }}
+      </button>
+    </form>
+  </div>
+
   <p>
-    {{ invitation_preview.call_count }} {{ t('Anrufe, etwa') }}
-    ${{ '%.2f'|format(invitation_preview.cost_usd) }}.
+    <a class="next" href="/projects/{{ project.id }}/live?round=invitation">
+      {{ t('Wer wurde erreicht?') }} →
+    </a>
   </p>
-  {% if not api_key %}
-  <p class="warn-line">
-    {{ t('Kein API-Schlüssel eingerichtet.') }}
-    <a href="/settings">{{ t('Jetzt in den Einstellungen hinterlegen') }} →</a>
+  </div>
+  {% else %}
+  <p class="muted small channel-body">{{ t('Übernimm zuerst oben den Einladungstext.') }}</p>
+  {% endif %}
+</details>
+
+<details class="card channel-picker">
+  <summary>{{ t('Per E-Mail') }}</summary>
+  <div class="channel-body">
+  {% if email_invitees %}
+  <p class="muted small">
+    {{ t('Lokal erzeugt, es wird nichts automatisch verschickt: ein mailto-Link öffnet das eigene Mailprogramm mit vorausgefülltem Text; die .eml-Datei enthält denselben Text plus den festgelegten Termin als Kalenderanhang (.ics) und lässt sich im Mailprogramm als Entwurf öffnen.') }}
+  </p>
+  <ul class="list">
+    {% for person in email_invitees %}
+    <li>
+      <strong>{{ person.name }}</strong>
+      <span class="muted small">{{ person.email_masked }}</span>
+      <a href="{{ person.mailto }}">{{ t('Mail öffnen') }}</a>
+      <a href="/projects/{{ project.id }}/invite/email/{{ person.contact_id }}.eml">{{ t('.eml herunterladen') }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small">
+    {{ t('Niemand in dieser Runde hat eine E-Mail-Adresse hinterlegt.') }}
+    <a href="/contacts">{{ t('Zu den Kontakten') }} →</a>
   </p>
   {% endif %}
-  <form method="post" action="/projects/{{ project.id }}/run" class="row">
-    <input type="hidden" name="mode" value="live">
-    <input type="hidden" name="round_kind" value="invitation">
-    <label class="grow">
-      {{ t('Tippe') }} <code>{{ live_phrase }}</code>:
-      <input type="text" name="confirmation" autocomplete="off">
-    </label>
-    <button type="submit" class="danger" {% if not api_key %}disabled{% endif %}>
-      {{ t('Einladung telefonisch verschicken') }}
-    </button>
-  </form>
-</div>
-
-<p>
-  <a class="next" href="/projects/{{ project.id }}/live?round=invitation">
-    {{ t('Wer wurde erreicht?') }} →
-  </a>
-</p>
-{% endif %}
+  </div>
+</details>
 
 {% endif %}
 {% endblock %}

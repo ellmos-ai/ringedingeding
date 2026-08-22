@@ -340,6 +340,11 @@ class Contact:
         return mask(phone) if phone else "—"
 
     @property
+    def email_masked(self) -> str:
+        email = self.email
+        return _mask_email(email) if email else "—"
+
+    @property
     def given_name(self) -> str:
         return self.name.strip().split()[0] if self.name.strip() else self.name
 
