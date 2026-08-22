@@ -671,7 +671,9 @@ call is placed one person at a time and the mix-up cannot occur; a second,
 narrower fix followed the same day, and a further live retest of that
 correction confirmed it: two separate calls to the same shared number, two
 separate call references, one participant's answer correctly attributed to
-that participant alone.
+that participant alone. That same retest turned up one more finding, told in
+full below: a live call that skipped the identity confirmation question
+entirely, even though the instruction already stood in the text.
 
 **What went wrong, and what became of it:**
 
@@ -713,6 +715,22 @@ that participant alone.
    claimed as a fixed root cause. The wording was clarified regardless,
    since it genuinely needed to be, and is now pinned by a test in both
    languages.
+5. **An instruction that already stood in the text was skipped anyway.** In
+   the same retest, a live call to a different contact never asked the
+   identity-confirmation question at all — "Am I speaking with ...?", which
+   already stood as step 2 of the goal, worded "first ask ...". The
+   conversation was otherwise complete — a clear preference, a stated
+   reason — but the result correctly withheld it: no confirmed identity, no
+   vote, the same conservative rule as item 1 above. What the report showed
+   next to it, though, was "NOT REACHED" with an empty reason, which reads
+   as missing data rather than the deliberate refusal it actually was. Both
+   are now fixed: the question is marked CRITICAL and explicitly ordered
+   before anything else instead of reading as one step among several, and
+   the report now says outright that the call completed and a real
+   conversation happened, but the answer was withheld for lack of a
+   confirmed identity. The lesson, worth stating plainly: an instruction
+   being present in the text is not the same as an instruction a model
+   treats as non-negotiable.
 
 **Still open, honestly:** the error text a rejected or failed call carries
 into the operator's own view — why a number was refused, why a transport call
