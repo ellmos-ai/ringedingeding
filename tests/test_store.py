@@ -117,6 +117,111 @@ def test_recording_twice_replaces_rather_than_duplicates(store):
     assert answers[participant.id].call_status is CallStatus.COMPLETED
 
 
+# --------------------------------------------------------------------------
+# R20(a) -- 2026-08-22 live incident: a --retry run that came back FAILED
+# silently overwrote a valid, already-counted answer with an empty one.
+# --------------------------------------------------------------------------
+
+
+def test_a_counted_answer_is_never_downgraded_to_failed(store):
+    """A retry (or any later write) that comes back FAILED, or with no
+    confirmed identity, must never destroy an answer that was already
+    counted -- the exact live incident: a valid COMPLETED "Pizza" answer
+    got silently replaced by an empty FAILED row."""
+    poll = store.create_poll(question="Q", kind="choice", organizer="L", options=["Pizza", "Sushi"])
+    participant = store.add_participant(poll.id, name="Ben", phone="+15555550100")
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "choice": "Pizza"},
+            transcript="[00:09] BOT: Pizza or sushi?\n[00:15] USER: Pizza, please.",
+            run_id="call_first_attempt",
+        )
+    )
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.FAILED,
+            error="idempotency_conflict",
+            run_id="call_retry_attempt",
+        )
+    )
+    kept = store.answers(poll.id)[participant.id]
+    assert kept.call_status is CallStatus.COMPLETED
+    assert kept.structured["choice"] == "Pizza"
+    assert kept.transcript == "[00:09] BOT: Pizza or sushi?\n[00:15] USER: Pizza, please."
+    assert kept.run_id == "call_first_attempt"
+
+
+def test_a_counted_answer_is_never_downgraded_to_unconfirmed_identity(store):
+    """The same guard covers the other uncounted outcome: a completed call
+    whose identity was never confirmed (Bucket.UNREACHED) must not erase a
+    prior counted answer either."""
+    poll = store.create_poll(question="Q", kind="open", organizer="L")
+    participant = store.add_participant(poll.id, name="Anna", phone="+15555550101")
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "answer": "yes"},
+        )
+    )
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": False},
+            transcript="[00:03] BOT: Hallo?",
+        )
+    )
+    kept = store.answers(poll.id)[participant.id]
+    assert kept.structured.get("answer") == "yes"
+
+
+def test_an_upgrade_from_unreached_to_answered_is_not_blocked(store):
+    """The guard is one-directional: an uncounted answer becoming a counted
+    one (the whole point of --retry) must keep working exactly as before."""
+    poll = store.create_poll(question="Q", kind="open", organizer="L")
+    participant = store.add_participant(poll.id, name="Anna", phone="+15555550100")
+    store.record_answer(Answer(participant_id=participant.id, call_status=CallStatus.NO_ANSWER))
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": False, "answer": "yes"},
+        )
+    )
+    kept = store.answers(poll.id)[participant.id]
+    assert kept.call_status is CallStatus.COMPLETED
+    assert kept.structured["answer"] == "yes"
+
+
+def test_a_refused_answer_can_still_be_replaced_by_another_refusal(store):
+    """Counted-to-counted stays allowed -- only counted-to-uncounted is a
+    downgrade."""
+    poll = store.create_poll(question="Q", kind="open", organizer="L")
+    participant = store.add_participant(poll.id, name="Anna", phone="+15555550100")
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": True},
+            raw_text="first refusal",
+        )
+    )
+    store.record_answer(
+        Answer(
+            participant_id=participant.id,
+            call_status=CallStatus.COMPLETED,
+            structured={"reachable": True, "refused": True},
+            raw_text="second refusal",
+        )
+    )
+    kept = store.answers(poll.id)[participant.id]
+    assert kept.raw_text == "second refusal"
+
+
 def test_clear_answers_resets_participants(store):
     poll = store.create_poll(question="Q", kind="open", organizer="L")
     participant = store.add_participant(poll.id, name="Anna", phone="+15555550100")

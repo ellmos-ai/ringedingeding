@@ -23,6 +23,7 @@ from .huckepack_storage import open_connection
 from .locales import region_locale_for
 from .models import (
     Answer,
+    Bucket,
     CallStatus,
     Participant,
     ParticipantState,
@@ -364,7 +365,28 @@ class Store:
     # -- answers ------------------------------------------------------------
 
     def record_answer(self, answer: Answer) -> None:
-        """Insert or replace the answer for one participant."""
+        """Insert or replace the answer for one participant.
+
+        Never downgrades a counted answer (Bucket.ANSWERED or
+        Bucket.REFUSED) to an uncounted one -- measured 2026-08-22 (R20): a
+        --retry run whose CALL-E idempotency key collided with an earlier
+        attempt came back FAILED for a participant who already held a
+        valid, counted live answer, and the unguarded UPSERT below silently
+        overwrote it with an empty FAILED row, destroying the only record
+        of a real conversation. A write that keeps the existing
+        classification, or upgrades it (e.g. UNREACHED -> ANSWERED), still
+        goes through unchanged; only an actual downgrade is refused, and
+        the call is a silent no-op rather than an exception so a batch of
+        outcomes is not aborted by one already-answered participant.
+        """
+        existing_row = self.connection.execute(
+            "SELECT * FROM answer WHERE participant_id = ?", (answer.participant_id,)
+        ).fetchone()
+        if existing_row is not None:
+            existing = _answer_from_row(existing_row)
+            counted = (Bucket.ANSWERED, Bucket.REFUSED)
+            if existing.bucket in counted and answer.bucket not in counted:
+                return
         self.connection.execute(
             "INSERT INTO answer (participant_id, call_status, structured_json, raw_text,"
             " transcript, received_at, run_id, error) VALUES (?,?,?,?,?,?,?,?)"
