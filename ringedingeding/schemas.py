@@ -451,7 +451,10 @@ def _identity_block(given_name: str | None, german: bool) -> str:
     if german:
         question = _quote(f"Spreche ich mit {given_name}?")
         return (
-            f"Frage als Erstes {question} Ist es nicht {given_name}: bitte "
+            f"KRITISCH: Frage als Allererstes, noch vor allem anderen, "
+            f"{question} Überspringe diese Frage nie, auch nicht, wenn das "
+            "Gespräch bereits im Gange wirkt oder die Antwort "
+            f"selbstverständlich scheint. Ist es nicht {given_name}: bitte "
             f"höflich darum, {given_name} ans Telefon zu holen. Geht das "
             "nicht, frage nach einem guten Zeitpunkt für einen Rückruf und "
             "halte ihn in callback_requested fest (weglassen, falls nicht "
@@ -462,13 +465,16 @@ def _identity_block(given_name: str | None, german: bool) -> str:
         )
     question = _quote(f"Am I speaking with {given_name}?")
     return (
-        f"First ask {question} If this is not {given_name}: politely ask "
-        f"them to bring {given_name} to the phone. If that is not possible, "
-        "ask for a good time to call back and record it in "
-        "callback_requested (leave it out when it does not apply), thank "
-        "them and end the call without asking the actual question. Without "
-        "confirmed identity, reachable stays false — regardless of what the "
-        "other person says or answers."
+        f"CRITICAL: Ask this before anything else, as your very first "
+        f"question: {question} Never skip this question, even if the "
+        "conversation already feels underway or the answer seems obvious. "
+        f"If this is not {given_name}: politely ask them to bring "
+        f"{given_name} to the phone. If that is not possible, ask for a "
+        "good time to call back and record it in callback_requested (leave "
+        "it out when it does not apply), thank them and end the call "
+        "without asking the actual question. Without confirmed identity, "
+        "reachable stays false — regardless of what the other person says "
+        "or answers."
     )
 
 
