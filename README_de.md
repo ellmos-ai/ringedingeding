@@ -407,7 +407,10 @@ Person einzeln gewählt wird und eine Verwechslung gar nicht entstehen kann;
 ein zweiter, engerer Fix folgte am selben Tag, und ein weiterer
 Live-Nachtest dieser Korrektur bestätigte sie: zwei getrennte Anrufe an
 dieselbe geteilte Nummer, zwei getrennte Anrufreferenzen, die Antwort einer
-Person korrekt nur dieser einen Person zugeschrieben.
+Person korrekt nur dieser einen Person zugeschrieben. Derselbe Nachtest
+brachte noch einen weiteren Befund zutage, unten als eigener Punkt
+vollständig erzählt: ein Live-Anruf, bei dem die Identitätsbestätigungsfrage
+vollständig übersprungen wurde, obwohl die Anweisung bereits im Text stand.
 
 **Was schiefging, und was daraus wurde:**
 
@@ -456,6 +459,24 @@ Person korrekt nur dieser einen Person zugeschrieben.
    statt als behobene Grundursache behauptet. Der Wortlaut wurde trotzdem
    geschärft, weil er es ohnehin brauchte, und ist jetzt mit einem Test
    für beide Sprachen fixiert.
+5. **Eine Anweisung, die bereits im Text stand, wurde trotzdem
+   übersprungen.** Im selben Nachtest stellte ein Live-Anruf an einen
+   anderen Kontakt die Identitätsbestätigungsfrage an keiner Stelle —
+   „Spreche ich mit ...?“, die bereits als Schritt 2 des Ziels stand,
+   formuliert als „frage als Erstes ...“. Das Gespräch war ansonsten
+   vollständig — eine klare Präferenz, eine genannte Begründung —, aber
+   das Ergebnis verweigerte die Zählung korrekt: keine bestätigte
+   Identität, keine Stimme, dieselbe konservative Regel wie in Punkt 1
+   oben. Was der Bericht daneben zeigte, war allerdings „NOT REACHED“ mit
+   leerem Grund, was wie eine fehlende Angabe aussieht statt wie die
+   bewusste Verweigerung, die es tatsächlich war. Beides ist jetzt
+   behoben: Die Frage ist als KRITISCH markiert und ausdrücklich vor allem
+   anderen angeordnet, statt als eine Anweisung unter mehreren zu wirken,
+   und der Bericht sagt jetzt unumwunden, dass der Anruf abgeschlossen
+   wurde und ein echtes Gespräch stattfand, die Antwort aber mangels
+   bestätigter Identität nicht gezählt wurde. Die Lehre, offen
+   ausgesprochen: Eine Anweisung, die im Text steht, ist nicht dasselbe
+   wie eine Anweisung, die ein Modell als nicht verhandelbar behandelt.
 
 **Weiterhin offen, ehrlich gesagt:** Der Fehlertext, den ein abgelehnter
 oder fehlgeschlagener Anruf in die eigene Ansicht des Betreibers trägt —
