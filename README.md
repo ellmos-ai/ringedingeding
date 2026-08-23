@@ -208,7 +208,7 @@ ringedingeding demo
 
 Neither one opens a socket or reads a credential.
 
-**Live demo (dry-run, no calls possible):** <URL follows — deploy pending>
+**Live demo (dry-run, no calls possible):** https://bzd5z52jjghhe2lnoyq4hlh52e0vrujz.lambda-url.eu-central-1.on.aws/
 
 Same offline `demo` command as above, deployed behind an AWS Lambda Function
 URL. Two independent things make it structurally unable to place a real call:

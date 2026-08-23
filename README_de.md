@@ -121,7 +121,7 @@ ringedingeding demo
 
 Keiner der beiden Befehle öffnet einen Socket oder liest Zugangsdaten.
 
-**Live-Demo (Dry-Run, keine echten Anrufe möglich):** <URL folgt — Deploy ausstehend>
+**Live-Demo (Dry-Run, keine echten Anrufe möglich):** https://bzd5z52jjghhe2lnoyq4hlh52e0vrujz.lambda-url.eu-central-1.on.aws/
 
 Derselbe offline `demo`-Befehl von oben, hinter einer AWS-Lambda-Function-URL
 bereitgestellt. Zwei voneinander unabhängige Dinge machen es dieser

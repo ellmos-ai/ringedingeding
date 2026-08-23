@@ -248,7 +248,7 @@ def cmd_create_role(args: argparse.Namespace) -> None:
             RoleName=role_name,
             AssumeRolePolicyDocument=json.dumps(trust_policy),
             Description="Execution role for the calle-demo-ringedingeding Lambda "
-            "(least privilege: writes to its own log group only — no Bedrock, no S3, "
+            "(least privilege: writes to its own log group only, no Bedrock, no S3, "
             "no database access, because this function has no database).",
         )
         role_arn = role["Role"]["Arn"]
@@ -324,7 +324,7 @@ def cmd_deploy(args: argparse.Namespace) -> None:
             Environment={"Variables": env_vars},
             Architectures=[args.arch],
             Description="ringedingeding public dry-run demo (CALL-E hackathon). "
-            "DEMO_MODE=1, no CALLE_* credential — cannot place a real call.",
+            "DEMO_MODE=1, no CALLE_* credential, cannot place a real call.",
         )
         print(f"created function {response['FunctionArn']}")
     except lam.exceptions.ResourceConflictException:
