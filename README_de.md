@@ -121,6 +121,21 @@ ringedingeding demo
 
 Keiner der beiden Befehle öffnet einen Socket oder liest Zugangsdaten.
 
+**Live-Demo (Dry-Run, keine echten Anrufe möglich):** <URL folgt — Deploy ausstehend>
+
+Derselbe offline `demo`-Befehl von oben, hinter einer AWS-Lambda-Function-URL
+bereitgestellt. Zwei voneinander unabhängige Dinge machen es dieser
+Bereitstellung strukturell unmöglich, einen echten Anruf zu tätigen:
+`DEMO_MODE=1` steht in der eigenen Umgebung der Lambda-Funktion, und dort ist
+niemals ein `CALLE_API_KEY` hinterlegt — `CalleTransport.__init__` prüft
+`DEMO_MODE`, bevor überhaupt die Bestätigungsphrase oder der
+Zugangsdaten-Resolver an die Reihe kommen, und verweigert unbedingt, egal was
+auf der Seite eingetippt wird (`tests/test_live_guard.py`, Abschnitt „demo
+mode"). Klar gesagt statt erst mühsam entdeckt: Das ist eine **flüchtige
+Demo** — der Zustand wird zurückgesetzt, sobald AWS die zugrunde liegende
+Sandbox neu aufsetzt; ein dort angelegtes Projekt ist morgen also nicht mehr
+zu erwarten.
+
 ---
 
 ## Drei Zugänge, ein Ablauf

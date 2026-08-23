@@ -32,6 +32,10 @@ web = [
   "jinja2>=3.1",
   "python-multipart>=0.0.9",
 ]
+# Only for the AWS Lambda dry-run demo (demo/lambda_entry.py). Mangum adapts
+# the same FastAPI app to a Function URL event; uvicorn is not part of this
+# extra because Lambda never runs an ASGI server of its own.
+lambda = ["fastapi>=0.110", "jinja2>=3.1", "python-multipart>=0.0.9", "mangum>=0.17"]
 dev = ["pytest>=8", "httpx>=0.27"]
 
 [project.scripts]

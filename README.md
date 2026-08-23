@@ -208,6 +208,19 @@ ringedingeding demo
 
 Neither one opens a socket or reads a credential.
 
+**Live demo (dry-run, no calls possible):** <URL follows — deploy pending>
+
+Same offline `demo` command as above, deployed behind an AWS Lambda Function
+URL. Two independent things make it structurally unable to place a real call:
+`DEMO_MODE=1` is set in the Lambda's own environment, and no `CALLE_API_KEY`
+is ever configured there — `CalleTransport.__init__` checks `DEMO_MODE`
+*before* the confirmation phrase and *before* the credential resolver, and
+refuses unconditionally regardless of what is typed into the page
+(`tests/test_live_guard.py`, "demo mode"). Stated plainly rather than
+discovered the hard way: this is an **ephemeral demo** — state resets
+whenever AWS recycles the underlying sandbox, so a project created there is
+not expected to still be there tomorrow.
+
 ## Finding a date with a group
 
 The commands above ask **one question**. Arranging a date is a longer

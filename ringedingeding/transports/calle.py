@@ -87,6 +87,7 @@ See EVIDENCE.md for what ran in this repository.
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import time
@@ -160,6 +161,17 @@ class CalleTransport(CallTransport):
         cancel: threading.Event | None = None,
         on_activity: ActivitySink | None = None,
     ) -> None:
+        if os.environ.get("DEMO_MODE") == "1":
+            # Checked before everything else, including live_confirmed and the
+            # credential resolver: this is the public dry-run demo deployment,
+            # and it must refuse a live call no matter what confirmation or
+            # configuration a caller supplies. CalleBatchTransport has no
+            # __init__ override, so this single check covers both transports.
+            raise LiveCallBlocked(
+                "This is the public dry-run demo (DEMO_MODE=1) — it never places a "
+                "real call, regardless of confirmation or configuration. This is "
+                "not a bug: it is the one thing this deployment must never do."
+            )
         if live_confirmed is not True:
             raise LiveCallBlocked(
                 "Refusing to build a live transport without explicit confirmation. "

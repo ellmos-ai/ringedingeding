@@ -7,6 +7,8 @@ onto an outcome.
 
 from __future__ import annotations
 
+import urllib.request
+
 import pytest
 from conftest import make_participant, make_poll
 
@@ -20,6 +22,7 @@ from ringedingeding.transports.calle import (
     CalleTransport,
     _outcome_from,
 )
+from ringedingeding.transports.fixture import FixtureTransport
 
 
 def _request(ref="anna", phone="+15555550100"):
@@ -82,6 +85,71 @@ def test_the_key_travels_only_in_the_authorization_header(monkeypatch):
     assert headers["Idempotency-Key"] == "rdd_key"
     others = {k: v for k, v in headers.items() if k != "Authorization"}
     assert "super-secret" not in repr(others)
+
+
+# --------------------------------------------------------------------------
+# demo mode (Lambda dry-run demo, DEMO_MODE=1)
+# --------------------------------------------------------------------------
+#
+# The public demo deployment sets DEMO_MODE=1 in its Lambda environment. This
+# must refuse a live call at construction time no matter how confirmed or
+# configured the caller claims to be — the whole point is that nothing short
+# of removing the env var can make this deployment dial a telephone.
+
+
+def test_demo_mode_blocks_calletransport_even_when_fully_confirmed(monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "1")
+    monkeypatch.setenv(API_KEY_ENV, "test-key")  # a key IS configured
+    with pytest.raises(LiveCallBlocked):
+        CalleTransport(live_confirmed=True)  # and confirmation IS given
+
+
+def test_demo_mode_blocks_callebatchtransport_too(monkeypatch):
+    # CalleBatchTransport has no __init__ override — this is what proves the
+    # single guard in CalleTransport.__init__ actually reaches it.
+    monkeypatch.setenv("DEMO_MODE", "1")
+    monkeypatch.setenv(API_KEY_ENV, "test-key")
+    with pytest.raises(LiveCallBlocked):
+        CalleBatchTransport(live_confirmed=True)
+
+
+def test_demo_mode_never_touches_the_network(monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "1")
+    monkeypatch.setenv(API_KEY_ENV, "test-key")
+
+    calls = 0
+
+    def _exploding_urlopen(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        raise AssertionError("urlopen must never be reached under DEMO_MODE=1")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _exploding_urlopen)
+
+    with pytest.raises(LiveCallBlocked):
+        CalleTransport(live_confirmed=True)
+
+    assert calls == 0
+
+
+def test_demo_mode_does_not_block_the_dry_run_path(monkeypatch):
+    # Positive control: the guard is scoped to the live transports. The
+    # cold-start seed of the Lambda demo runs FixtureTransport in exactly
+    # this environment, and it must keep working.
+    monkeypatch.setenv("DEMO_MODE", "1")
+    poll = make_poll()
+    participant = make_participant("anna", "+15555550100")
+    request = CallRequest(
+        poll=poll,
+        participant=participant,
+        task_text="...",
+        recipient_schema=recipient_result_schema(poll),
+        aggregate_schema=aggregate_result_schema(poll),
+        idempotency_key=idempotency_key(poll.id, participant.id),
+    )
+    transport = FixtureTransport({"anna": {"call_status": "COMPLETED", "structured_result": {}}})
+    outcome = transport.place_one(request)
+    assert outcome.status == CallStatus.COMPLETED
 
 
 # --------------------------------------------------------------------------
