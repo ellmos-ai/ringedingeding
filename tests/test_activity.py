@@ -17,13 +17,13 @@ from ringedingeding.activity import (
     parse_transcript,
 )
 
-# The observed log, verbatim from FINDINGS.md section 1.
-OBSERVED = [
+# A synthetic reconstruction preserving the measured activity shape.
+SYNTHETIC_ACTIVITY = [
     "00:00:00.000 | Call is ringing.",
     "00:00:04.000 | Call connected.",
-    "00:00:05.000 | Bot is speaking: Dies ist ein synthetisch rekonstruierter Testdialog.",
-    "00:00:06.000 | Callee said: hallo",
-    "00:00:07.000 | Callee said: Hallo.",
+    "00:00:05.000 | Bot is speaking: Dies ist ein synthetischer Testdialog.",
+    "00:00:06.000 | Callee said: beispielantwort",
+    "00:00:07.000 | Callee said: Beispielantwort.",
     "00:00:20.000 | Callee said: synthetische Kategorie zwei",
     "00:00:25.000 | Call ended; syncing final Calling result.",
 ]
@@ -34,8 +34,8 @@ OBSERVED = [
 # --------------------------------------------------------------------------
 
 
-def test_the_observed_log_parses_into_speakers_and_text():
-    lines = parse_activity(OBSERVED)
+def test_the_synthetic_log_parses_into_speakers_and_text():
+    lines = parse_activity(SYNTHETIC_ACTIVITY)
     assert [line.speaker for line in lines] == [
         Speaker.SYSTEM,
         Speaker.SYSTEM,
@@ -45,13 +45,13 @@ def test_the_observed_log_parses_into_speakers_and_text():
         Speaker.CALLEE,
         Speaker.SYSTEM,
     ]
-    assert lines[2].text.startswith("Dies ist ein automatisierter Testanruf")
+    assert lines[2].text.startswith("Dies ist ein synthetischer Testdialog")
     assert lines[0].timestamp == "00:00:00.000"
 
 
 def test_the_prefix_is_stripped_but_the_original_line_is_kept():
-    line = parse_activity(["00:00:06.000 | Callee said: hallo"])[0]
-    assert line.text == "hallo"
+    line = parse_activity(["00:00:06.000 | Callee said: beispielantwort"])[0]
+    assert line.text == "beispielantwort"
     assert "Callee said" in line.raw
 
 
@@ -61,7 +61,7 @@ def test_dictionary_entries_work_too():
         [
             {"timestamp": "00:00:00.000", "message": "Call is ringing."},
             {"time": "00:00:05.000", "text": "Bot is speaking: Hello."},
-            {"at": "00:00:06.000", "speaker": "callee", "text": "hallo"},
+            {"at": "00:00:06.000", "speaker": "callee", "text": "example"},
         ]
     )
     assert [line.speaker for line in lines] == [Speaker.SYSTEM, Speaker.BOT, Speaker.CALLEE]
@@ -92,17 +92,17 @@ def test_empty_input_is_not_an_error():
 
 
 def test_a_streamed_correction_replaces_its_rough_version():
-    """'hallo' then 'Hallo.' 0.67 s later is one utterance, not two."""
-    lines = dedupe(parse_activity(OBSERVED))
+    """A rough synthetic answer followed by punctuation is one utterance."""
+    lines = dedupe(parse_activity(SYNTHETIC_ACTIVITY))
     spoken = [line.text for line in lines if line.speaker is Speaker.CALLEE]
-    assert spoken == ["Hallo.", "synthetische Kategorie zwei"]
+    assert spoken == ["Beispielantwort.", "synthetische Kategorie zwei"]
 
 
 def test_a_correction_that_only_grows_the_sentence_is_folded_too():
     lines = dedupe(
         parse_activity(
             [
-                "00:00:19.100 | Callee said: 2. Ja",
+                "00:00:19.100 | Callee said: synthetische Kategorie",
                 "00:00:20.000 | Callee said: synthetische Kategorie zwei",
             ]
         )
@@ -181,7 +181,7 @@ def test_deduping_survives_missing_timestamps():
 
 def test_the_display_line_masks_phone_numbers():
     line = parse_activity(["00:00:06.000 | Callee said: Ruf mich auf +44 7700 900000 an"])[0]
-    assert "12345678" not in line.display()
+    assert "3920000" not in line.display()
     assert "Ruf mich" in line.display()
 
 
@@ -221,12 +221,12 @@ def test_no_transcript_yields_an_empty_string_not_none():
 
 def test_activity_is_found_wherever_the_response_keeps_it():
     for payload in (
-        {"activity": OBSERVED},
-        {"result": {"activity": OBSERVED}},
-        {"structuredContent": {"activity": OBSERVED}},
-        {"structuredContent": {"result": {"activity": OBSERVED}}},
+        {"activity": SYNTHETIC_ACTIVITY},
+        {"result": {"activity": SYNTHETIC_ACTIVITY}},
+        {"structuredContent": {"activity": SYNTHETIC_ACTIVITY}},
+        {"structuredContent": {"result": {"activity": SYNTHETIC_ACTIVITY}}},
     ):
-        assert len(extract_activity(payload)) == len(OBSERVED)
+        assert len(extract_activity(payload)) == len(SYNTHETIC_ACTIVITY)
 
 
 def test_a_response_without_activity_is_empty_not_an_error():

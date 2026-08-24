@@ -58,7 +58,7 @@ def _transport(monkeypatch, responses, *, seen=None):
     return transport, calls
 
 
-# The timeline of the observed call, condensed to three polls.
+# A synthetic reconstruction of the measured timeline, condensed to three polls.
 RINGING = {
     "status": "PREPARING",
     "transcript": None,
@@ -70,9 +70,9 @@ TALKING = {
     "activity": [
         "00:00:00.000 | Call is ringing.",
         "00:00:04.000 | Call connected.",
-        "00:00:05.000 | Bot is speaking: Dies ist ein automatisierter Testanruf.",
-        "00:00:06.000 | Callee said: hallo",
-        "00:00:07.000 | Callee said: Hallo.",
+        "00:00:05.000 | Bot is speaking: Dies ist ein synthetischer Testdialog.",
+        "00:00:06.000 | Callee said: beispielantwort",
+        "00:00:07.000 | Callee said: Beispielantwort.",
     ],
 }
 DONE = {
@@ -168,8 +168,8 @@ def test_every_line_of_the_call_arrives_by_the_end(monkeypatch):
     assert [line.text for line in seen] == [
         "Call is ringing.",
         "Call connected.",
-        "Dies ist ein automatisierter Testanruf.",
-        "Hallo.",
+        "Dies ist ein synthetischer Testdialog.",
+        "Beispielantwort.",
         "Call ended.",
     ]
 

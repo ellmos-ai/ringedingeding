@@ -18,7 +18,7 @@ const huckepack = require(path.join(__dirname, "..", "ringedingeding", "web", "s
 
 test("phone numbers do not survive into a receipt", () => {
   const masked = huckepack.maskPhones("Rufen Sie 020 79460000 an oder +44 7700 900000.");
-  assert.ok(!masked.includes("1234567"));
+  assert.ok(!masked.includes("3920000"));
   assert.ok(masked.includes("•••"));
 });
 
@@ -61,7 +61,7 @@ test("the receipt says who was called, what came of it, and whose words these ar
   assert.ok(text.includes("Surf Grill Express"));
   assert.ok(text.includes("18.50 EUR"));
   assert.ok(text.includes("Äußerungen der angerufenen Person"));
-  assert.ok(!text.includes("1234567"));
+  assert.ok(!text.includes("23125000"));
 });
 
 test("the receipt speaks the language of the page", () => {

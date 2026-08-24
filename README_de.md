@@ -11,7 +11,7 @@
 [![Umbrella: open-bricks](https://img.shields.io/badge/Umbrella-open--bricks-orange.svg)](https://github.com/open-bricks)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
-[![Tests: 567 passed](https://img.shields.io/badge/Tests-567%20passed-brightgreen.svg)](tests/)
+[![Tests: 575 bestanden](https://img.shields.io/badge/Tests-575%20bestanden-brightgreen.svg)](tests/)
 [![Context: llms.txt](https://img.shields.io/badge/Context-llms.txt-4B0082.svg)](llms.txt)
 
 > [!NOTE]
@@ -349,8 +349,9 @@ sagt, welcher Zahl zu trauen ist.
 pytest -q
 ```
 
-371 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-05;
-eine bestehende Starlette-`TestClient`/`httpx`-Deprecation-Warnung).
+575 Tests, alle im Trockenlauf, ohne Konto und ohne Netz (eigener Lauf am 2026-08-24;
+zwei bestehende Warnungen: Starlette-`TestClient`/`httpx`-Deprecation und Mangum
+ohne aktive Ereignisschleife).
 Der Trockenlauf ist kein Platzhalter, der „OK" zurückgibt: Er durchläuft Schema-Erzeugung,
 Nutzlastaufbau je Empfänger, Statusabbildung, Zusammenführung und Berichterstellung und
 prüft jede eingespielte Antwort gegen das Schema, das ein echter Anruf bekommen hätte. Ein
@@ -361,18 +362,14 @@ scheitern, statt still durchzulaufen.
 
 ## Wie wir getestet haben
 
-Jeder Live-Anruf, den dieses Projekt je gemacht hat, ging an eine Nummer, die
-dem Autor gehört und in deren Anrufe er eingewilligt hat. Statt eine gewählte
-Nummer erst beim Anruf umzuschreiben, trug der Autor dieselbe Nummer direkt,
-mehrfach, unter verschiedenen Kontaktnamen ein — was sich, wie sich zeigte,
-genau als der Haushalts-Fall (zwei Namen auf einem Festnetzanschluss)
-herausstellte, der weiter unten in diesem Abschnitt eine Rolle spielt. Der
-Autor spielte jede Gegenrolle selbst. Kein Testlauf *in diesem Repository*
-hat je gewählt — jeder Befund unten entstand über die tatsächlich betriebene
-Anwendung, außerhalb dieses Repositorys, und wurde mit genauen
-Datenbankeinträgen und Wortlaut zurückgemeldet (die primäre Quelle sind
-`AUFGABEN.txt` und `FINDINGS.md`; was dieses Repository selbst gegen diese
-zurückgemeldeten Fakten ausgeführt hat, steht in `EVIDENCE.md`).
+Jeder Live-Anruf, den dieses Projekt je gemacht hat, ging an eine einwilligende
+Testleitung; der Autor spielte jede Gegenrolle selbst. Kein Testlauf *in diesem
+Repository* hat je gewählt. Die Datumsangaben und zusammengefassten technischen
+Befunde sind sachlich belegt; öffentliche Namen, Kennungen, Antworten und
+Transkriptausschnitte sind synthetische Rekonstruktionen. Rohe Anrufartefakte und
+die Testnummer befinden sich weder in diesem Repository noch in seiner erreichbaren
+Historie. `FINDINGS.md` hält die Schlussfolgerungen fest, `EVIDENCE.md` die
+repositoryseitige Prüfung.
 
 **2026-08-01 — der erste Live-Anruf.** Der allererste `POST /v1/calls`, den
 dieses Projekt je ausgelöst hat, klärte Grundlegendes, das keine

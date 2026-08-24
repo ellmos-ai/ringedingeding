@@ -44,9 +44,9 @@ Measured, and therefore relied upon here:
   the service into one physical call, but the ``recipients`` array still
   comes back with one entry per request** — so the length-mismatch guard
   below never fires, and without a separate check both participants would
-  silently receive the same answer (measured 2026-08-22, live: poll
-  "Hochzeit", ``synthetic-call-collision-a`` written for two different
-  participants; see FINDINGS.md, "Batch dedup by phone number").
+  silently receive the same answer (measured 2026-08-22, represented publicly
+  by ``synthetic-call-collision-a`` for two neutral participants; see
+  FINDINGS.md, "Batch dedup by phone number").
   :meth:`CalleBatchTransport.place_many` refuses to put such a pair into the
   same ``POST /v1/calls`` body in the first place — see the guard at the top
   of that method. This is scoped to the batch endpoint specifically:
@@ -55,8 +55,8 @@ Measured, and therefore relied upon here:
   ``call_id`` by construction, independent of whether CALL-E's backend treats
   two calls to the same number as related in some other way. Measured
   2026-08-22 that a live retest confirmed the batch guard actually fires
-  (poll "Sollen wir am Samstag grillen…", ``synthetic-poll-rt4c-a`` /
-  ``synthetic-poll-rt4c-b``: both blocked, 0 of 2 answered, no fabricated
+  (``synthetic-poll-rt4c-a`` / ``synthetic-poll-rt4c-b``: both blocked,
+  0 of 2 answered, no fabricated
   consensus) and that the original version of this guard, sitting in
   :func:`ringedingeding.runner.build_requests` and applied to every
   transport regardless of dispatch shape, incorrectly blocked ``--serial``

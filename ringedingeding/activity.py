@@ -13,9 +13,9 @@ timestamps that carries both sides of the conversation::
 
     00:00:00.000 | Call is ringing.
     00:00:04.000 | Call connected.
-    00:00:05.000 | Bot is speaking: This is an automated call on behalf of the organizer.
-    00:00:06.000 | Callee said: hallo
-    00:00:07.000 | Callee said: Hallo.
+    00:00:05.000 | Bot is speaking: This is a synthetic test dialogue.
+    00:00:06.000 | Callee said: example response
+    00:00:07.000 | Callee said: Example response.
 
 The last two lines are the same sentence twice. Speech recognition streams a
 rough version first and corrects it a fraction of a second later, so anything
@@ -73,7 +73,7 @@ _PREFIXES: tuple[tuple[re.Pattern[str], Speaker], ...] = (
     (re.compile(r"^(?:user|customer|human)\s+said\s*:\s*", re.IGNORECASE), Speaker.CALLEE),
 )
 
-# "00:00:00.000 | Call is ringing." — the rendering seen in the evidence log.
+# "00:00:00.000 | Call is ringing." — a synthetic reconstruction of the rendering.
 _RENDERED = re.compile(r"^\s*(?P<stamp>[0-9T:.\-+Z]{5,32})\s*\|\s*(?P<text>.*)$")
 
 # "[00:12] BOT: ..." — the transcript form.

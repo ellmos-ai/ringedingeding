@@ -11,7 +11,7 @@
 [![Umbrella: open-bricks](https://img.shields.io/badge/Umbrella-open--bricks-orange.svg)](https://github.com/open-bricks)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
-[![Tests: 567 passed](https://img.shields.io/badge/Tests-567%20passed-brightgreen.svg)](tests/)
+[![Tests: 575 passed](https://img.shields.io/badge/Tests-575%20passed-brightgreen.svg)](tests/)
 [![Context: llms.txt](https://img.shields.io/badge/Context-llms.txt-4B0082.svg)](llms.txt)
 
 > [!NOTE]
@@ -546,8 +546,8 @@ A live run prints the conversation as it happens:
   dialing  anna (+49*****01)
      00:00:00.000 --     | Call is ringing.
      00:00:04.000 --     | Call connected.
-     00:00:05.000 bot    | Hello, this is an automated assistant on behalf of Lukas.
-     00:00:07.000 callee | Yes, go ahead.
+     00:00:05.000 bot    | This is a synthetically reconstructed test dialogue.
+     00:00:07.000 callee | Example response.
   <- anna: COMPLETED
 ```
 
@@ -625,22 +625,19 @@ The whole suite runs without an account, without a network and without dialling
 anything. Where the live path is exercised, it stops at a guard before any
 socket is opened.
 
-The latest recorded full run passed 371 tests on 2026-08-05 (one existing
-Starlette `TestClient` / `httpx` deprecation warning).
+The latest recorded full run passed 575 tests on 2026-08-24 (two existing
+warnings: Starlette `TestClient` / `httpx` deprecation and Mangum running
+without an active event loop).
 
 ## How We Tested
 
-Every live call this project has ever placed went to one number the author
-controls and consented to receiving calls on. Rather than rewriting a dialled
-number at call time, the author entered that same number directly, more than
-once, as different named contacts — which is also, as it turned out, exactly
-the household case (two names on one landline) that surfaces later in this
-section. The author played every counterpart himself. No test run *in this
-repository* has ever dialled anything; every finding below happened through
-the deployed application, outside this repository, and was relayed back with
-exact database rows and wording (the primary record is `AUFGABEN.txt` and
-`FINDINGS.md`; what this repository itself ran against those relayed facts is
-in `EVIDENCE.md`).
+Every live call this project has ever placed went to one consenting test line;
+the author played every counterpart. No test run *in this repository* has ever
+dialled anything. The dates and aggregate technical findings below are factual,
+while public names, identifiers, answers, and transcript fragments are synthetic
+reconstructions. Raw call artifacts and the test line are not present in this
+repository or its reachable history. `FINDINGS.md` records the conclusions and
+`EVIDENCE.md` records the repository-side verification.
 
 **2026-08-01 — the first live call.** The very first `POST /v1/calls` this
 project ever made established the basics no documentation gave for free:

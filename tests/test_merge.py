@@ -473,9 +473,8 @@ def test_open_answers_are_quoted_not_merged():
 # aggregation step itself: whatever wrote the two answers, and whenever, a
 # single run_id must never be able to buy a second vote.
 #
-# The live case ("Vorne: Jedi (2 von 2) — 2 von 2 Personen haben
-# geantwortet", the same justification quoted under both names, run
-# synthetic-call-shared) is rebuilt here exactly.
+# The live case is rebuilt with neutral participants, synthetic answer text,
+# and the synthetic run ID below.
 
 
 def _jedi_or_sith_poll():
@@ -484,14 +483,17 @@ def _jedi_or_sith_poll():
 
 def test_two_participants_sharing_a_run_id_are_counted_as_one_vote():
     poll = _jedi_or_sith_poll()
-    people = [make_participant("a", name="Participant A"), make_participant("b", name="Participant B")]
+    people = [
+        make_participant("a", name="Participant A"),
+        make_participant("b", name="Participant B"),
+    ]
     answers = {
         "p_a": answer(
             "p_a",
             reachable=True,
             refused=False,
             choice="Jedi",
-            reason="Synthetische Begruendung.",
+            reason="Synthetic reason.",
             run_id="synthetic-call-shared",
         ),
         "p_b": answer(
@@ -499,7 +501,7 @@ def test_two_participants_sharing_a_run_id_are_counted_as_one_vote():
             reachable=True,
             refused=False,
             choice="Jedi",
-            reason="Synthetische Begruendung.",
+            reason="Synthetic reason.",
             run_id="synthetic-call-shared",
         ),
     }
@@ -507,7 +509,7 @@ def test_two_participants_sharing_a_run_id_are_counted_as_one_vote():
 
     jedi = next(entry for entry in merged.tally if entry.option == "Jedi")
     assert jedi.count == 1, "one real conversation must never become two votes"
-    assert jedi.voters == ("Participant A",), "the first participant on record is the one kept"
+    assert jedi.voters == ("Participant A",), "the first participant on record is kept"
     assert merged.coverage.answered_count == 1
     # The one who is not counted separately stays visible, not dropped.
     assert [r.label for r in merged.coverage.shared_call] == ["Participant B"]
@@ -519,7 +521,10 @@ def test_two_participants_sharing_a_run_id_are_counted_as_one_vote():
 
 def test_shared_call_caveat_names_both_participants():
     poll = _jedi_or_sith_poll()
-    people = [make_participant("a", name="Participant A"), make_participant("b", name="Participant B")]
+    people = [
+        make_participant("a", name="Participant A"),
+        make_participant("b", name="Participant B"),
+    ]
     answers = {
         "p_a": answer("p_a", reachable=True, refused=False, choice="Jedi", run_id="call_shared"),
         "p_b": answer("p_b", reachable=True, refused=False, choice="Jedi", run_id="call_shared"),
@@ -577,7 +582,7 @@ def test_a_different_run_id_is_never_folded_together():
 
 
 def test_slot_poll_availability_shared_by_two_participants_is_not_double_counted():
-    """The exact "Hochzeit" live scenario: two participants, one real phone
+    """The live scenario, reconstructed synthetically: two participants, one phone
     number, one call — a slot must not read as confirmed by two people when
     only one conversation ever took place."""
     poll = make_poll(kind=PollKind.SLOT, slots=("Sat 14-18", "Sun 10-14"))
@@ -592,8 +597,8 @@ def test_slot_poll_availability_shared_by_two_participants_is_not_double_counted
         "refused": False,
     }
     answers = {
-        "p_a": answer("p_a", run_id="synthetic-call-collision-a", **shared_slots),
-        "p_b": answer("p_b", run_id="synthetic-call-collision-a", **shared_slots),
+        "p_a": answer("p_a", run_id="synthetic-call-shared", **shared_slots),
+        "p_b": answer("p_b", run_id="synthetic-call-shared", **shared_slots),
     }
     merged = merge_poll(poll, people, answers)
     row = next(row for row in merged.rows if row.label == "Sat 14-18")

@@ -76,7 +76,7 @@ def is_e164(raw: str) -> bool:
 
 
 def mask(phone: str) -> str:
-    """Mask a phone number for display: ``+442079460000`` -> ``+44*****23``."""
+    """Mask a phone number for display: ``+442079460000`` -> ``+44*****00``."""
     if not isinstance(phone, str) or not phone:
         return "+" + _MASK_BODY
     return mask_candidate(phone)

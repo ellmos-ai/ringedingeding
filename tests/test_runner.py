@@ -238,8 +238,9 @@ def test_nothing_to_do_is_not_an_error(store):
 # two participants, one phone number
 # --------------------------------------------------------------------------
 #
-# Measured live 2026-08-22 (poll "Hochzeit"): two participants sharing one
-# real phone number both ended up with state=done and the SAME structured
+# Measured live 2026-08-22, represented here with neutral participants and an
+# official drama number: two participants sharing one phone number both ended
+# up with state=done and the SAME structured
 # answer, the SAME transcript and the SAME call_run_id — one conversation
 # was silently attributed to two identities. CALL-E's batch endpoint returns
 # one recipient entry per request even when it has collapsed two identical
@@ -247,7 +248,7 @@ def test_nothing_to_do_is_not_an_error(store):
 # in CalleBatchTransport ("refusing to map answers by position") never
 # fires. See FINDINGS.md, "Batch dedup by phone number".
 #
-# R17 (2026-08-22, follow-up live retest synthetic-poll-rt4c-a / synthetic-poll-rt4c-b):
+# R17 (2026-08-22, represented as synthetic-poll-rt4c-a / -b):
 # the original fix put the block in build_requests(), which stopped it from
 # happening under *every* transport, including --serial — where a household
 # sharing one landline is a legitimate case, because a separate
@@ -262,7 +263,7 @@ def _poll_with_a_shared_number(store):
     poll = store.create_poll(question="Q", kind="open", organizer="Lukas")
     store.add_participant(poll.id, name="Participant A", phone="+441632960001")
     store.add_participant(poll.id, name="Participant B", phone="+441632960001")
-    store.add_participant(poll.id, name="Simon", phone="+15555550199")
+    store.add_participant(poll.id, name="Control", phone="+15555550199")
     return poll
 
 
@@ -273,7 +274,9 @@ def test_build_requests_no_longer_knows_about_phone_collisions(store):
     people = store.participants(poll.id)
     requests, skipped, rejected = build_requests(poll, people)
 
-    assert {r.participant.name for r in requests} == {"Participant A", "Participant B", "Simon"}
+    assert {r.participant.name for r in requests} == {
+        "Participant A", "Participant B", "Control"
+    }
     assert not skipped
     assert not rejected
 
@@ -314,20 +317,22 @@ def test_retry_re_attempts_a_participant_left_failed_by_a_collision(store):
     participant again, with a fresh answer overwriting the stale one.
 
     Amended for R20(c) (live incident 2026-08-22): the first run also
-    hands Simon and Participant B real, counted COMPLETED answers, and
+    hands Control and Participant B counted COMPLETED answers, and
     the retry run must leave both of those alone -- --retry re-dials only
     the participant who was not counted, never someone already counted,
     which is the exact scope this test now pins alongside the original
     dead-end fix.
     """
     poll = _poll_with_a_shared_number(store)
-    lukas2 = next(p for p in store.participants(poll.id) if p.name == "Participant A")
+    participant_a = next(
+        p for p in store.participants(poll.id) if p.name == "Participant A"
+    )
     store.record_answer(
         Answer(
-            participant_id=lukas2.id,
+            participant_id=participant_a.id,
             call_status=CallStatus.FAILED,
             error=(
-                "shares this phone number with lukas-friedrich within this same "
+                "shares this phone number with participant-b within this same "
                 "batch dispatch; ... place this run with --serial instead."
             ),
         )
@@ -336,16 +341,16 @@ def test_retry_re_attempts_a_participant_left_failed_by_a_collision(store):
     # Without --retry: correctly left alone - this was never the bug.
     transport = RecordingTransport()
     report = run_poll(store, poll, transport)
-    assert lukas2.ref not in transport.seen
-    assert lukas2.ref in [p.ref for p in report.skipped]
-    stale = store.answers(poll.id)[lukas2.id]
+    assert participant_a.ref not in transport.seen
+    assert participant_a.ref in [p.ref for p in report.skipped]
+    stale = store.answers(poll.id)[participant_a.id]
     assert stale.call_status is CallStatus.FAILED
-    # Simon and Participant B were due (no answer yet) and got real,
+    # Control and Participant B were due (no answer yet) and got
     # counted answers from this first run.
     counted_before_retry = {
         pid: answer
         for pid, answer in store.answers(poll.id).items()
-        if pid != lukas2.id
+        if pid != participant_a.id
     }
     assert all(a.bucket is Bucket.ANSWERED for a in counted_before_retry.values())
 
@@ -353,13 +358,13 @@ def test_retry_re_attempts_a_participant_left_failed_by_a_collision(store):
     # again -- not the two who already have a counted answer (R20c).
     transport = RecordingTransport()
     report = run_poll(store, poll, transport, retry=True)
-    assert lukas2.ref in transport.seen
+    assert participant_a.ref in transport.seen
     assert report.placed == 1
-    assert transport.seen == [lukas2.ref]
+    assert transport.seen == [participant_a.ref]
 
-    fresh = store.answers(poll.id)[lukas2.id]
+    fresh = store.answers(poll.id)[participant_a.id]
     assert fresh.call_status is CallStatus.COMPLETED
-    assert fresh.run_id == f"run_{lukas2.ref}"
+    assert fresh.run_id == f"run_{participant_a.ref}"
     # And the two already-counted answers are untouched.
     after_retry = store.answers(poll.id)
     for participant_id, before in counted_before_retry.items():
@@ -376,7 +381,8 @@ def test_retry_of_an_unconfirmed_identity_completed_call_becomes_a_correction_ca
     attempt was COMPLETED, has a transcript, but never got identity
     confirmed gets the correction preamble instead of a plain repeat.
 
-    Modelled on the real live case (Ben, synthetic-poll-final, R20 incident):
+    Modelled on a live case, represented here as Participant B in
+    synthetic-poll-final (R20 incident):
     the optional 'choice' field is empty even though the transcript clearly
     heard an answer twice -- the extraction path must fall back cleanly to
     'ask fresh' rather than invent a quote from raw_text/transcript.
