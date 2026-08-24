@@ -45,7 +45,7 @@ def test_the_observed_log_parses_into_speakers_and_text():
         Speaker.CALLEE,
         Speaker.SYSTEM,
     ]
-    assert lines[2].text.startswith("Dies ist ein automatisierter Testanruf")
+    assert lines[2].text.startswith("Dies ist ein synthetisch rekonstruierter Testdialog")
     assert lines[0].timestamp == "00:00:00.000"
 
 
@@ -102,7 +102,7 @@ def test_a_correction_that_only_grows_the_sentence_is_folded_too():
     lines = dedupe(
         parse_activity(
             [
-                "00:00:19.100 | Callee said: 2. Ja",
+                "00:00:19.100 | Callee said: synthetische Kategorie",
                 "00:00:20.000 | Callee said: synthetische Kategorie zwei",
             ]
         )
