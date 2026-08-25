@@ -261,8 +261,8 @@ def test_nothing_to_do_is_not_an_error(store):
 
 def _poll_with_a_shared_number(store):
     poll = store.create_poll(question="Q", kind="open", organizer="Lukas")
-    store.add_participant(poll.id, name="Participant A", phone="+441632960001")
-    store.add_participant(poll.id, name="Participant B", phone="+441632960001")
+    store.add_participant(poll.id, name="Participant A", phone="+447700900001")
+    store.add_participant(poll.id, name="Participant B", phone="+447700900001")
     store.add_participant(poll.id, name="Control", phone="+15555550199")
     return poll
 

@@ -20,7 +20,7 @@ from ringedingeding.schemas import aggregate_result_schema, recipient_result_sch
 from ringedingeding.transports.base import CallRequest
 from ringedingeding.transports.calle import CalleBatchTransport
 
-SHARED_NUMBER = "+441632960001"
+SHARED_NUMBER = "+447700900001"
 
 
 def _request(poll, ref, phone):
