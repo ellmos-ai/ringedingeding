@@ -89,6 +89,16 @@ Die vier Kategorien der Anbieter-App — Personal Message, Ask a Business, Book 
 Follow Up — sind allesamt Eins-zu-eins-Muster, und die übrigen Integrationen im Ökosystem
 ebenso. Eine Gruppe dasselbe zu fragen und die Antworten zusammenzuführen, ist die Lücke.
 
+### FolderHome: lokale Fixture-Probe
+
+Der FolderHome-Source-Commit [`51d5dc71`](https://github.com/ellmos-ai/FolderHome/commit/51d5dc71ec11f1cde4598c528323483a50f6e52c) pinnt dieses Repository auf
+[`94ae1f1e`](https://github.com/ellmos-ai/ringedingeding/commit/94ae1f1e028be5aaf100baafadc18b64ff0940a2). Der Manifest-Eintrag deklariert `calls.ring_cascade`,
+`default_mode="dry-run"`, `gate_required=true` und `live_enabled=false`. Die
+Bridge lädt `runner` und das Fixture-Transportmodul aus diesem Pin, erzeugt
+`FixtureTransport({})` und prüft, dass `is_live` false ist. Das ist eine
+lokale Fixture-Probe, kein Live-Anruf und keine
+Kompatibilitätsaussage zu späteren Revisionen.
+
 ---
 
 ## Kernprobe für Juroren — ein Befehl, keine Zugänge
