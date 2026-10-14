@@ -115,16 +115,6 @@ is not called, and the result reads *"works for all 3 who answered"*. Add her
 number, run the same round again — exactly one call is placed, and that result
 turns out to have been wrong.
 
-### FolderHome's pinned fixture probe
-
-FolderHome source at [`51d5dc71`](https://github.com/ellmos-ai/FolderHome/commit/51d5dc71ec11f1cde4598c528323483a50f6e52c) pins this repository at
-[`94ae1f1e`](https://github.com/ellmos-ai/ringedingeding/commit/94ae1f1e028be5aaf100baafadc18b64ff0940a2). Its component manifest
-declares `calls.ring_cascade`, `default_mode="dry-run"`, `gate_required=true`,
-and `live_enabled=false`. The bridge imports the pinned `runner` and fixture-
-transport modules, creates `FixtureTransport({})`, and checks that `is_live`
-is false. This is a local fixture probe, not a live call or a compatibility
-claim for later revisions.
-
 ## Three ways in, one flow
 
 The same logic is reachable three ways, and none of them is a wrapper around
